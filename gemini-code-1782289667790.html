@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+    <meta name="theme-color" content="#f7f4eb">
+    <title>Форсайт - профессиональный астропроцессор</title>
+
+    <style>
+        :root {
+            --bg-app: #f7f4eb;
+            --bg-sidebar: #ffffff;
+            --border-color: #e6dfd1;
+            --text-main: #3e3229;
+            --text-muted: #7c6e65;
+            --accent: #c9a054;
+            --input-bg: #fcfbfa;
+            --canvas-bg: #ffffff;
+            --circle-base: #e6dfd1;
+            --circle-accent: #c9a054;
+            --planet-color: #3e3229;
+            --house-line: rgba(124, 110, 101, 0.25);
+            --house-line-main: #c9a054; /* Для Asc/Mc */
+        }
+
+        [data-theme="dark"] {
+            --bg-app: #121214;
+            --bg-sidebar: #1a1a1e;
+            --border-color: #2c2c35;
+            --text-main: #e2e2e6;
+            --text-muted: #9898a0;
+            --accent: #c9a054;
+            --input-bg: #24242a;
+            --canvas-bg: #16161a;
+            --circle-base: #c9a054;
+            --circle-accent: #e6dfd1;
+            --planet-color: #e2e2e6;
+            --house-line: rgba(201, 160, 84, 0.2);
+            --house-line-main: #c9a054;
+        }
+
+        body, html {
+            margin: 0; padding: 0; height: 100%;
+            background-color: var(--bg-app); color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+            overflow: hidden;
+        }
+        .app-container { display: flex; height: 100vh; }
+        
+        .sidebar { 
+            width: 320px; background-color: var(--bg-sidebar); padding: 24px; 
+            border-right: 1px solid var(--border-color); display: flex; flex-direction: column;
+            box-shadow: 2px 0 15px rgba(0,0,0,0.03);
+            z-index: 10; overflow-y: auto;
+        }
+        
+        .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .sidebar h2 { margin: 0; font-size: 1.6rem; color: var(--accent); letter-spacing: 1px; font-weight: 500; }
+        
+        .theme-toggle {
+            background: none; border: 1px solid var(--border-color); padding: 6px 12px;
+            border-radius: 20px; color: var(--text-main); cursor: pointer; font-size: 0.85rem;
+        }
+        .theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+        .astro-form { display: flex; flex-direction: column; gap: 14px; }
+        .form-group { display: flex; flex-direction: column; gap: 5px; position: relative; }
+        .form-group label { font-size: 0.85rem; color: var(--text-muted); }
+        .form-group input { 
+            background-color: var(--input-bg); border: 1px solid var(--border-color); padding: 10px; 
+            border-radius: 6px; color: var(--text-main); font-size: 1rem; box-sizing: border-box; width: 100%; 
+        }
+        .form-group input:focus { outline: none; border-color: var(--accent); }
+        
+        .suggestions-list { 
+            position: absolute; top: 65px; left: 0; right: 0; background-color: var(--bg-sidebar); 
+            border: 1px solid var(--border-color); border-radius: 6px; max-height: 150px; overflow-y: auto; 
+            z-index: 1000; margin: 0; padding: 0; list-style: none; display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .suggestions-list li { padding: 10px; cursor: pointer; font-size: 0.9rem; border-bottom: 1px solid var(--bg-app); color: var(--text-main); }
+        .suggestions-list li:hover { background-color: var(--bg-app); color: var(--accent); }
+        
+        .btn-calculate { 
+            background-color: var(--accent); color: white; border: none; padding: 12px; 
+            border-radius: 6px; font-size: 1rem; cursor: pointer; font-weight: bold; margin-top: 10px;
+        }
+        .btn-calculate:hover { opacity: 0.9; }
+        
+        .main-content { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; background: var(--bg-app); }
+        
+        .canvas-container {
+            width: 530px; height: 530px;
+            background: var(--canvas-bg); border-radius: 50%;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.04);
+            border: 1px solid var(--border-color);
+            display: flex; align-items: center; justify-content: center;
+        }
+        svg { width: 100%; height: 100%; }
+        
+        .info-panel { margin-top: 25px; min-height: 50px; text-align: center; font-size: 1.1rem; color: var(--text-muted); }
+    </style>
+</head>
+<body class="notranslate">
+    <div id="root">
+        <div class="app-container">
+            <aside class="sidebar">
+                <div class="sidebar-header">
+                    <h2>Форсайт</h2>
+                    <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙 Темная</button>
+                </div>
+                <form id="astroForm" class="astro-form" onsubmit="calculateChart(event)">
+                    <div class="form-group">
+                        <label>Название проекта / Имя</label>
+                        <input type="text" id="name" placeholder="Введите название" value="Натальная карта">
+                    </div>
+                    <div class="form-group">
+                        <label>Дата</label>
+                        <input type="date" id="date" required value="1985-04-18">
+                    </div>
+                    <div class="form-group">
+                        <label>Точное время</label>
+                        <input type="time" id="time" required value="17:51">
+                    </div>
+                    <div class="form-group">
+                        <label>Часовой пояс (от UTC)</label>
+                        <input type="number" id="timezone" value="3" min="-12" max="14" step="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Место (Город)</label>
+                        <input type="text" id="city" placeholder="Поиск города..." autocomplete="off" required oninput="resetLocation(); searchCities(this.value)">
+                        <ul id="suggestions" class="suggestions-list"></ul>
+                    </div>
+                    <button type="submit" class="btn-calculate">Построить карту</button>
+                </form>
+            </aside>
+
+            <main class="main-content">
+                <div class="canvas-container" id="canvasContainer">
+                    <div style="color: var(--text-muted); text-align: center;" id="placeholderText">
+                        <span style="font-size: 3rem; display:block; margin-bottom:10px;">⚜️</span>
+                        Астропроцессор «Форсайт»<br>
+                        <span style="font-size:0.9rem; opacity: 0.6;">Точный расчет Kerykeion (Swiss Ephemeris)</span>
+                    </div>
+                </div>
+                <div class="info-panel" id="infoPanel">Заполните данные для старта вычислений</div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // Координаты по умолчанию (Заволжье для теста, как в вашем примере)
+        let selectedLocation = { lat: 56.64, lon: 43.39, name: "Заволжье" };
+        let timer;
+        window.lastChartData = null;
+
+        const ZODIAC_SIGNS = ["Овен", "Телец", "Близнецы", "Рак", "Лев", "Дева", "Весы", "Скорпион", "Стрелец", "Козерог", "Водолей", "Рыбы"];
+
+        // Устанавливаем текстовое поле города при старте
+        document.getElementById('city').value = selectedLocation.name;
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const targetTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', targetTheme);
+            document.getElementById('themeBtn').textContent = targetTheme === 'dark' ? '☀️ Светлая' : '🌙 Темная';
+            if(window.lastChartData) drawZodiacChart(window.lastChartData);
+        }
+
+        function resetLocation() { selectedLocation = { lat: null, lon: null, name: "" }; }
+
+        function searchCities(query) {
+            const suggestionsEl = document.getElementById('suggestions');
+            if (query.length < 3) { suggestionsEl.style.display = 'none'; return; }
+            clearTimeout(timer);
+            timer = setTimeout(async () => {
+                try {
+                    const response = await fetch('http://localhost:53911/api/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+});
+                    const data = await response.json();
+                    suggestionsEl.innerHTML = '';
+                    if (data.length > 0) {
+                        suggestionsEl.style.display = 'block';
+                        data.forEach(item => {
+                            const li = document.createElement('li');
+                            li.textContent = item.display_name; 
+                            li.onclick = function() {
+                                document.getElementById('city').value = item.display_name;
+                                selectedLocation.lat = parseFloat(item.lat);
+                                selectedLocation.lon = parseFloat(item.lon);
+                                selectedLocation.name = item.display_name;
+                                suggestionsEl.style.display = 'none';
+                            };
+                            suggestionsEl.appendChild(li);
+                        });
+                    } else { suggestionsEl.style.display = 'none'; }
+                } catch (error) { console.error(error); }
+            }, 400);
+        }
+
+        function rad(deg) { return deg * Math.PI / 180; }
+        function dCos(deg) { return Math.cos(rad(deg)); }
+        function dSin(deg) { return Math.sin(rad(deg)); }
+
+        // Запрос к Python бэкенду
+        async function calculateChart(event) {
+            event.preventDefault();
+            if (selectedLocation.lat === null) {
+                selectedLocation = { lat: 55.75, lon: 37.62, name: "Москва" };
+            }
+
+            const payload = {
+                name: document.getElementById('name').value,
+                date: document.getElementById('date').value,
+                time: document.getElementById('time').value,
+                timezone: document.getElementById('timezone').value,
+                lat: selectedLocation.lat,
+                lon: selectedLocation.lon
+            };
+
+            try {
+                document.getElementById('infoPanel').innerText = "Расчет эфемерид на сервере...";
+                const response = await fetch('http://localhost:53911/api/calculate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                
+                if (data.status === "success") {
+                    window.lastChartData = data;
+                    drawZodiacChart(data);
+                    document.getElementById('infoPanel').innerHTML = "Расчет Kerykeion завершен.<br><span style='color:var(--accent); font-size:0.9rem;'>Кликните на элементы для деталей</span>";
+                } else {
+                    document.getElementById('infoPanel').innerText = "Ошибка: " + data.message;
+                }
+            } catch (err) {
+                console.error(err);
+                document.getElementById('infoPanel').innerText = "Не удалось связаться с Python-сервером.";
+            }
+        }
+
+        window.showElementInfo = function(type, name, long) {
+            const signIndex = Math.floor(long / 30);
+            const remainder = long % 30;
+            const degrees = Math.floor(remainder);
+            const minutes = Math.floor((remainder - degrees) * 60);
+            document.getElementById('infoPanel').innerHTML = `✨ <b>${name}</b>: ${degrees}° ${minutes}' ${ZODIAC_SIGNS[signIndex]}`;
+        };
+
+        function drawZodiacChart(data) {
+            const size = 500; const center = size / 2; const radius = 210;
+            let svgContent = `<svg viewBox="0 0 ${size} ${size}">`;
+            
+            // Круги карты
+            svgContent += `<circle cx="${center}" cy="${center}" r="${radius}" stroke="var(--circle-base)" stroke-width="2" fill="none" />`;
+            svgContent += `<circle cx="${center}" cy="${center}" r="${radius - 30}" stroke="var(--circle-accent)" stroke-width="1.5" fill="none" />`;
+            svgContent += `<circle cx="${center}" cy="${center}" r="${radius - 75}" stroke="var(--circle-base)" stroke-width="1.5" fill="var(--canvas-bg)" />`;
+
+            // Границы знаков зодиака (30 градусов)
+            for (let i = 0; i < 12; i++) {
+                const angleDeg = i * 30 - 180;
+                const x1 = center + radius * dCos(angleDeg); const y1 = center + radius * dSin(angleDeg);
+                const x2 = center + (radius - 30) * dCos(angleDeg); const y2 = center + (radius - 30) * dSin(angleDeg);
+                svgContent += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--circle-base)" stroke-width="1.5" />`;
+            }
+
+            // ОТРИСОВКА ДОМОВ (Куспидов из Kerykeion)
+            if (data.houses) {
+                data.houses.forEach(house => {
+                    const angle = 180 - house.longitude;
+                    // Главные оси (1 и 10 дома — Asc и Mc) делаем ярче
+                    const isMainAxis = (house.num === 1 || house.num === 10 || house.num === 4 || house.num === 7);
+                    const strokeColor = isMainAxis ? "var(--house-line-main)" : "var(--house-line)";
+                    const strokeWidth = isMainAxis ? "2" : "1";
+
+                    const x1 = center + (radius - 30) * dCos(angle);
+                    const y1 = center + (radius - 30) * dSin(angle);
+                    const x2 = center + (radius - 75) * dCos(angle);
+                    const y2 = center + (radius - 75) * dSin(angle);
+                    
+                    svgContent += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${strokeColor}" stroke-width="${strokeWidth}" />`;
+                    
+                    // Текст номера дома у внутреннего края
+                    const tx = center + (radius - 87) * dCos(angle + 15);
+                    const ty = center + (radius - 87) * dSin(angle + 15);
+                    if(house.num % 2 !== 0 || isMainAxis) { // чтобы не перегружать круг
+                        svgContent += `<text x="${tx}" y="${ty}" fill="var(--text-muted)" font-size="9" text-anchor="middle" dominant-baseline="central">${house.num}</text>`;
+                    }
+                });
+            }
+
+            // ОТРИСОВКА ПЛАНЕТ
+            data.planets.forEach(body => {
+                const planetAngle = 180 - body.longitude; 
+                const planetRadius = radius - 52; 
+                const px = center + planetRadius * dCos(planetAngle); 
+                const py = center + planetRadius * dSin(planetAngle);
+                const roundedDegree = Math.floor(body.longitude % 30);
+
+                svgContent += `<g onclick="showElementInfo('planet', '${body.name}', ${body.longitude})" style="cursor:pointer;">
+                    <text x="${px}" y="${py - 4}" fill="var(--planet-color)" font-size="20" font-weight="bold" text-anchor="middle" dominant-baseline="central" onmouseover="this.setAttribute('fill', '#c9a054')" onmouseout="this.setAttribute('fill', 'var(--planet-color)')">
+                        ${body.symbol}
+                    </text>
+                    <text x="${px + 10}" y="${py + 10}" fill="#c9a054" font-size="10" font-family="monospace" text-anchor="start">
+                        ${roundedDegree}°
+                    </text>
+                </g>`;
+            });
+
+            svgContent += `</svg>`;
+            document.getElementById('canvasContainer').innerHTML = svgContent;
+        }
+
+        document.addEventListener('click', function(e) {
+            if (e.target.id !== 'city') document.getElementById('suggestions').style.display = 'none';
+        });
+    </script>
+</body>
+</html>

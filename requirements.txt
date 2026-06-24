@@ -1,0 +1,4 @@
+flask
+kerykeion
+gunicorn
+flask-cors
