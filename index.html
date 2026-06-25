@@ -109,6 +109,21 @@
             color: var(--text-muted); max-width: 600px; line-height: 1.4;
         }
 
+        #aspectTooltip {
+            position: fixed;
+            pointer-events: none;
+            z-index: 9999;
+            display: none;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--bg-sidebar);
+            color: var(--text-main);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+            font-size: 0.95rem;
+            white-space: nowrap;
+        }
+
         @media (max-width: 768px) {
             .app-container { flex-direction: column; height: auto; overflow-y: auto; }
             .sidebar { width: 100%; height: auto; border-right: none; border-bottom: 1px solid var(--border-color); }
@@ -164,6 +179,8 @@
         </div>
     </div>
 
+    <div id="aspectTooltip"></div>
+
     <script>
         let selectedLocation = { lat: 55.75, lon: 37.62, name: "Москва" };
         let timer = null;
@@ -202,11 +219,11 @@
         ];
 
         const ASPECTS = [
-            { name: 'conjunction', angle: 0, orbis: 8, color: '#111111' },
-            { name: 'sextile', angle: 60, orbis: 6, color: '#e03b3b' },
-            { name: 'square', angle: 90, orbis: 8, color: '#111111' },
-            { name: 'trine', angle: 120, orbis: 8, color: '#e03b3b' },
-            { name: 'opposition', angle: 180, orbis: 8, color: '#111111' }
+            { name: 'conjunction', angle: 0, orb: 8, color: '#111111', symbol: '☌' },
+            { name: 'sextile', angle: 60, orb: 6, color: '#e03b3b', symbol: '✶' },
+            { name: 'square', angle: 90, orb: 8, color: '#111111', symbol: '□' },
+            { name: 'trine', angle: 120, orb: 8, color: '#e03b3b', symbol: '△' },
+            { name: 'opposition', angle: 180, orb: 8, color: '#111111', symbol: '☍' }
         ];
 
         document.getElementById('city').value = selectedLocation.name;
@@ -284,7 +301,7 @@
             const diff = shortestArc(angle1, angle2);
             for (const asp of ASPECTS) {
                 const delta = Math.abs(diff - asp.angle);
-                if (delta <= asp.orbis) {
+                if (delta <= asp.orb) {
                     return { ...asp, diff, delta, exact: delta <= 1 };
                 }
             }
@@ -297,6 +314,13 @@
                 x: cx + r * Math.cos(rads),
                 y: cy + r * Math.sin(rads)
             };
+        }
+
+        function formatDeg(num) {
+            const d = Math.floor(num);
+            const m = Math.floor((num - d) * 60);
+            const s = Math.floor((((num - d) * 60) - m) * 60);
+            return `${d}°${String(m).padStart(2, '0')}′${String(s).padStart(2, '0')}″`;
         }
 
         window.calculateChart = async function(event) {
@@ -353,7 +377,7 @@
             const center = size / 2;
             const radius = 340;
             const innerRadius = radius - 110;
-            const aspectRadius = radius - 115;
+            const aspectRadius = radius - 122;
 
             let svgContent = `<svg viewBox="0 0 ${size} ${size}">`;
 
@@ -372,23 +396,62 @@
                         const p2 = data.planets[j];
                         if (typeof p1.longitude !== 'number' || typeof p2.longitude !== 'number') continue;
 
+                        const diff = shortestArc(p1.longitude, p2.longitude);
                         const aspect = detectAspect(p1.longitude, p2.longitude);
                         if (!aspect) continue;
 
-                        const a1 = polarToCartesian(center, center, aspectRadius, getScreenAngle(p1.longitude));
-                        const a2 = polarToCartesian(center, center, aspectRadius, getScreenAngle(p2.longitude));
+                        const a1 = getScreenAngle(p1.longitude);
+                        const a2 = getScreenAngle(p2.longitude);
+                        const pt1 = polarToCartesian(center, center, aspectRadius, a1);
+                        const pt2 = polarToCartesian(center, center, aspectRadius, a2);
 
-                        const strokeWidth = aspect.exact ? 2.2 : aspect.delta <= 2 ? 1.8 : 1.2;
-                        const opacity = aspect.exact ? 0.95 : 0.65;
+                        const dx = pt2.x - pt1.x;
+                        const dy = pt2.y - pt1.y;
+                        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+                        const gap = 28;
+                        const ux = dx / len;
+                        const uy = dy / len;
+
+                        const mid = polarToCartesian(center, center, aspectRadius, (a1 + a2) / 2);
+
+                        const x1a = pt1.x;
+                        const y1a = pt1.y;
+                        const x1b = mid.x - ux * gap;
+                        const y1b = mid.y - uy * gap;
+                        const x2a = mid.x + ux * gap;
+                        const y2a = mid.y + uy * gap;
+                        const x2b = pt2.x;
+                        const y2b = pt2.y;
+
+                        const strokeWidth = aspect.delta <= 1 ? 2.4 : aspect.delta <= 3 ? 2.0 : 1.4;
+                        const opacity = aspect.delta <= 1 ? 0.95 : 0.72;
                         const dash = aspect.delta > 4 ? '6,4' : '';
+                        const motion = p1.longitude < p2.longitude ? 'сходящийся' : 'расходящийся';
+                        const tooltipText = `${Math.round(diff)}° ${p1.name} <> ${p2.name} ${formatDeg(diff)} (${formatDeg(aspect.delta)}) ${motion}`;
 
                         svgContent += `
-                            <line x1="${a1.x}" y1="${a1.y}" x2="${a2.x}" y2="${a2.y}"
-                                  stroke="${aspect.color}"
-                                  stroke-width="${strokeWidth}"
-                                  stroke-opacity="${opacity}"
-                                  stroke-dasharray="${dash}"
-                                  stroke-linecap="round" />
+                            <g class="aspect-group" data-tooltip="${tooltipText.replace(/"/g, '&quot;')}" style="cursor: help;">
+                                <line x1="${x1a}" y1="${y1a}" x2="${x1b}" y2="${y1b}"
+                                      stroke="${aspect.color}"
+                                      stroke-width="${strokeWidth}"
+                                      stroke-opacity="${opacity}"
+                                      stroke-dasharray="${dash}"
+                                      stroke-linecap="round" />
+                                <line x1="${x2a}" y1="${y2a}" x2="${x2b}" y2="${y2b}"
+                                      stroke="${aspect.color}"
+                                      stroke-width="${strokeWidth}"
+                                      stroke-stroke-opacity="${opacity}"
+                                      stroke-opacity="${opacity}"
+                                      stroke-dasharray="${dash}"
+                                      stroke-linecap="round" />
+                                <circle cx="${mid.x}" cy="${mid.y}" r="10" fill="var(--canvas-bg)" opacity="0.96"></circle>
+                                <text x="${mid.x}" y="${mid.y + 1}"
+                                      fill="${aspect.color}"
+                                      font-size="16"
+                                      font-weight="bold"
+                                      text-anchor="middle"
+                                      dominant-baseline="central">${aspect.symbol}</text>
+                            </g>
                         `;
                     }
                 }
@@ -534,6 +597,19 @@
 
             svgContent += `</svg>`;
             document.getElementById('canvasContainer').innerHTML = svgContent;
+
+            const tooltip = document.getElementById('aspectTooltip');
+            document.querySelectorAll('.aspect-group').forEach(el => {
+                el.addEventListener('mousemove', (e) => {
+                    tooltip.textContent = el.getAttribute('data-tooltip') || '';
+                    tooltip.style.left = (e.clientX + 14) + 'px';
+                    tooltip.style.top = (e.clientY + 14) + 'px';
+                    tooltip.style.display = 'block';
+                });
+                el.addEventListener('mouseleave', () => {
+                    tooltip.style.display = 'none';
+                });
+            });
         };
     </script>
 </body>
