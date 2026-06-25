@@ -364,43 +364,79 @@ const ELEMENT_STYLES = [
             svgContent += `<circle cx="${center}" cy="${center}" r="${radius}" stroke="none" fill="var(--canvas-bg)" />`;
 
             // 1. СЛОЙ АСПЕКТОВ (Линии внутри центральной сети)
-function drawAspects(ctx, cx, cy, radius, planets) {
-    const aspects = [
-        { type: 'conjunction', angle: 0,   orb: 10, color: 'transparent' }, // Соединение обычно не рисуют линией или делают серым
-        { type: 'sextile',    angle: 60,  orb: 6,  color: '#FF0000' }, // КРАСНЫЙ (как просили)
-        { type: 'square',     angle: 90,  orb: 8,  color: '#000000' }, // ЧЕРНЫЙ (как просили)
-        { type: 'trine',      angle: 120, orb: 8,  color: '#FF0000' }, // КРАСНЫЙ (как просили)
-        { type: 'opposition', angle: 180, orb: 10, color: '#000000' }  // ЧЕРНЫЙ (как просили)
-    ];
+const ASPECTS = [
+  { name: 'conjunction', angle: 0, orbis: 8, color: 'black', type: 'harmonic' },
+  { name: 'sextile', angle: 60, orbis: 6, color: 'red', type: 'harmonic' },
+  { name: 'square', angle: 90, orbis: 8, color: 'black', type: 'tension' },
+  { name: 'trine', angle: 120, orbis: 8, color: 'red', type: 'harmonic' },
+  { name: 'opposition', angle: 180, orbis: 8, color: 'black', type: 'tension' }
+];
 
-    // Проходим по всем парам планет
-    for (let i = 0; i < planets.length; i++) {
-        for (let j = i + 1; j < planets.length; j++) {
-            
-            const p1 = planets[i];
-            const p2 = planets[j];
+function shortestArc(a, b) {
+  const diff = Math.abs(a - b) % 360;
+  return diff > 180 ? 360 - diff : diff;
+}
 
-            // 1. Вычисляем разницу углов
-            let diff = Math.abs(p1.angle - p2.angle);
-            if (diff > 180) diff = 360 - diff; // Берем кратчайший путь
+function findAspect(angle1, angle2) {
+  const diff = shortestArc(angle1, angle2);
 
-            // 2. Ищем подходящий аспект
-            for (let aspect of aspects) {
-                // Если разница входит в允许的 орбис (допуск)
-                if (Math.abs(diff - aspect.angle) <= aspect.orb) {
-                    
-                    // Пропускаем соединение, если не хотим его рисовать
-                    if (aspect.type === 'conjunction') continue;
-
-                    // 3. Рисуем линию
-                    drawAspectLine(ctx, cx, cy, radius, p1.angle, p2.angle, aspect.color);
-                    
-                    // Аспект найден, переходим к следующей паре (чтобы не рисовать двойные линии)
-                    break; 
-                }
-            }
-        }
+  for (const aspect of ASPECTS) {
+    const delta = Math.abs(diff - aspect.angle);
+    if (delta <= aspect.orbis) {
+      return {
+        aspect: aspect.name,
+        angle: aspect.angle,
+        orbis: aspect.orbis,
+        delta,
+        color: aspect.color,
+        type: aspect.type,
+        exact: delta === 0
+      };
     }
+  }
+  return null;
+}
+
+function polarToCartesian(cx, cy, r, deg) {
+  const rad = (deg - 90) * Math.PI / 180;
+  return {
+    x: cx + r * Math.cos(rad),
+    y: cy + r * Math.sin(rad)
+  };
+}
+
+function buildAspects(planets) {
+  const lines = [];
+
+  for (let i = 0; i < planets.length; i++) {
+    for (let j = i + 1; j < planets.length; j++) {
+      const p1 = planets[i];
+      const p2 = planets[j];
+      const aspect = findAspect(p1.absDeg, p2.absDeg);
+
+      if (!aspect) continue;
+
+      const style = {
+        stroke: aspect.type === 'tension' ? '#111111' : '#e03b3b',
+        strokeWidth: aspect.delta === 0 ? 2.5 : 1.5,
+        strokeDasharray: aspect.delta > aspect.orbis * 0.5 ? '6 4' : 'none'
+      };
+
+      lines.push({
+        from: p1.name,
+        to: p2.name,
+        aspect: aspect.aspect,
+        diff: shortestArc(p1.absDeg, p2.absDeg),
+        style,
+        points: {
+          a: p1.absDeg,
+          b: p2.absDeg
+        }
+      });
+    }
+  }
+
+  return lines;
 }
 
 /**
