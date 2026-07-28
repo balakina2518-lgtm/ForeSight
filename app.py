@@ -55,12 +55,18 @@ def calculate():
         lat = float(data['lat'])
         lon = float(data['lon'])
 
-        # Определяем часовой пояс автоматически по координатам места рождения —
-        # так kerykeion сам учитывает исторические переходы на летнее/декретное
-        # время (актуально для дат до 1990-х, когда правила часто менялись)
-        tz_str = tf.timezone_at(lat=lat, lng=lon)
-        if tz_str is None:
-            return jsonify({"status": "error", "message": "Не удалось определить часовой пояс по координатам места рождения"}), 400
+        # Часовой пояс: по умолчанию определяем автоматически по координатам
+        # места рождения (kerykeion сам учитывает исторические переходы на
+        # летнее/декретное время). Если пользователь задал смещение вручную —
+        # оно в приоритете (фиксированное смещение, без исторической поправки).
+        manual_tz = data.get('timezone')
+        if manual_tz not in (None, ''):
+            tz_offset = int(manual_tz)
+            tz_str = f"Etc/GMT{-tz_offset:+d}".replace("+", "")
+        else:
+            tz_str = tf.timezone_at(lat=lat, lng=lon)
+            if tz_str is None:
+                return jsonify({"status": "error", "message": "Не удалось определить часовой пояс автоматически — укажите его вручную"}), 400
 
         # Создаем астрологический объект через Kerykeion
         subject = AstrologicalSubjectFactory.from_birth_data(
