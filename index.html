@@ -398,6 +398,39 @@
                 return 180 - (longitude - ascLong);
             }
 
+            // Углы планет считаем заранее (а не только в секции 4), чтобы куспиды домов
+            // (секция 3) знали, где физически проходит разрыв под символом планеты
+            const baseRadius = radius - 75;
+            let planets = JSON.parse(JSON.stringify(data.planets || []));
+            planets.sort((a, b) => b.longitude - a.longitude);
+            const angleStep = 6.5; // градусов смещения символа на каждую коллизию
+
+            // Группируем подряд идущие (по долготе) близкие планеты в кластеры-стеллиумы
+            planets.forEach(p => { p.trueAngle = getScreenAngle(p.longitude); });
+            const clusters = [];
+            let currentCluster = [];
+            planets.forEach((p, idx) => {
+                if (idx === 0) { currentCluster = [p]; return; }
+                let diff = Math.abs(p.longitude - planets[idx - 1].longitude);
+                if (diff > 180) diff = 360 - diff;
+                if (diff < 5.5) { currentCluster.push(p); }
+                else { clusters.push(currentCluster); currentCluster = [p]; }
+            });
+            if (currentCluster.length) clusters.push(currentCluster);
+
+            clusters.forEach(cluster => {
+                const n = cluster.length;
+                if (n === 1) { cluster[0].displayAngle = cluster[0].trueAngle; return; }
+                // Симметричный веер вокруг истинного центра скопления. Сдвиг на +0.3 шага
+                // не даёт офсету обнулиться ни у одного члена (иначе, как в стеллиуме из 3,
+                // средняя по счёту планета оставалась бы точно на истинном месте и теряла
+                // волнистую линию-поводок) — при этом порядок вдоль круга не меняется.
+                const centerAngle = cluster[Math.floor((n - 1) / 2)].trueAngle;
+                cluster.forEach((p, i) => {
+                    p.displayAngle = centerAngle + (i - (n - 1) / 2 + 0.3) * angleStep;
+                });
+            });
+
             svgContent += `<circle cx="${center}" cy="${center}" r="${radius}" stroke="none" fill="var(--canvas-bg)" />`;
 
             // Дуги соединений рисуются ещё раз поверх всего в конце (см. низ функции) —
@@ -495,7 +528,25 @@
                     const igy = center + (radius - 45) * dSin(angle);
 
                     svgContent += `<line x1="${x1}" y1="${y1}" x2="${ogx}" y2="${ogy}" stroke="${strokeColor}" stroke-width="${strokeWidth}" />`;
-                    svgContent += `<line x1="${igx}" y1="${igy}" x2="${x2}" y2="${y2}" stroke="${strokeColor}" stroke-width="${strokeWidth}" />`;
+
+                    // Если под этим куспидом сидит символ планеты (на baseRadius) — физически
+                    // прерываем линию вокруг него, чтобы "палочка" не торчала под планетой
+                    const planetHere = planets.some(p => {
+                        let diff = Math.abs(p.displayAngle - angle) % 360;
+                        if (diff > 180) diff = 360 - diff;
+                        return diff < 4;
+                    });
+                    if (planetHere) {
+                        const gapHalf = 16;
+                        const gx1 = center + (baseRadius + gapHalf) * dCos(angle);
+                        const gy1 = center + (baseRadius + gapHalf) * dSin(angle);
+                        const gx2 = center + (baseRadius - gapHalf) * dCos(angle);
+                        const gy2 = center + (baseRadius - gapHalf) * dSin(angle);
+                        svgContent += `<line x1="${igx}" y1="${igy}" x2="${gx1}" y2="${gy1}" stroke="${strokeColor}" stroke-width="${strokeWidth}" />`;
+                        svgContent += `<line x1="${gx2}" y1="${gy2}" x2="${x2}" y2="${y2}" stroke="${strokeColor}" stroke-width="${strokeWidth}" />`;
+                    } else {
+                        svgContent += `<line x1="${igx}" y1="${igy}" x2="${x2}" y2="${y2}" stroke="${strokeColor}" stroke-width="${strokeWidth}" />`;
+                    }
 
                     // Терминаторы угловых куспидов: стрелка только на ASC, кружок только на MC (на конце палочки)
                     if (house.num === 1) {
@@ -587,28 +638,10 @@
             }
 
             // 4. ПЛАНЕТЫ (С анти-коллизией)
-            let planets = JSON.parse(JSON.stringify(data.planets));
-            // Сортировка по убыванию долготы = по часовой стрелке на экране
-            // (рост долготы у нас идёт против часовой, см. getScreenAngle)
-            planets.sort((a, b) => b.longitude - a.longitude);
             // При скоплении планеты НЕ уходят по радиусу, а сдвигаются ПО УГЛУ,
             // оставаясь на одном радиусе — как бусины на нитке, повторяя линию круга.
-            // Цепочка по соседям: если планета близко к предыдущей (по true-долготе),
-            // её символ сдвигается на фиксированный угол по часовой стрелке от предыдущего.
-            const baseRadius = radius - 75;
-            const angleStep = 6.5; // градусов смещения символа на каждую коллизию
-            planets.forEach((p, idx) => {
-                p.trueAngle = getScreenAngle(p.longitude);
-                if (idx === 0) {
-                    p.displayAngle = p.trueAngle;
-                    return;
-                }
-                const prev = planets[idx - 1];
-                let diff = Math.abs(p.longitude - prev.longitude);
-                if (diff > 180) diff = 360 - diff;
-                p.displayAngle = diff < 5.5 ? prev.displayAngle + angleStep : p.trueAngle;
-            });
-
+            // (сам расчёт trueAngle/displayAngle сделан раньше, см. начало функции —
+            // он нужен уже секции 3, чтобы прерывать куспид под символом планеты)
             planets.forEach(body => {
                 const trueAngle = body.trueAngle;
                 const symbolAngle = body.displayAngle;
