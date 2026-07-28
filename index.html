@@ -114,7 +114,7 @@
                     </div>
                     <div class="form-group">
                         <label>Дата</label>
-                        <input type="date" id="date" required value="1985-04-18">
+                        <input type="date" id="date" required value="1985-04-18" onchange="window.updateAutoTimezone()">
                     </div>
                     <div class="form-group">
                         <label>Точное время</label>
@@ -122,7 +122,7 @@
                     </div>
                     <div class="form-group">
                         <label>Часовой пояс (от UTC)</label>
-                        <input type="number" id="timezone" placeholder="Авто по месту рождения" min="-12" max="14" step="1">
+                        <input type="number" id="timezone" placeholder="Авто по месту рождения" min="-12" max="14" step="1" oninput="window.markTimezoneEdited()">
                     </div>
                     <div class="form-group">
                         <label>Место (Город)</label>
@@ -203,9 +203,33 @@
 
         document.getElementById('city').value = selectedLocation.name;
 
-        window.resetLocation = function() { 
-            selectedLocation = { lat: null, lon: null, name: "" }; 
+        window.resetLocation = function() {
+            selectedLocation = { lat: null, lon: null, name: "" };
         };
+
+        let timezoneManuallyEdited = false;
+
+        window.markTimezoneEdited = function() {
+            timezoneManuallyEdited = true;
+        };
+
+        window.updateAutoTimezone = async function() {
+            if (timezoneManuallyEdited) return;
+            if (selectedLocation.lat === null) return;
+            const dateVal = document.getElementById('date').value;
+            if (!dateVal) return;
+            try {
+                const response = await fetch(`/api/timezone?lat=${selectedLocation.lat}&lon=${selectedLocation.lon}&date=${dateVal}`);
+                const data = await response.json();
+                if (data.status === 'success') {
+                    document.getElementById('timezone').value = data.offset;
+                }
+            } catch (error) {
+                console.error("Не удалось автоматически определить часовой пояс:", error);
+            }
+        };
+
+        window.updateAutoTimezone();
 
         window.searchCities = function(query) {
             const suggestionsEl = document.getElementById('suggestions');
@@ -226,12 +250,14 @@
                             li.textContent = item.display_name;
                             li.onclick = function() {
                                 document.getElementById('city').value = item.display_name.split(',')[0];
-                                selectedLocation = { 
-                                    lat: parseFloat(item.lat), 
-                                    lon: parseFloat(item.lon), 
-                                    name: item.display_name 
+                                selectedLocation = {
+                                    lat: parseFloat(item.lat),
+                                    lon: parseFloat(item.lon),
+                                    name: item.display_name
                                 };
                                 suggestionsEl.style.display = 'none';
+                                timezoneManuallyEdited = false;
+                                window.updateAutoTimezone();
                             };
                             suggestionsEl.appendChild(li);
                         });

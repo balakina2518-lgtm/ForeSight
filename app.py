@@ -2,6 +2,8 @@ from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from kerykeion import AstrologicalSubjectFactory
 from timezonefinder import TimezoneFinder
+from zoneinfo import ZoneInfo
+from datetime import datetime
 import os
 
 app = Flask(__name__)
@@ -40,6 +42,26 @@ INTERPRETATIONS = {
     "Lilith": "Лилит (Черная Луна) показывает зоны возможных финансовых иллюзий, скрытых психологических триггеров и точек соблазна.",
     "Mean_Node": "Северный Узел указывает на вектор вашего стратегического развития, эволюционную задачу и новые горизонты в карьере."
 }
+
+@app.route('/api/timezone', methods=['GET'])
+def get_timezone():
+    """Возвращает исторически верное смещение UTC для координат+даты — используется
+    фронтендом, чтобы сразу показать пользователю авто-определённый часовой пояс."""
+    try:
+        lat = float(request.args.get('lat'))
+        lon = float(request.args.get('lon'))
+        year, month, day = map(int, request.args.get('date').split('-'))
+
+        tz_name = tf.timezone_at(lat=lat, lng=lon)
+        if tz_name is None:
+            return jsonify({"status": "error", "message": "Не удалось определить часовой пояс по координатам"}), 400
+
+        dt = datetime(year, month, day, 12, 0, tzinfo=ZoneInfo(tz_name))
+        offset_hours = dt.utcoffset().total_seconds() / 3600
+
+        return jsonify({"status": "success", "offset": offset_hours, "tz_name": tz_name})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
 
 @app.route('/api/calculate', methods=['POST', 'OPTIONS'])
 def calculate():
