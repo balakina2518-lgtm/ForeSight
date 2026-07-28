@@ -1,10 +1,12 @@
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from kerykeion import AstrologicalSubjectFactory
+from timezonefinder import TimezoneFinder
 import os
 
 app = Flask(__name__)
 CORS(app)
+tf = TimezoneFinder()
 
 # Карта символов для планет
 PLANET_SYMBOLS = {
@@ -52,10 +54,13 @@ def calculate():
         
         lat = float(data['lat'])
         lon = float(data['lon'])
-        
-        # Передаем часовой пояс
-        tz_offset = int(data['timezone'])
-        tz_str = f"Etc/GMT{-tz_offset:+d}".replace("+", "")
+
+        # Определяем часовой пояс автоматически по координатам места рождения —
+        # так kerykeion сам учитывает исторические переходы на летнее/декретное
+        # время (актуально для дат до 1990-х, когда правила часто менялись)
+        tz_str = tf.timezone_at(lat=lat, lng=lon)
+        if tz_str is None:
+            return jsonify({"status": "error", "message": "Не удалось определить часовой пояс по координатам места рождения"}), 400
 
         # Создаем астрологический объект через Kerykeion
         subject = AstrologicalSubjectFactory.from_birth_data(

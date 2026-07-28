@@ -146,10 +146,6 @@
                         <input type="time" id="time" required value="17:51">
                     </div>
                     <div class="form-group">
-                        <label>Часовой пояс (от UTC)</label>
-                        <input type="number" id="timezone" value="3" min="-12" max="14" step="1" required>
-                    </div>
-                    <div class="form-group">
                         <label>Место (Город)</label>
                         <input type="text" id="city" placeholder="Поиск города..." autocomplete="off" required oninput="window.resetLocation(); window.searchCities(this.value)">
                         <ul id="suggestions" class="suggestions-list"></ul>
@@ -355,8 +351,7 @@
                 name: document.getElementById('name').value,
                 date: document.getElementById('date').value,
                 time: document.getElementById('time').value,
-                timezone: document.getElementById('timezone').value,
-                lat: selectedLocation.lat, 
+                lat: selectedLocation.lat,
                 lon: selectedLocation.lon
             };
 
