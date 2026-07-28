@@ -10,7 +10,7 @@ CORS(app)
 PLANET_SYMBOLS = {
     "Sun": "☉", "Moon": "☽", "Mercury": "☿", "Venus": "♀", 
     "Mars": "♂", "Jupiter": "♃", "Saturn": "♄", "Uranus": "♅", 
-    "Neptune": "♆", "Pluto": "♇", "Chiron": "⚷", "Lilith": "⚸", 
+    "Neptune": "♆", "Pluto": "♇", "Chiron": "⚷", "Lilith": "⚸",
     "Mean_Node": "☊"
 }
 
@@ -70,20 +70,21 @@ def calculate():
         # Собираем данные планет по обновленной структуре Kerykeion
         planets_data = []
         PLANET_MAPPING = {
-            "sun": "Sun", "moon": "Moon", "mercury": "Mercury", "venus": "Venus", 
-            "mars": "Mars", "jupiter": "Jupiter", "saturn": "Saturn", "uranus": "Uranus", 
-            "neptune": "Neptune", "pluto": "Pluto", "chiron": "Chiron", "lilith": "Lilith", 
-            "mean_node": "Mean_Node"
+            "sun": "Sun", "moon": "Moon", "mercury": "Mercury", "venus": "Venus",
+            "mars": "Mars", "jupiter": "Jupiter", "saturn": "Saturn", "uranus": "Uranus",
+            "neptune": "Neptune", "pluto": "Pluto", "chiron": "Chiron", "mean_lilith": "Lilith",
+            "true_north_lunar_node": "Mean_Node"
         }
-        
+
         for attr_name, obj_name in PLANET_MAPPING.items():
-            if hasattr(subject, attr_name):
-                p = getattr(subject, attr_name)
+            p = getattr(subject, attr_name, None)
+            if p is not None:
                 planets_data.append({
                     "id": obj_name,
                     "name": PLANET_NAMES_RU.get(obj_name, obj_name),
                     "symbol": PLANET_SYMBOLS.get(obj_name, "?"),
                     "longitude": float(p.abs_pos),
+                    "retrograde": bool(p.retrograde),
                     "interpretation": INTERPRETATIONS.get(obj_name, "Описание в процессе добавления.")
                 })
 
@@ -96,8 +97,8 @@ def calculate():
         ]
         
         for i, attr_name in enumerate(HOUSE_MAPPING, start=1):
-            if hasattr(subject, attr_name):
-                h = getattr(subject, attr_name)
+            h = getattr(subject, attr_name, None)
+            if h is not None:
                 houses_data.append({
                     "num": i,
                     "name": f"{i} Дом",
