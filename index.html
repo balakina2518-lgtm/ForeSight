@@ -110,15 +110,15 @@
                 <form id="astroForm" class="astro-form" onsubmit="window.calculateChart(event)">
                     <div class="form-group">
                         <label>Название проекта / Имя</label>
-                        <input type="text" id="name" placeholder="Введите название" value="Натальная карта">
+                        <input type="text" id="name" placeholder="Введите название">
                     </div>
                     <div class="form-group">
                         <label>Дата</label>
-                        <input type="date" id="date" required value="1985-04-18" onchange="window.updateAutoTimezone()">
+                        <input type="date" id="date" required onchange="window.updateAutoTimezone()">
                     </div>
                     <div class="form-group">
                         <label>Точное время</label>
-                        <input type="time" id="time" required value="17:51">
+                        <input type="time" id="time" required>
                     </div>
                     <div class="form-group">
                         <label>Часовой пояс (от UTC)</label>
@@ -147,7 +147,7 @@
     </div>
 
     <script>
-        let selectedLocation = { lat: 55.75, lon: 37.62, name: "Москва" };
+        let selectedLocation = { lat: null, lon: null, name: "" };
         let timer = null;
         window.lastChartData = null;
 
@@ -201,8 +201,6 @@
             "Neptune": 0.006, "Pluto": 0.004, "Chiron": 0.02, "Lilith": 0.11, "Mean_Node": -0.05
         };
 
-        document.getElementById('city').value = selectedLocation.name;
-
         window.resetLocation = function() {
             selectedLocation = { lat: null, lon: null, name: "" };
         };
@@ -228,8 +226,6 @@
                 console.error("Не удалось автоматически определить часовой пояс:", error);
             }
         };
-
-        window.updateAutoTimezone();
 
         window.searchCities = function(query) {
             const suggestionsEl = document.getElementById('suggestions');
@@ -336,9 +332,9 @@
 
         window.calculateChart = async function(event) {
             event.preventDefault();
-            if (selectedLocation.lat === null) { 
-                selectedLocation = { lat: 55.75, lon: 37.62, name: "Москва" }; 
-                document.getElementById('city').value = "Москва";
+            if (selectedLocation.lat === null) {
+                document.getElementById('infoPanel').innerText = "Выберите город из списка подсказок.";
+                return;
             }
 
             const timezoneValue = document.getElementById('timezone').value;
