@@ -433,6 +433,7 @@
                         const tooltipText = `${p1.name} ${aspect.symbol} ${p2.name} - ${phaseStr}`;
 
                         const isConjunction = aspect.name === 'Соединение';
+                        const isOpposition = aspect.name === 'Оппозиция';
                         // Соединение — планеты рядом, линия идёт дугой строго по контуру внутреннего круга
                         // (та же радиус, что у планет), чтобы точно соединять их позиции
                         const angle1 = getScreenAngle(p1.longitude);
@@ -459,7 +460,7 @@
                             <g class="aspect-link" style="cursor:help;">
                                 <title>${tooltipText}</title>
                                 ${linkShape}
-                                ${isConjunction ? '' : `<circle cx="${midX}" cy="${midY}" r="9" fill="var(--canvas-bg)" />
+                                ${(isConjunction || isOpposition) ? '' : `<circle cx="${midX}" cy="${midY}" r="9" fill="var(--canvas-bg)" />
                                 <text x="${midX}" y="${midY}" fill="${aspect.color}" font-size="13" font-weight="bold" text-anchor="middle" dominant-baseline="central">${aspect.symbol}</text>`}
                             </g>
                         `;
@@ -636,7 +637,19 @@
                         <line x1="0" y1="-1" x2="0" y2="8.3" stroke="currentColor" stroke-width="2.2" />
                         <line x1="-5.5" y1="3.2" x2="5.5" y2="3.2" stroke="currentColor" stroke-width="2.2" />
                       </g>`
-                    : `<text x="${px}" y="${py - 4}" fill="var(--planet-color)" font-size="24" font-weight="900" text-anchor="middle" dominant-baseline="central" onmouseover="this.setAttribute('fill', '#c9a054')" onmouseout="this.setAttribute('fill', 'var(--planet-color)')">${body.symbol}</text>`;
+                    : (() => {
+                        // У Марса и Венеры глиф в системных шрифтах визуально тоньше остальных
+                        // планет даже при том же font-weight — усиливаем обводкой того же цвета
+                        const needsBoldStroke = body.id === 'Mars' || body.id === 'Venus';
+                        const strokeAttr = needsBoldStroke ? ` stroke="var(--planet-color)" stroke-width="0.7"` : '';
+                        const hoverIn = needsBoldStroke
+                            ? `this.setAttribute('fill', '#c9a054'); this.setAttribute('stroke', '#c9a054')`
+                            : `this.setAttribute('fill', '#c9a054')`;
+                        const hoverOut = needsBoldStroke
+                            ? `this.setAttribute('fill', 'var(--planet-color)'); this.setAttribute('stroke', 'var(--planet-color)')`
+                            : `this.setAttribute('fill', 'var(--planet-color)')`;
+                        return `<text x="${px}" y="${py - 4}" fill="var(--planet-color)"${strokeAttr} font-size="24" font-weight="900" text-anchor="middle" dominant-baseline="central" onmouseover="${hoverIn}" onmouseout="${hoverOut}">${body.symbol}</text>`;
+                    })();
 
                 svgContent += `<g onclick="window.showElementInfo('${body.name}', ${body.longitude}, '${safeInterp}')" style="cursor:pointer;">
                     ${symbolMarkup}
