@@ -193,7 +193,9 @@
             { name: 'Полусекстиль', angle: 30, orbis: 1.5, color: '#95a5a6', symbol: '⚺', type: 'minor' },
             { name: 'Квиконс', angle: 150, orbis: 1.5, color: '#95a5a6', symbol: '⚻', type: 'minor' },
             { name: 'Полуквадрат', angle: 45, orbis: 2, color: '#95a5a6', symbol: '∠', type: 'minor' },
-            { name: 'Полуторный квадрат', angle: 135, orbis: 2, color: '#95a5a6', symbol: '⚼', type: 'minor' }
+            { name: 'Полуторный квадрат', angle: 135, orbis: 2, color: '#95a5a6', symbol: '⚼', type: 'minor' },
+            { name: 'Квинтиль', angle: 72, orbis: 2, color: '#95a5a6', symbol: 'Q', type: 'minor' },
+            { name: 'Биквинтиль', angle: 144, orbis: 2, color: '#95a5a6', symbol: 'bQ', type: 'minor' }
         ];
 
         // Средние скорости планет (градусов/сутки) для расчета сходящихся/расходящихся аспектов
@@ -279,6 +281,18 @@
         function rad(deg) { return deg * Math.PI / 180; }
         function dCos(deg) { return Math.cos(rad(deg)); }
         function dSin(deg) { return Math.sin(rad(deg)); }
+
+        // Векторный значок для Квинтиля/Биквинтиля — у этих аспектов нет надёжного
+        // юникод-символа (та же история, что с Плутоном), рисуем сами: пятилучевая
+        // "звёздочка" (5 = деление круга на пятые доли), у биквинтиля — в кольце
+        function fivePointBurst(color, strokeW, ringed) {
+            const spokeAngles = [-90, -18, 54, 126, 198];
+            let out = spokeAngles.map(a =>
+                `<line x1="0" y1="0" x2="${(6.5 * dCos(a)).toFixed(2)}" y2="${(6.5 * dSin(a)).toFixed(2)}" stroke="${color}" stroke-width="${strokeW}" stroke-linecap="round" />`
+            ).join('');
+            if (ringed) out += `<circle cx="0" cy="0" r="7.5" fill="none" stroke="${color}" stroke-width="0.8" />`;
+            return out;
+        }
 
         function shortestArc(a, b) {
             let diff = Math.abs(a - b) % 360;
@@ -469,6 +483,8 @@
 
                         const isConjunction = aspect.name === 'Соединение';
                         const isOpposition = aspect.name === 'Оппозиция';
+                        const isQuintile = aspect.name === 'Квинтиль';
+                        const isBiquintile = aspect.name === 'Биквинтиль';
                         // Соединение — планеты рядом, линия идёт дугой строго по контуру внутреннего круга
                         // (та же радиус, что у планет), чтобы точно соединять их позиции
                         const angle1 = getScreenAngle(p1.longitude);
@@ -495,7 +511,10 @@
                             <g class="aspect-link" style="cursor:help;">
                                 <title>${tooltipText}</title>
                                 ${linkShape}
-                                ${(isConjunction || isOpposition) ? '' : `<circle cx="${midX}" cy="${midY}" r="9" fill="var(--canvas-bg)" />
+                                ${(isConjunction || isOpposition) ? '' : (isQuintile || isBiquintile)
+                                    ? `<circle cx="${midX}" cy="${midY}" r="9" fill="var(--canvas-bg)" />
+                                <g transform="translate(${midX} ${midY})">${fivePointBurst(aspect.color, 1, isBiquintile)}</g>`
+                                    : `<circle cx="${midX}" cy="${midY}" r="9" fill="var(--canvas-bg)" />
                                 <text x="${midX}" y="${midY}" fill="${aspect.color}" font-size="13" font-weight="bold" text-anchor="middle" dominant-baseline="central">${aspect.symbol}</text>`}
                             </g>
                         `;
