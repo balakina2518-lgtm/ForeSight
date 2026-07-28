@@ -34,24 +34,90 @@
         
         .app-container { display: flex; height: 100vh; }
         
-        .sidebar { 
-            width: 320px; background-color: var(--bg-sidebar); padding: 24px; 
-            border-right: 1px solid var(--border-color); display: flex; flex-direction: column;
+        .sidebar {
+            width: 460px; background-color: var(--bg-sidebar);
+            border-right: 1px solid var(--border-color); display: flex; flex-direction: row;
             box-shadow: 2px 0 15px rgba(0,0,0,0.03);
             z-index: 10; overflow-y: auto; box-sizing: border-box;
         }
-        
-        .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-        .sidebar h2 { margin: 0; font-size: 1.6rem; color: var(--accent); letter-spacing: 1px; font-weight: 500; }
-        
+
+        /* Левая узкая колонка: имя карты + переключатель разделов */
+        .nav-strip {
+            width: 170px; flex-shrink: 0; padding: 22px 14px;
+            border-right: 1px solid var(--border-color);
+            display: flex; flex-direction: column; box-sizing: border-box;
+        }
+        .nav-avatar {
+            width: 40px; height: 40px; border-radius: 50%; background: var(--bg-app);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem; color: var(--text-muted); margin-bottom: 14px;
+        }
+        .nav-name-input {
+            border: none; border-bottom: 1px solid var(--border-color); background: transparent;
+            padding: 4px 0 8px; font-size: 0.95rem; color: var(--text-main); width: 100%;
+            margin-bottom: 20px; box-sizing: border-box;
+        }
+        .nav-name-input:focus { outline: none; border-color: var(--accent); }
+        .chart-type-nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+        .nav-item {
+            display: flex; align-items: center; gap: 9px; padding: 9px 8px; border-radius: 6px;
+            font-size: 0.92rem; color: var(--text-main); background: none; border: none;
+            text-align: left; cursor: pointer; width: 100%; box-sizing: border-box;
+        }
+        .nav-item .nav-icon { font-size: 1rem; width: 18px; text-align: center; }
+        .nav-item.active { background: var(--bg-app); color: var(--accent); font-weight: 600; }
+        .nav-item.disabled { color: var(--text-muted); opacity: 0.55; cursor: not-allowed; }
+        .nav-item .nav-badge {
+            margin-left: auto; font-size: 0.75rem; color: var(--text-muted); border: 1px solid var(--border-color);
+            border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;
+        }
+        .nav-actions { display: flex; gap: 8px; margin-top: 14px; }
+        .btn-cancel, .btn-save {
+            flex: 1; padding: 9px; border-radius: 6px; font-size: 0.88rem; cursor: pointer; border: 1px solid var(--border-color);
+        }
+        .btn-cancel { background: none; color: var(--text-muted); }
+        .btn-save { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+        .btn-save:hover, .btn-cancel:hover { opacity: 0.85; }
+
+        /* Правая колонка: сама форма */
+        .form-panel { flex: 1; padding: 22px 20px; box-sizing: border-box; overflow-y: auto; }
+        .form-panel-header {
+            display: flex; align-items: center; gap: 8px; font-size: 1.1rem; color: var(--text-main);
+            padding-bottom: 14px; margin-bottom: 16px; border-bottom: 1px solid var(--border-color);
+        }
+
         .astro-form { display: flex; flex-direction: column; gap: 14px; }
+        .form-row { display: flex; gap: 10px; }
+        .form-row .form-group { flex: 1; }
         .form-group { display: flex; flex-direction: column; gap: 5px; position: relative; }
         .form-group label { font-size: 0.85rem; color: var(--text-muted); }
-        .form-group input { 
-            background-color: var(--input-bg); border: 1px solid var(--border-color); padding: 10px; 
-            border-radius: 6px; color: var(--text-main); font-size: 1rem; box-sizing: border-box; width: 100%; 
+        .form-group .input-with-icon { position: relative; display: flex; align-items: center; }
+        .form-group .input-with-icon .field-icon {
+            position: absolute; left: 10px; font-size: 0.9rem; color: var(--text-muted); pointer-events: none;
         }
-        .form-group input:focus { outline: none; border-color: var(--accent); }
+        .form-group .input-with-icon input, .form-group .input-with-icon select { padding-left: 30px; }
+        .form-group input, .form-group select {
+            background-color: var(--input-bg); border: 1px solid var(--border-color); padding: 10px;
+            border-radius: 6px; color: var(--text-main); font-size: 1rem; box-sizing: border-box; width: 100%;
+        }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--accent); }
+        .form-checkbox-group { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--text-main); }
+        .form-checkbox-group input { width: auto; }
+        .form-toggle-row { display: flex; align-items: center; justify-content: space-between; }
+        .form-toggle-row .toggle-label { font-size: 0.9rem; color: var(--text-main); }
+        .switch { position: relative; display: inline-block; width: 38px; height: 21px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .switch .slider {
+            position: absolute; cursor: pointer; inset: 0; background-color: var(--border-color);
+            border-radius: 21px; transition: 0.2s;
+        }
+        .switch .slider::before {
+            content: ""; position: absolute; height: 15px; width: 15px; left: 3px; bottom: 3px;
+            background-color: #fff; border-radius: 50%; transition: 0.2s;
+        }
+        .switch input:checked + .slider { background-color: var(--accent); }
+        .switch input:checked + .slider::before { transform: translateX(17px); }
+        .switch input:disabled + .slider { opacity: 0.5; cursor: not-allowed; }
         
         .suggestions-list { 
             position: absolute; top: 68px; left: 0; right: 0; background-color: var(--bg-sidebar); 
@@ -61,12 +127,6 @@
         }
         .suggestions-list li { padding: 10px; cursor: pointer; font-size: 0.9rem; border-bottom: 1px solid var(--bg-app); color: var(--text-main); }
         .suggestions-list li:hover { background-color: var(--bg-app); color: var(--accent); }
-        
-        .btn-calculate { 
-            background-color: var(--accent); color: white; border: none; padding: 12px; 
-            border-radius: 6px; font-size: 1rem; cursor: pointer; font-weight: bold; margin-top: 10px;
-        }
-        .btn-calculate:hover { opacity: 0.9; }
         
         .main-content {
             flex: 1; display: flex; flex-direction: column; align-items: center;
@@ -94,7 +154,8 @@
 
         @media (max-width: 768px) {
             .app-container { flex-direction: column; height: auto; overflow-y: auto; }
-            .sidebar { width: 100%; height: auto; border-right: none; border-bottom: 1px solid var(--border-color); }
+            .sidebar { width: 100%; height: auto; flex-direction: column; border-right: none; border-bottom: 1px solid var(--border-color); }
+            .nav-strip { width: 100%; border-right: none; border-bottom: 1px solid var(--border-color); }
             .main-content { padding: 15px; height: auto; overflow: visible; }
             .canvas-container { max-width: 95vw; max-height: 95vw; }
         }
@@ -104,33 +165,81 @@
     <div id="root">
         <div class="app-container">
             <aside class="sidebar">
-                <div class="sidebar-header">
-                    <h2>Форсайт</h2>
+                <div class="nav-strip">
+                    <div class="nav-avatar">🜂</div>
+                    <input type="text" id="name" class="nav-name-input" placeholder="Введите название">
+                    <nav class="chart-type-nav">
+                        <button type="button" class="nav-item active"><span class="nav-icon">◎</span>Натал</button>
+                        <button type="button" class="nav-item disabled" disabled title="Скоро"><span class="nav-icon">◐</span>Синастрия<span class="nav-badge">+</span></button>
+                        <button type="button" class="nav-item disabled" disabled title="Скоро"><span class="nav-icon">◈</span>Прогностика<span class="nav-badge">+</span></button>
+                        <button type="button" class="nav-item disabled" disabled title="Скоро"><span class="nav-icon">◇</span>Релокация<span class="nav-badge">+</span></button>
+                        <button type="button" class="nav-item disabled" disabled title="Скоро"><span class="nav-icon">◔</span>Хорар<span class="nav-badge">+</span></button>
+                    </nav>
+                    <div class="nav-actions">
+                        <button type="button" class="btn-cancel" onclick="window.resetForm()">Отменить</button>
+                        <button type="submit" form="astroForm" class="btn-save">Сохранить</button>
+                    </div>
                 </div>
-                <form id="astroForm" class="astro-form" onsubmit="window.calculateChart(event)">
-                    <div class="form-group">
-                        <label>Название проекта / Имя</label>
-                        <input type="text" id="name" placeholder="Введите название">
-                    </div>
-                    <div class="form-group">
-                        <label>Дата</label>
-                        <input type="date" id="date" required onchange="window.updateAutoTimezone()">
-                    </div>
-                    <div class="form-group">
-                        <label>Точное время</label>
-                        <input type="time" id="time" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Часовой пояс (от UTC)</label>
-                        <input type="number" id="timezone" placeholder="Авто по месту рождения" min="-12" max="14" step="1" oninput="window.markTimezoneEdited()">
-                    </div>
-                    <div class="form-group">
-                        <label>Место (Город)</label>
-                        <input type="text" id="city" placeholder="Поиск города..." autocomplete="off" required oninput="window.resetLocation(); window.searchCities(this.value)">
-                        <ul id="suggestions" class="suggestions-list"></ul>
-                    </div>
-                    <button type="submit" class="btn-calculate">Построить карту</button>
-                </form>
+
+                <div class="form-panel">
+                    <div class="form-panel-header"><span>◎</span> Натал</div>
+                    <form id="astroForm" class="astro-form" onsubmit="window.calculateChart(event)">
+                        <div class="form-group">
+                            <label>Дата рождения</label>
+                            <div class="input-with-icon"><span class="field-icon">📅</span>
+                                <input type="date" id="date" required onchange="window.updateAutoTimezone()">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Время рождения</label>
+                                <div class="input-with-icon"><span class="field-icon">🕐</span>
+                                    <input type="time" id="time" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Часовой пояс</label>
+                                <input type="number" id="timezone" placeholder="Авто" min="-12" max="14" step="1" oninput="window.markTimezoneEdited()">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Место рождения</label>
+                            <div class="input-with-icon"><span class="field-icon">📍</span>
+                                <input type="text" id="city" placeholder="Населённый пункт, область, страна" autocomplete="off" oninput="window.resetLocation(); window.searchCities(this.value)">
+                            </div>
+                            <ul id="suggestions" class="suggestions-list"></ul>
+                        </div>
+                        <div class="form-checkbox-group">
+                            <input type="checkbox" id="manualCoords" onchange="window.toggleManualCoords()">
+                            <label for="manualCoords">Ввести координаты</label>
+                        </div>
+                        <div class="form-row" id="manualCoordsGroup" style="display:none;">
+                            <div class="form-group">
+                                <label>Широта</label>
+                                <input type="number" id="latInput" step="any" placeholder="55.7558" oninput="window.applyManualCoords()">
+                            </div>
+                            <div class="form-group">
+                                <label>Долгота</label>
+                                <input type="number" id="lonInput" step="any" placeholder="37.6173" oninput="window.applyManualCoords()">
+                            </div>
+                        </div>
+                        <div class="form-toggle-row">
+                            <span class="toggle-label">Режим космограммы</span>
+                            <label class="switch">
+                                <input type="checkbox" id="cosmogramMode" disabled title="Скоро">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>Пол</label>
+                            <select id="gender">
+                                <option value="">—</option>
+                                <option value="female">Женский</option>
+                                <option value="male">Мужской</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
             </aside>
 
             <main class="main-content">
@@ -229,6 +338,50 @@
             } catch (error) {
                 console.error("Не удалось автоматически определить часовой пояс:", error);
             }
+        };
+
+        // Ввод координат вручную — альтернатива поиску города по названию
+        window.toggleManualCoords = function() {
+            const on = document.getElementById('manualCoords').checked;
+            document.getElementById('manualCoordsGroup').style.display = on ? 'flex' : 'none';
+            const cityField = document.getElementById('city');
+            if (on) {
+                cityField.value = '';
+                cityField.disabled = true;
+                window.resetLocation();
+            } else {
+                cityField.disabled = false;
+                document.getElementById('latInput').value = '';
+                document.getElementById('lonInput').value = '';
+                window.resetLocation();
+            }
+        };
+
+        window.applyManualCoords = function() {
+            const lat = parseFloat(document.getElementById('latInput').value);
+            const lon = parseFloat(document.getElementById('lonInput').value);
+            if (Number.isFinite(lat) && Number.isFinite(lon)) {
+                selectedLocation = { lat, lon, name: 'Указано вручную' };
+                window.updateAutoTimezone();
+            } else {
+                selectedLocation = { lat: null, lon: null, name: "" };
+            }
+        };
+
+        window.resetForm = function() {
+            document.getElementById('astroForm').reset();
+            document.getElementById('manualCoordsGroup').style.display = 'none';
+            document.getElementById('city').disabled = false;
+            timezoneManuallyEdited = false;
+            selectedLocation = { lat: null, lon: null, name: "" };
+            window.lastChartData = null;
+            document.getElementById('canvasContainer').innerHTML = `
+                <div style="color: var(--text-muted); text-align: center;" id="placeholderText">
+                    <span style="font-size: 3.5rem; display:block; margin-bottom:10px;">⚜️</span>
+                    Астропроцессор «Форсайт»<br>
+                    <span style="font-size:0.95rem; opacity: 0.6;">Профессиональная визуализация</span>
+                </div>`;
+            document.getElementById('infoPanel').innerText = "Заполните данные для старта вычислений";
         };
 
         window.searchCities = function(query) {
@@ -349,7 +502,7 @@
         window.calculateChart = async function(event) {
             event.preventDefault();
             if (selectedLocation.lat === null) {
-                document.getElementById('infoPanel').innerText = "Выберите город из списка подсказок.";
+                document.getElementById('infoPanel').innerText = "Укажите место рождения — выберите город из списка подсказок или введите координаты вручную.";
                 return;
             }
 
@@ -359,7 +512,8 @@
                 date: document.getElementById('date').value,
                 time: document.getElementById('time').value,
                 lat: selectedLocation.lat,
-                lon: selectedLocation.lon
+                lon: selectedLocation.lon,
+                gender: document.getElementById('gender').value
             };
             if (timezoneValue !== '') {
                 payload.timezone = timezoneValue;
