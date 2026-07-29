@@ -1079,19 +1079,21 @@
                 const addFlag = (label, weight) => { flags.push(label); score += weight; };
                 const signIdx = getSignIndex(h.longitude);
                 const naturalSignificator = SIGN_MAJOR_RULER[h.num - 1];
-                const houseRuler = SIGN_MAJOR_RULER[signIdx];
+                // Управитель дома — мажорный, и минорный тоже, если у знака на
+                // куспиде их два (Скорпион/Водолей/Рыбы: традиционный+современный)
+                const houseRulers = [SIGN_MAJOR_RULER[signIdx], SIGN_MINOR_RULER[signIdx]].filter(Boolean);
                 const inHouse = planetsByHouse[h.num] || [];
 
                 // 1 эшелон (+2)
                 if (inHouse.includes(naturalSignificator)) addFlag('Сигнификатор в доме', HOUSE_TIER1_WEIGHT);
-                if (inHouse.includes(houseRuler)) addFlag('Управитель в доме', HOUSE_TIER1_WEIGHT);
+                if (houseRulers.some(r => inHouse.includes(r))) addFlag('Управитель в доме', HOUSE_TIER1_WEIGHT);
                 if (inHouse.length >= 3) addFlag('3+ планеты', HOUSE_TIER1_WEIGHT);
                 // 2 эшелон (+1)
                 if (inHouse.includes('Sun') || inHouse.includes('Moon') || (ascRulerId && inHouse.includes(ascRulerId))) addFlag('Светила/А1 в доме', HOUSE_TIER2_WEIGHT);
                 if (inHouse.some(id => apexIds.has(id))) addFlag('Вершина конфигурации в доме', HOUSE_TIER2_WEIGHT);
                 if (ANGULAR_HOUSES.includes(h.num)) addFlag('Угловой дом', HOUSE_TIER2_WEIGHT);
 
-                return { num: h.num, score, flags, houseRuler, naturalSignificator };
+                return { num: h.num, score, flags, houseRulers, naturalSignificator };
             });
         }
 
@@ -1101,9 +1103,10 @@
             const strongHouseNums = new Set(houseResults.filter(h => h.score >= houseThreshold).map(h => h.num));
             const points = [];
             houseResults.forEach(h => {
-                if (strongHouseNums.has(h.num) && strongPlanetIds.has(h.houseRuler)) {
-                    points.push({ planetId: h.houseRuler, houseNum: h.num });
-                }
+                if (!strongHouseNums.has(h.num)) return;
+                h.houseRulers.filter(r => strongPlanetIds.has(r)).forEach(r => {
+                    points.push({ planetId: r, houseNum: h.num });
+                });
             });
             return points;
         }
@@ -1220,7 +1223,7 @@
         // домов (при весах 1 эшелон +2 / 2 эшелон +1), 3 и более для планет
         // (все признаки по +1).
         const PLANET_STRONG_THRESHOLD = 3;
-        const HOUSE_STRONG_THRESHOLD = 4; // 4 и более
+        const HOUSE_STRONG_THRESHOLD = 3; // 3 и более
 
         function buildStrongObjectsHTML(data) {
             const { results: planetResults, configs } = computePlanetStrength(data);
