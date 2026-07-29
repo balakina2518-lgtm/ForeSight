@@ -471,9 +471,16 @@
             { name: 'Квадратура', angle: 90, color: 'var(--neutral-line)', symbol: '□', type: 'major' },
             { name: 'Трин', angle: 120, color: '#e74c3c', symbol: '△', type: 'major' },
             { name: 'Оппозиция', angle: 180, color: 'var(--neutral-line)', symbol: '☍', type: 'major' },
+            { name: 'Полусекстиль', angle: 30, color: '#95a5a6', symbol: '⚺', type: 'minor' },
             { name: 'Квиконс', angle: 150, color: '#95a5a6', symbol: '⚻', type: 'minor' },
-            { name: 'Полуторный квадрат', angle: 135, color: '#95a5a6', symbol: '⚼', type: 'minor' }
+            { name: 'Полуквадрат', angle: 45, color: '#95a5a6', symbol: '∠', type: 'minor' },
+            { name: 'Полутораквадрат', angle: 135, color: '#95a5a6', symbol: '⚼', type: 'minor' }
         ];
+
+        // Только эти два минорных аспекта рисуются на самом колесе (видимая часть) —
+        // полусекстиль и полуквадрат показываются исключительно в таблице аспектов
+        // (и в скрытых наведениях на фиктивные точки/оси домов), на круге не видны
+        const WHEEL_HIDDEN_MINOR_ASPECTS = ['Полусекстиль', 'Полуквадрат'];
 
         // Орбис по таблице Елены: базовый орбис зависит от тела, орбис пары —
         // среднее арифметическое орбисов двух тел, кроме узлов (всегда 5° с
@@ -1135,6 +1142,7 @@
                     for (let j = i + 1; j < aspectPlanets.length; j++) {
                         const aspect = pairAspects[`${i},${j}`];
                         if (!aspect) continue;
+                        if (WHEEL_HIDDEN_MINOR_ASPECTS.includes(aspect.name)) continue;
 
                         const p1 = aspectPlanets[i];
                         const p2 = aspectPlanets[j];
