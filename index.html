@@ -260,7 +260,8 @@
            ярко остаются только сама линия аспекта и две связанные планеты */
         svg.wheel-focus-mode > * { opacity: 0.15; transition: opacity 0.15s; }
         svg.wheel-focus-mode > .aspect-highlighted,
-        svg.wheel-focus-mode > .planet-focus { opacity: 1; }
+        svg.wheel-focus-mode > .planet-focus,
+        svg.wheel-focus-mode > .house-focus { opacity: 1; }
 
         /* Аспекты к фиктивным точкам — невидимы по умолчанию, служат только
            "крючком" для подсветки из таблицы аспектов */
@@ -934,12 +935,19 @@
                 const id = pb.getAttribute('data-id');
                 if (id === idA || id === idB) pb.classList.add('planet-focus');
             });
+            [idA, idB].forEach(id => {
+                const m = /^house(\d+)$/.exec(id);
+                if (!m) return;
+                const cusp = svg.querySelector(`.house-cusp[data-house="${m[1]}"]`);
+                if (cusp) cusp.classList.add('house-focus');
+            });
             svg.classList.add('wheel-focus-mode');
         };
 
         window.unhighlightWheelAspect = function() {
             document.querySelectorAll('.aspect-highlighted').forEach(el => el.classList.remove('aspect-highlighted'));
             document.querySelectorAll('.planet-focus').forEach(pb => pb.classList.remove('planet-focus'));
+            document.querySelectorAll('.house-focus').forEach(hc => hc.classList.remove('house-focus'));
             const svg = document.querySelector('#canvasContainer svg');
             if (svg) svg.classList.remove('wheel-focus-mode');
         };
@@ -1267,6 +1275,7 @@
                     const igx = center + (radius - 45) * dCos(angle);
                     const igy = center + (radius - 45) * dSin(angle);
 
+                    svgContent += `<g class="house-cusp" data-house="${house.num}">`;
                     svgContent += `<line x1="${x1}" y1="${y1}" x2="${ogx}" y2="${ogy}" stroke="${strokeColor}" stroke-width="${strokeWidth}" />`;
 
                     // Если под этим куспидом сидит символ планеты (на baseRadius) — физически
@@ -1324,6 +1333,7 @@
                     const houseDegree = Math.ceil(house.longitude % 30) === 0 ? 1 : Math.ceil(house.longitude % 30);
                     const houseDegreeColor = isMainAxis ? "var(--accent)" : "var(--text-main)";
                     svgContent += `<text x="${tx + 7}" y="${ty - 7}" fill="${houseDegreeColor}" font-size="9" font-weight="bold" text-anchor="start">${houseDegree}°</text>`;
+                    svgContent += `</g>`;
                 });
             }
 
