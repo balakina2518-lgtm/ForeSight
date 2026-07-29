@@ -71,11 +71,11 @@
             margin-left: auto; font-size: 0.75rem; color: var(--text-muted); border: 1px solid var(--border-color);
             border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;
         }
-        .btn-charts-list {
-            width: 100%; padding: 9px; border-radius: 6px; font-size: 0.88rem; cursor: pointer;
-            border: 1px solid var(--border-color); background: none; color: var(--text-main); margin-top: 10px;
+        .btn-back-to-list {
+            background: none; border: none; color: var(--text-muted); font-size: 0.85rem; cursor: pointer;
+            text-align: left; padding: 0 0 14px; align-self: flex-start;
         }
-        .btn-charts-list:hover { border-color: var(--accent); color: var(--accent); }
+        .btn-back-to-list:hover { color: var(--accent); }
         .nav-actions { display: flex; gap: 8px; margin-top: 14px; }
         .btn-cancel, .btn-save {
             flex: 1; padding: 9px; border-radius: 6px; font-size: 0.88rem; cursor: pointer; border: 1px solid var(--border-color);
@@ -83,17 +83,16 @@
         .btn-cancel { background: none; color: var(--text-muted); }
         .btn-save { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
 
-        .charts-modal {
-            position: fixed; inset: 0; background: rgba(62, 50, 41, 0.35);
-            z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px;
+        .charts-home {
+            width: 100%; max-width: 1100px; margin: 0 auto; padding: 40px 30px; box-sizing: border-box;
         }
-        .charts-modal-inner {
-            background: var(--bg-sidebar); border-radius: 10px; padding: 22px; width: 100%; max-width: 800px;
-            max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.2); box-sizing: border-box;
+        .charts-home-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .charts-home-header h1 { margin: 0; font-size: 1.6rem; color: var(--accent); font-weight: 500; letter-spacing: 1px; }
+        .btn-add-chart {
+            background: var(--accent); color: #fff; border: none; padding: 10px 18px; border-radius: 6px;
+            font-size: 0.92rem; font-weight: 600; cursor: pointer;
         }
-        .charts-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-        .charts-modal-header h3 { margin: 0; color: var(--accent); font-weight: 500; }
-        .charts-modal-close { background: none; border: none; font-size: 1.1rem; color: var(--text-muted); cursor: pointer; }
+        .btn-add-chart:hover { opacity: 0.9; }
         .charts-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
         .charts-table th { text-align: left; color: var(--text-muted); font-weight: 500; font-size: 0.82rem; padding: 8px 10px; border-bottom: 1px solid var(--border-color); }
         .charts-table td { padding: 10px; border-bottom: 1px solid var(--border-color); color: var(--text-main); }
@@ -189,9 +188,23 @@
 </head>
 <body class="notranslate">
     <div id="root">
-        <div class="app-container">
+        <div id="chartsHomeView" class="charts-home">
+            <div class="charts-home-header">
+                <h1>Карты</h1>
+                <button type="button" class="btn-add-chart" onclick="window.showChartForm()">+ Добавить карту</button>
+            </div>
+            <table class="charts-table">
+                <thead>
+                    <tr><th>Название</th><th>Дата и время рождения</th><th>Место рождения</th><th></th></tr>
+                </thead>
+                <tbody id="chartsTableBody"></tbody>
+            </table>
+        </div>
+
+        <div class="app-container" id="appContainer" style="display:none;">
             <aside class="sidebar">
                 <div class="nav-strip">
+                    <button type="button" class="btn-back-to-list" onclick="window.showChartsHome()">← Карты</button>
                     <div class="nav-avatar">🜂</div>
                     <input type="text" id="name" class="nav-name-input" placeholder="Введите название">
                     <nav class="chart-type-nav">
@@ -201,9 +214,8 @@
                         <button type="button" class="nav-item disabled" disabled title="Скоро"><span class="nav-icon">◇</span>Релокация<span class="nav-badge">+</span></button>
                         <button type="button" class="nav-item disabled" disabled title="Скоро"><span class="nav-icon">◔</span>Хорар<span class="nav-badge">+</span></button>
                     </nav>
-                    <button type="button" class="btn-charts-list" onclick="window.openChartsList()">🗂 Мои карты</button>
                     <div class="nav-actions">
-                        <button type="button" class="btn-cancel" onclick="window.resetForm()">Отменить</button>
+                        <button type="button" class="btn-cancel" onclick="window.resetForm(); window.showChartsHome();">Отменить</button>
                         <button type="submit" form="astroForm" class="btn-save">Сохранить</button>
                     </div>
                 </div>
@@ -279,21 +291,6 @@
                 </div>
                 <div class="info-panel" id="infoPanel">Заполните данные для старта вычислений</div>
             </main>
-        </div>
-
-        <div id="chartsModal" class="charts-modal" style="display:none;">
-            <div class="charts-modal-inner">
-                <div class="charts-modal-header">
-                    <h3>Мои карты</h3>
-                    <button type="button" class="charts-modal-close" onclick="window.closeChartsList()">✕</button>
-                </div>
-                <table class="charts-table">
-                    <thead>
-                        <tr><th>Название</th><th>Дата и время рождения</th><th>Место рождения</th><th></th></tr>
-                    </thead>
-                    <tbody id="chartsTableBody"></tbody>
-                </table>
-            </div>
         </div>
     </div>
 
@@ -434,8 +431,24 @@
 
         let chartsCache = [];
 
-        window.openChartsList = async function() {
-            document.getElementById('chartsModal').style.display = 'flex';
+        // Переключение между домашним экраном (список карт) и формой построения карты
+        window.showChartsHome = function() {
+            document.getElementById('appContainer').style.display = 'none';
+            document.getElementById('chartsHomeView').style.display = 'block';
+            window.refreshChartsList();
+        };
+
+        window.showFormView = function() {
+            document.getElementById('chartsHomeView').style.display = 'none';
+            document.getElementById('appContainer').style.display = 'flex';
+        };
+
+        window.showChartForm = function() {
+            window.resetForm();
+            window.showFormView();
+        };
+
+        window.refreshChartsList = async function() {
             const tbody = document.getElementById('chartsTableBody');
             tbody.innerHTML = '<tr><td colspan="4">Загрузка…</td></tr>';
             try {
@@ -447,7 +460,7 @@
                 }
                 chartsCache = data.charts;
                 if (chartsCache.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4">Пока нет сохранённых карт</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="4">Пока нет сохранённых карт — нажмите «+ Добавить карту»</td></tr>';
                     return;
                 }
                 tbody.innerHTML = chartsCache.map((c, i) => `
@@ -466,12 +479,9 @@
             }
         };
 
-        window.closeChartsList = function() {
-            document.getElementById('chartsModal').style.display = 'none';
-        };
-
         window.loadChart = function(index) {
             const c = chartsCache[index];
+            window.showFormView();
             document.getElementById('name').value = c.name;
             document.getElementById('date').value = c.birth_date;
             document.getElementById('time').value = c.birth_time.slice(0, 5);
@@ -480,7 +490,6 @@
             document.getElementById('city').value = c.place_name;
             document.getElementById('gender').value = c.gender || '';
             selectedLocation = { lat: c.lat, lon: c.lon, name: c.place_name };
-            window.closeChartsList();
             window.calculateChart({ preventDefault: () => {} });
         };
 
@@ -488,7 +497,7 @@
             if (!confirm('Удалить эту карту из списка?')) return;
             try {
                 await fetch('/api/charts/' + id, { method: 'DELETE' });
-                window.openChartsList();
+                window.refreshChartsList();
             } catch (err) {
                 alert('Не удалось удалить карту.');
             }
@@ -1003,6 +1012,8 @@
             svgContent += `</svg>`;
             document.getElementById('canvasContainer').innerHTML = svgContent;
         };
+
+        window.refreshChartsList();
     </script>
 </body>
 </html>
