@@ -876,6 +876,13 @@
         // 10↔4, 5↔11, 6↔12) — как в эталонной таблице, без дублирования пар
         const HOUSE_AXIS_NUMS = [1, 2, 3, 5, 6, 10];
 
+        // Тот же вручную нарисованный значок Плутона, что и на колесе (юникод-символ
+        // ♇ ненадёжно поддерживается шрифтами) — переиспользуем в таблицах как
+        // маленькую inline-SVG иконку вместо текстового символа
+        function plutoTableIcon() {
+            return `<svg viewBox="-9 -13 18 24" width="14" height="18" style="vertical-align:middle;"><circle cx="0" cy="-9" r="3.6" fill="none" stroke="currentColor" stroke-width="1.6" /><path d="M -5.2 -6 A 5.2 5.2 0 0 0 5.2 -6" fill="none" stroke="currentColor" stroke-width="1.6" /><line x1="0" y1="-0.8" x2="0" y2="6.2" stroke="currentColor" stroke-width="1.6" /><line x1="-4" y1="2.4" x2="4" y2="2.4" stroke="currentColor" stroke-width="1.6" /></svg>`;
+        }
+
         function buildAspectTableHTML(data) {
             const planetBodies = data.planets.map(p => ({ id: p.id, name: p.name, symbol: p.symbol, longitude: p.longitude }));
             const axisBodies = HOUSE_AXIS_NUMS.map(num => {
@@ -894,14 +901,16 @@
                 return `<td style="color:${asp.color}; ${paleStyle}" title="${escapeHtml(rowBody.name)} ${asp.symbol} ${escapeHtml(colBody.name)} (${asp.name})" onmouseenter="window.highlightWheelAspect('${rowBody.id}','${colBody.id}')" onmouseleave="window.unhighlightWheelAspect()">${asp.symbol}</td>`;
             };
 
+            const headerSymbol = b => b.id === 'Pluto' ? plutoTableIcon() : b.symbol;
+
             let html = '<table class="aspect-grid"><thead><tr><th></th>';
-            planetBodies.forEach(b => { html += `<th>${b.symbol}</th>`; });
+            planetBodies.forEach(b => { html += `<th>${headerSymbol(b)}</th>`; });
             html += '</tr></thead><tbody>';
 
             // Планета×планета — без зеркалирования, каждый аспект только один раз
             // (выше диагонали); ниже диагонали клетки пустые
             planetBodies.forEach((rowBody, i) => {
-                html += `<tr><th>${rowBody.symbol}</th>`;
+                html += `<tr><th>${headerSymbol(rowBody)}</th>`;
                 planetBodies.forEach((colBody, j) => {
                     if (i === j) { html += '<td class="aspect-grid-diag"></td>'; }
                     else if (j < i) { html += '<td></td>'; }
@@ -925,7 +934,8 @@
             const planetRows = data.planets.map(p => {
                 const signIndex = Math.floor(((p.longitude % 360) + 360) % 360 / 30);
                 const posInSign = ((p.longitude % 30) + 30) % 30;
-                return `<tr><td>${p.symbol}${p.retrograde ? '<sub>r</sub>' : ''}</td><td>${toDMS(posInSign)}</td><td>${ZODIAC_SYMBOLS[signIndex]}</td></tr>`;
+                const symbolHTML = p.id === 'Pluto' ? plutoTableIcon() : p.symbol;
+                return `<tr><td>${symbolHTML}${p.retrograde ? '<sub>r</sub>' : ''}</td><td>${toDMS(posInSign)}</td><td>${ZODIAC_SYMBOLS[signIndex]}</td></tr>`;
             }).join('');
             const houseLabels = { 1: 'Asc', 4: 'IC', 7: 'Dsc', 10: 'MC' };
             const houseRows = data.houses.map(h => {
