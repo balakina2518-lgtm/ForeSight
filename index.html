@@ -140,9 +140,10 @@
         .charts-table th { text-align: left; color: var(--text-muted); font-weight: 500; font-size: 0.82rem; padding: 8px 10px; border-bottom: 1px solid var(--border-color); }
         .charts-table td { padding: 10px; border-bottom: 1px solid var(--border-color); color: var(--text-main); }
         .charts-table tr:hover td { background: var(--bg-app); }
+        .charts-table-actions { white-space: nowrap; text-align: right; }
         .charts-table button {
             background: none; border: 1px solid var(--border-color); border-radius: 5px; padding: 4px 10px;
-            font-size: 0.8rem; cursor: pointer; color: var(--text-main); margin-right: 6px;
+            font-size: 0.8rem; cursor: pointer; color: var(--text-main); margin-left: 6px;
         }
         .charts-table button:hover { border-color: var(--accent); color: var(--accent); }
         .comment-input {
@@ -597,7 +598,7 @@
                             <input type="text" class="comment-input" value="${escapeHtml(c.comment || '')}"
                                    placeholder="—" onblur="window.saveComment(${c.id}, this.value)">
                         </td>
-                        <td>
+                        <td class="charts-table-actions">
                             <button type="button" onclick="window.loadChart(${i})">Открыть</button>
                             <button type="button" onclick="window.deleteChart(${c.id})">Удалить</button>
                         </td>
