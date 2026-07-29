@@ -52,12 +52,17 @@
         }
 
         #chartViewContainer { position: relative; height: 100vh; }
-        .btn-back-floating {
-            position: absolute; top: 20px; left: 20px; z-index: 10;
+        .chart-top-bar {
+            position: absolute; top: 20px; left: 20px; right: 20px; z-index: 10;
+            display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
             background: var(--bg-sidebar); border: 1px solid var(--border-color); border-radius: 20px;
-            padding: 8px 16px; font-size: 0.85rem; color: var(--text-muted); cursor: pointer;
+            padding: 8px 16px; font-size: 0.85rem; box-sizing: border-box; width: fit-content; max-width: calc(100% - 40px);
         }
-        .btn-back-floating:hover { color: var(--accent); border-color: var(--accent); }
+        .chart-top-back { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 0.95rem; padding: 0; }
+        .chart-top-back:hover { color: var(--accent); }
+        .chart-top-name { color: var(--text-main); font-weight: 600; white-space: nowrap; }
+        .chart-top-divider { color: var(--border-color); }
+        .chart-top-details { color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         .bottom-toolbar {
             position: absolute; bottom: 26px; left: 26px;
@@ -246,7 +251,12 @@
         </div>
 
         <div id="chartViewContainer" style="display:none;">
-            <button type="button" class="btn-back-floating" onclick="window.showChartsHome()">← Карты</button>
+            <div class="chart-top-bar">
+                <button type="button" class="chart-top-back" onclick="window.showChartsHome()">←</button>
+                <span class="chart-top-name" id="chartTopName">Карты</span>
+                <span class="chart-top-divider" id="chartTopDivider" style="display:none;">|</span>
+                <span class="chart-top-details" id="chartTopDetails"></span>
+            </div>
             <main class="main-content">
                 <div class="canvas-container" id="canvasContainer">
                     <div style="color: var(--text-muted); text-align: center;" id="placeholderText">
@@ -477,6 +487,34 @@
                     <span style="font-size:0.95rem; opacity: 0.6;">Профессиональная визуализация</span>
                 </div>`;
             document.getElementById('infoPanel').innerText = "Заполните данные для старта вычислений";
+            document.getElementById('chartTopName').textContent = "Карты";
+            document.getElementById('chartTopDetails').textContent = "";
+            document.getElementById('chartTopDivider').style.display = 'none';
+        };
+
+        window.updateChartTopBar = function() {
+            const name = document.getElementById('name').value.trim() || '(без названия)';
+            const dateVal = document.getElementById('date').value;
+            const timeVal = document.getElementById('time').value;
+            const tz = document.getElementById('timezone').value;
+
+            let dateFormatted = dateVal;
+            if (dateVal) {
+                const [y, m, d] = dateVal.split('-');
+                dateFormatted = `${d}.${m}.${y}`;
+            }
+            const tzFormatted = tz !== '' ? `GMT${Number(tz) >= 0 ? '+' : ''}${tz}` : '';
+            const place = selectedLocation.name || '';
+            let coords = '';
+            if (selectedLocation.lat !== null) {
+                const lat = selectedLocation.lat, lon = selectedLocation.lon;
+                coords = `${Math.abs(lat).toFixed(2)}°${lat >= 0 ? 'N' : 'S'} ${Math.abs(lon).toFixed(2)}°${lon >= 0 ? 'E' : 'W'}`;
+            }
+
+            document.getElementById('chartTopName').textContent = name;
+            document.getElementById('chartTopDetails').textContent =
+                `${dateFormatted}, ${timeVal} (${tzFormatted}) ${place}${coords ? ', ' + coords : ''}`;
+            document.getElementById('chartTopDivider').style.display = 'inline';
         };
 
         function escapeHtml(str) {
@@ -764,6 +802,7 @@
                 if (data.status === "success") {
                     window.lastChartData = data;
                     window.drawZodiacChart(data);
+                    window.updateChartTopBar();
                     document.getElementById('formModal').style.display = 'none';
                     document.getElementById('infoPanel').innerHTML = "Карта успешно построена.<br><span style='color:var(--accent); font-size:0.9rem;'>Кликая на планеты, можно изучать их бизнес-трактовку.</span>";
 
