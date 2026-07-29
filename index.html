@@ -805,6 +805,20 @@
             for (const asp of ASPECTS) {
                 const delta = Math.abs(diff - asp.angle);
                 if (delta <= asp.orbis) {
+                    // Для "чистых" аспектов (кратных 30°: соединение, полусекстиль,
+                    // секстиль, квадратура, трин, квиконс, оппозиция) орбиса по
+                    // градусам недостаточно — расстояние между ЗНАКАМИ должно точно
+                    // совпадать с ожидаемым для этого аспекта. Иначе это "внезнаковый"
+                    // (dissociate) аспект — числа рядом, а по факту такого аспекта нет
+                    // (например почти секстиль, но одна из точек ещё не дошла/уже
+                    // перешла в нужный знак — на самом деле это не секстиль).
+                    if (asp.angle % 30 === 0) {
+                        const sign1 = Math.floor(((angle1 % 360) + 360) % 360 / 30);
+                        const sign2 = Math.floor(((angle2 % 360) + 360) % 360 / 30);
+                        let signDiff = Math.abs(sign1 - sign2) % 12;
+                        signDiff = Math.min(signDiff, 12 - signDiff);
+                        if (signDiff !== asp.angle / 30) continue;
+                    }
                     return { ...asp, diff, delta, exact: delta <= 1 };
                 }
             }
