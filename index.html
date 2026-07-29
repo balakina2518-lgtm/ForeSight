@@ -256,6 +256,12 @@
         .aspect-link:hover line { stroke-width: 3; opacity: 1 !important; transition: 0.2s; }
         .aspect-link:hover text { font-size: 18px; transition: 0.2s; }
 
+        /* Режим фокуса: при подсветке аспекта из таблицы остальное колесо гаснет,
+           ярко остаются только сама линия аспекта и две связанные планеты */
+        svg.wheel-focus-mode > * { opacity: 0.15; transition: opacity 0.15s; }
+        svg.wheel-focus-mode > .aspect-highlighted,
+        svg.wheel-focus-mode > .planet-focus { opacity: 1; }
+
         @media (max-width: 768px) {
             .sidebar { flex-direction: column; }
             .nav-strip { width: 100%; border-right: none; border-bottom: 1px solid var(--border-color); }
@@ -905,11 +911,15 @@
         }
 
         window.highlightWheelAspect = function(idA, idB) {
+            const svg = document.querySelector('#canvasContainer svg');
+            if (!svg) return;
+            let found = false;
             document.querySelectorAll('[data-a][data-b]').forEach(el => {
                 const a = el.getAttribute('data-a'), b = el.getAttribute('data-b');
                 if ((a === idA && b === idB) || (a === idB && b === idA)) {
                     const line = el.tagName.toLowerCase() === 'path' ? el : el.querySelector('line, path');
                     if (!line) return;
+                    found = true;
                     el.classList.add('aspect-highlighted');
                     line.dataset.origStrokeWidth = line.getAttribute('stroke-width') || '';
                     line.dataset.origStrokeOpacity = line.getAttribute('stroke-opacity') || '';
@@ -917,6 +927,12 @@
                     line.setAttribute('stroke-opacity', '1');
                 }
             });
+            if (!found) return; // на колесе такого аспекта нет (фиктивная точка/ось дома) — гасить нечего
+            svg.querySelectorAll('.planet-body').forEach(pb => {
+                const id = pb.getAttribute('data-id');
+                if (id === idA || id === idB) pb.classList.add('planet-focus');
+            });
+            svg.classList.add('wheel-focus-mode');
         };
 
         window.unhighlightWheelAspect = function() {
@@ -928,6 +944,9 @@
                     line.setAttribute('stroke-opacity', line.dataset.origStrokeOpacity);
                 }
             });
+            document.querySelectorAll('.planet-focus').forEach(pb => pb.classList.remove('planet-focus'));
+            const svg = document.querySelector('#canvasContainer svg');
+            if (svg) svg.classList.remove('wheel-focus-mode');
         };
 
         const INFO_POPUP_TITLES = { aspects: '⊞ Таблица аспектов', coords: '⊘ Координаты планет и домов' };
@@ -1355,7 +1374,7 @@
                         return `<text x="${px}" y="${py - 4}" fill="var(--planet-color)"${strokeAttr} font-size="24" font-weight="900" text-anchor="middle" dominant-baseline="central" onmouseover="${hoverIn}" onmouseout="${hoverOut}">${body.symbol}</text>`;
                     })();
 
-                svgContent += `<g onclick="window.showElementInfo('${body.name}', ${body.longitude}, '${safeInterp}')" style="cursor:pointer;">
+                svgContent += `<g class="planet-body" data-id="${body.id}" onclick="window.showElementInfo('${body.name}', ${body.longitude}, '${safeInterp}')" style="cursor:pointer;">
                     ${symbolMarkup}
                     <text x="${px + 11}" y="${py - 10}" fill="var(--text-main)" font-size="9.5" font-family="monospace" font-weight="bold" text-anchor="start">
                         ${roundedDegree}°
