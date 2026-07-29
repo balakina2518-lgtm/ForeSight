@@ -262,6 +262,10 @@
         svg.wheel-focus-mode > .aspect-highlighted,
         svg.wheel-focus-mode > .planet-focus { opacity: 1; }
 
+        /* Аспекты к фиктивным точкам — невидимы по умолчанию, служат только
+           "крючком" для подсветки из таблицы аспектов */
+        .aspect-hidden { opacity: 0; pointer-events: none; }
+
         @media (max-width: 768px) {
             .sidebar { flex-direction: column; }
             .nav-strip { width: 100%; border-right: none; border-bottom: 1px solid var(--border-color); }
@@ -1091,7 +1095,7 @@
             // планет есть общая третья планета, связанная аспектом с обеими
             // (треугольник) — допускаем широкий орбис 7°; одиночным мажорным
             // аспектам без такой связи — только строгий орбис 5°.
-            const FICTITIOUS_POINTS = ['Chiron', 'Lilith', 'Mean_Node'];
+            const FICTITIOUS_POINTS = ['Chiron', 'Lilith', 'Mean_Node', 'South_Node'];
             const aspectPlanets = (data.planets || []).filter(p => !FICTITIOUS_POINTS.includes(p.id));
 
             const pairAspects = {};
@@ -1180,6 +1184,32 @@
                         `;
                     }
                 }
+            }
+
+            // Дополнительно: аспекты к фиктивным точкам (Хирон/Лилит/оба Узла) —
+            // СКРЫТЫЕ по умолчанию (той же логикой, что и в таблице аспектов).
+            // Они не видны на круге, пока пользователь не наведёт курсор на
+            // соответствующую ячейку в таблице — тогда режим фокуса их проявит.
+            // Видимый набор аспектов выше от этого прохода никак не меняется.
+            {
+                const { bodies: allAspBodies, pairs: allAspPairs } = computeAspectPairs(data.planets || []);
+                allAspPairs.forEach(({ i, j, aspect }) => {
+                    const p1 = allAspBodies[i], p2 = allAspBodies[j];
+                    const bothReal = !FICTITIOUS_POINTS.includes(p1.id) && !FICTITIOUS_POINTS.includes(p2.id);
+                    if (bothReal) return; // уже нарисован выше как видимый
+
+                    const hx1 = center + innerRadius * dCos(getScreenAngle(p1.longitude));
+                    const hy1 = center + innerRadius * dSin(getScreenAngle(p1.longitude));
+                    const hx2 = center + innerRadius * dCos(getScreenAngle(p2.longitude));
+                    const hy2 = center + innerRadius * dSin(getScreenAngle(p2.longitude));
+                    const hTooltip = `${aspect.angle}° ${p1.name} ↔ ${p2.name} ${toDMS(aspect.diff)} (${toDMS(aspect.delta)})`;
+
+                    svgContent += `
+                        <g class="aspect-link aspect-hidden" data-a="${p1.id}" data-b="${p2.id}">
+                            <title>${hTooltip}</title>
+                            <line x1="${hx1}" y1="${hy1}" x2="${hx2}" y2="${hy2}" stroke="${aspect.color}" stroke-width="${aspect.type === 'major' ? 1.5 : 1}" stroke-dasharray="${aspect.type === 'minor' ? '4,4' : ''}" />
+                        </g>`;
+                });
             }
 
             // 3. ДОМА
