@@ -80,12 +80,12 @@
         .bottom-toolbar .chart-type-nav { top: auto; bottom: calc(100% + 8px); min-width: 190px; }
 
         .info-popup-overlay {
-            position: fixed; inset: 0; background: rgba(62, 50, 41, 0.35);
-            z-index: 300; display: flex; align-items: center; justify-content: center; padding: 20px;
+            position: fixed; top: 0; right: 0; bottom: 0; z-index: 300;
+            display: flex; align-items: stretch; padding: 20px; pointer-events: none;
         }
         .info-popup {
-            background: var(--bg-sidebar); border-radius: 12px; width: 100%; max-width: 640px;
-            max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+            pointer-events: auto; background: var(--bg-sidebar); border-radius: 12px; width: 420px; max-width: 90vw;
+            max-height: 100%; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.25);
             box-sizing: border-box; padding: 20px 24px;
         }
         .info-popup-header { display: flex; align-items: center; justify-content: space-between; font-size: 1.05rem; color: var(--text-main); }
@@ -326,7 +326,7 @@
             </div>
         </div>
 
-        <div id="infoPopupOverlay" class="info-popup-overlay" style="display:none;" onclick="if(event.target===this) window.closeInfoPopup()">
+        <div id="infoPopupOverlay" class="info-popup-overlay" style="display:none;">
             <div class="info-popup">
                 <div class="info-popup-header">
                     <span id="infoPopupTitle"></span>
@@ -845,10 +845,10 @@
         const HOUSE_AXIS_NUMS = [1, 2, 3, 10, 5, 6];
 
         function buildAspectTableHTML(data) {
-            const planetBodies = data.planets.map(p => ({ name: p.name, symbol: p.symbol, longitude: p.longitude }));
+            const planetBodies = data.planets.map(p => ({ id: p.id, name: p.name, symbol: p.symbol, longitude: p.longitude }));
             const axisBodies = HOUSE_AXIS_NUMS.map(num => {
                 const h = data.houses.find(hh => hh.num === num);
-                return { name: `Дом ${num}`, symbol: String(num), longitude: h.longitude };
+                return { id: `house${num}`, name: `Дом ${num}`, symbol: String(num), longitude: h.longitude };
             });
             const allBodies = [...planetBodies, ...axisBodies];
             const { bodies, pairs } = computeAspectPairs(allBodies);
@@ -858,7 +858,8 @@
             const cell = (i, j, rowBody, colBody) => {
                 const asp = i < j ? pairMap[`${i},${j}`] : pairMap[`${j},${i}`];
                 if (!asp) return '<td></td>';
-                return `<td style="color:${asp.color}" title="${escapeHtml(rowBody.name)} ${asp.symbol} ${escapeHtml(colBody.name)} (${asp.name})">${asp.symbol}</td>`;
+                const paleStyle = asp.type === 'minor' ? 'opacity:0.45;' : '';
+                return `<td style="color:${asp.color}; ${paleStyle}" title="${escapeHtml(rowBody.name)} ${asp.symbol} ${escapeHtml(colBody.name)} (${asp.name})" onmouseenter="window.highlightWheelAspect('${rowBody.id}','${colBody.id}')" onmouseleave="window.unhighlightWheelAspect()">${asp.symbol}</td>`;
             };
 
             let html = '<table class="aspect-grid"><thead><tr><th></th>';
@@ -902,6 +903,32 @@
                 <table class="coords-table"><thead><tr><th>Дом</th><th>Положение</th><th>Знак</th></tr></thead><tbody>${houseRows}</tbody></table>
             </div>`;
         }
+
+        window.highlightWheelAspect = function(idA, idB) {
+            document.querySelectorAll('[data-a][data-b]').forEach(el => {
+                const a = el.getAttribute('data-a'), b = el.getAttribute('data-b');
+                if ((a === idA && b === idB) || (a === idB && b === idA)) {
+                    const line = el.tagName.toLowerCase() === 'path' ? el : el.querySelector('line, path');
+                    if (!line) return;
+                    el.classList.add('aspect-highlighted');
+                    line.dataset.origStrokeWidth = line.getAttribute('stroke-width') || '';
+                    line.dataset.origStrokeOpacity = line.getAttribute('stroke-opacity') || '';
+                    line.setAttribute('stroke-width', String((parseFloat(line.getAttribute('stroke-width')) || 1.5) * 2.5));
+                    line.setAttribute('stroke-opacity', '1');
+                }
+            });
+        };
+
+        window.unhighlightWheelAspect = function() {
+            document.querySelectorAll('.aspect-highlighted').forEach(el => {
+                el.classList.remove('aspect-highlighted');
+                const line = el.tagName.toLowerCase() === 'path' ? el : el.querySelector('line, path');
+                if (line && line.dataset.origStrokeWidth !== undefined) {
+                    line.setAttribute('stroke-width', line.dataset.origStrokeWidth);
+                    line.setAttribute('stroke-opacity', line.dataset.origStrokeOpacity);
+                }
+            });
+        };
 
         const INFO_POPUP_TITLES = { aspects: '⊞ Таблица аспектов', coords: '⊘ Координаты планет и домов' };
 
@@ -1127,11 +1154,11 @@
                         if (isConjunction) {
                             // Копия дуги добавляется поверх всех остальных элементов в конце,
                             // чтобы линия круга (рисуется позже) её не перекрывала и не "размазывала"
-                            conjunctionOverlay += `<path d="${conjArcPath}" fill="none" stroke="${aspect.color}" stroke-width="${strokeWidth}" stroke-linecap="round" pointer-events="none" />`;
+                            conjunctionOverlay += `<path data-a="${p1.id}" data-b="${p2.id}" d="${conjArcPath}" fill="none" stroke="${aspect.color}" stroke-width="${strokeWidth}" stroke-linecap="round" pointer-events="none" />`;
                         }
 
                         svgContent += `
-                            <g class="aspect-link" style="cursor:help;">
+                            <g class="aspect-link" data-a="${p1.id}" data-b="${p2.id}" style="cursor:help;">
                                 <title>${tooltipText}</title>
                                 ${linkShape}
                                 ${(isConjunction || isOpposition) ? '' : (isQuintile || isBiquintile)
