@@ -876,6 +876,11 @@
         // 10↔4, 5↔11, 6↔12) — как в эталонной таблице, без дублирования пар
         const HOUSE_AXIS_NUMS = [1, 2, 3, 5, 6, 10];
 
+        // Фиктивные точки — исключаются из видимых аспектов на колесе и из списка
+        // мажорных аспектов в таблице (но остаются в сетке таблицы и в скрытых
+        // наведениях на колесе)
+        const FICTITIOUS_POINTS = ['Chiron', 'Lilith', 'Mean_Node', 'South_Node'];
+
         // Тот же вручную нарисованный значок Плутона, что и на колесе (юникод-символ
         // ♇ ненадёжно поддерживается шрифтами) — переиспользуем в таблицах как
         // маленькую inline-SVG иконку вместо текстового символа
@@ -931,7 +936,8 @@
             // Список мажорных аспектов планета-аспект-планета — то же самое, что и
             // клетки сетки выше в разделе "планета×планета", просто в виде списка,
             // без домов/фиктивных точек и без минорных аспектов
-            const majorPairs = pairs.filter(p => p.j < planetBodies.length && p.aspect.type === 'major');
+            const majorPairs = pairs.filter(p => p.j < planetBodies.length && p.aspect.type === 'major'
+                && !FICTITIOUS_POINTS.includes(planetBodies[p.i].id) && !FICTITIOUS_POINTS.includes(planetBodies[p.j].id));
             if (majorPairs.length) {
                 const rows = majorPairs.map(({ i, j, aspect }) => {
                     const p1 = planetBodies[i], p2 = planetBodies[j];
@@ -1146,7 +1152,6 @@
             // (Хирон, Лилит, Северный/Южный Узел) в видимых аспектах не участвуют.
             // Орбис для каждой пары — по таблице (getPairOrb), одинаковый для всех
             // типов аспектов внутри пары.
-            const FICTITIOUS_POINTS = ['Chiron', 'Lilith', 'Mean_Node', 'South_Node'];
             const aspectPlanets = (data.planets || []).filter(p => !FICTITIOUS_POINTS.includes(p.id));
 
             const pairAspects = {};
