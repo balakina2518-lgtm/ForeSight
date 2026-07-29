@@ -902,18 +902,45 @@
             let conjunctionOverlay = '';
 
             // 1. АСПЕКТЫ — только к 10 настоящим планетам, фиктивные точки
-            // (Хирон, Лилит, Северный Узел) в аспектах не участвуют
+            // (Хирон, Лилит, Северный Узел) в аспектах не участвуют.
+            // Орбис зависит от того, входит ли аспект в конфигурацию: если у пары
+            // планет есть общая третья планета, связанная аспектом с обеими
+            // (треугольник) — допускаем широкий орбис 7°; одиночным мажорным
+            // аспектам без такой связи — только строгий орбис 5°.
             const FICTITIOUS_POINTS = ['Chiron', 'Lilith', 'Mean_Node'];
             const aspectPlanets = (data.planets || []).filter(p => !FICTITIOUS_POINTS.includes(p.id));
+
+            const pairAspects = {};
             if (aspectPlanets.length > 1) {
                 for (let i = 0; i < aspectPlanets.length; i++) {
                     for (let j = i + 1; j < aspectPlanets.length; j++) {
+                        const p1 = aspectPlanets[i], p2 = aspectPlanets[j];
+                        if (typeof p1.longitude !== 'number' || typeof p2.longitude !== 'number') continue;
+                        const asp = detectAspect(p1.longitude, p2.longitude);
+                        if (asp) pairAspects[`${i},${j}`] = asp;
+                    }
+                }
+            }
+            function findPairAspect(i, j) {
+                return i < j ? pairAspects[`${i},${j}`] : pairAspects[`${j},${i}`];
+            }
+            function isPartOfConfiguration(i, j) {
+                for (let k = 0; k < aspectPlanets.length; k++) {
+                    if (k === i || k === j) continue;
+                    if (findPairAspect(i, k) && findPairAspect(j, k)) return true;
+                }
+                return false;
+            }
+
+            if (aspectPlanets.length > 1) {
+                for (let i = 0; i < aspectPlanets.length; i++) {
+                    for (let j = i + 1; j < aspectPlanets.length; j++) {
+                        const aspect = pairAspects[`${i},${j}`];
+                        if (!aspect) continue;
+                        if (aspect.type === 'major' && aspect.delta > 5 && !isPartOfConfiguration(i, j)) continue;
+
                         const p1 = aspectPlanets[i];
                         const p2 = aspectPlanets[j];
-                        if (typeof p1.longitude !== 'number' || typeof p2.longitude !== 'number') continue;
-
-                        const aspect = detectAspect(p1.longitude, p2.longitude);
-                        if (!aspect) continue;
 
                         // Координаты на внутреннем круге (до точки планеты)
                         const a1x = center + innerRadius * dCos(getScreenAngle(p1.longitude));
@@ -965,7 +992,7 @@
                                 ${(isConjunction || isOpposition) ? '' : (isQuintile || isBiquintile)
                                     ? `<circle cx="${midX}" cy="${midY}" r="7" fill="var(--canvas-bg)" />
                                 <g transform="translate(${midX} ${midY})">${fivePointBurst(aspect.color, 1, isBiquintile)}</g>`
-                                    : `<circle cx="${midX}" cy="${midY}" r="9" fill="var(--canvas-bg)" />
+                                    : `<circle cx="${midX}" cy="${midY}" r="7" fill="var(--canvas-bg)" />
                                 <text x="${midX}" y="${midY}" fill="${aspect.color}" font-size="13" font-weight="bold" text-anchor="middle" dominant-baseline="central">${aspect.symbol}</text>`}
                             </g>
                         `;
