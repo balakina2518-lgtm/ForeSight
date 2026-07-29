@@ -848,7 +848,7 @@
 
         // Оси домов: по одной точке на пару противоположных домов (1↔7, 2↔8, 3↔9,
         // 10↔4, 5↔11, 6↔12) — как в эталонной таблице, без дублирования пар
-        const HOUSE_AXIS_NUMS = [1, 2, 3, 10, 5, 6];
+        const HOUSE_AXIS_NUMS = [1, 2, 3, 5, 6, 10];
 
         function buildAspectTableHTML(data) {
             const planetBodies = data.planets.map(p => ({ id: p.id, name: p.name, symbol: p.symbol, longitude: p.longitude }));
@@ -872,10 +872,14 @@
             planetBodies.forEach(b => { html += `<th>${b.symbol}</th>`; });
             html += '</tr></thead><tbody>';
 
+            // Планета×планета — без зеркалирования, каждый аспект только один раз
+            // (выше диагонали); ниже диагонали клетки пустые
             planetBodies.forEach((rowBody, i) => {
                 html += `<tr><th>${rowBody.symbol}</th>`;
                 planetBodies.forEach((colBody, j) => {
-                    html += i === j ? '<td class="aspect-grid-diag"></td>' : cell(i, j, rowBody, colBody);
+                    if (i === j) { html += '<td class="aspect-grid-diag"></td>'; }
+                    else if (j < i) { html += '<td></td>'; }
+                    else { html += cell(i, j, rowBody, colBody); }
                 });
                 html += '</tr>';
             });

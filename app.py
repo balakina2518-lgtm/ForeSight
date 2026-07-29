@@ -29,10 +29,10 @@ tf = TimezoneFinder()
 
 # Карта символов для планет
 PLANET_SYMBOLS = {
-    "Sun": "☉", "Moon": "☽", "Mercury": "☿", "Venus": "♀", 
-    "Mars": "♂", "Jupiter": "♃", "Saturn": "♄", "Uranus": "♅", 
+    "Sun": "☉", "Moon": "☽", "Mercury": "☿", "Venus": "♀",
+    "Mars": "♂", "Jupiter": "♃", "Saturn": "♄", "Uranus": "♅",
     "Neptune": "♆", "Pluto": "♇", "Chiron": "⚷", "Lilith": "⚸",
-    "Mean_Node": "☊"
+    "Mean_Node": "☊", "South_Node": "☋"
 }
 
 # Словарь для перевода названий на русский язык
@@ -40,7 +40,7 @@ PLANET_NAMES_RU = {
     "Sun": "Солнце", "Moon": "Луна", "Mercury": "Меркурий", "Venus": "Венера",
     "Mars": "Марс", "Jupiter": "Юпитер", "Saturn": "Сатурн", "Uranus": "Уран",
     "Neptune": "Нептун", "Pluto": "Плутон", "Chiron": "Хирон", "Lilith": "Лилит",
-    "Mean_Node": "Северный Узел"
+    "Mean_Node": "Северный Узел", "South_Node": "Южный Узел"
 }
 
 # Профессиональная база бизнес-трактовок
@@ -57,7 +57,8 @@ INTERPRETATIONS = {
     "Pluto": "Плутон представляет управление крупными объемами энергии и капитала, трансформации, бизнес-власть и инвестиционные риски.",
     "Chiron": "Хирон указывает на способность находить нестандартные дипломатические решения и совмещать противоположности в делах.",
     "Lilith": "Лилит (Черная Луна) показывает зоны возможных финансовых иллюзий, скрытых психологических триггеров и точек соблазна.",
-    "Mean_Node": "Северный Узел указывает на вектор вашего стратегического развития, эволюционную задачу и новые горизонты в карьере."
+    "Mean_Node": "Северный Узел указывает на вектор вашего стратегического развития, эволюционную задачу и новые горизонты в карьере.",
+    "South_Node": "Южный Узел показывает накопленный опыт и зону комфорта — то, от чего важно оттолкнуться на пути к задачам Северного Узла."
 }
 
 @app.route('/api/timezone', methods=['GET'])
@@ -123,7 +124,7 @@ def calculate():
             "sun": "Sun", "moon": "Moon", "mercury": "Mercury", "venus": "Venus",
             "mars": "Mars", "jupiter": "Jupiter", "saturn": "Saturn", "uranus": "Uranus",
             "neptune": "Neptune", "pluto": "Pluto", "chiron": "Chiron", "mean_lilith": "Lilith",
-            "true_north_lunar_node": "Mean_Node"
+            "true_north_lunar_node": "Mean_Node", "true_south_lunar_node": "South_Node"
         }
 
         for attr_name, obj_name in PLANET_MAPPING.items():
