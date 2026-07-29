@@ -39,11 +39,16 @@
 
         .form-modal-overlay {
             position: fixed; inset: 0; background: rgba(62, 50, 41, 0.35);
-            z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px;
+            z-index: 200; display: flex; align-items: flex-end; justify-content: flex-start; padding: 24px;
         }
         .form-modal-inner {
             background: var(--bg-sidebar); border-radius: 12px; width: 100%; max-width: 640px;
-            max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.25); box-sizing: border-box;
+            max-height: 90vh; box-shadow: 0 20px 60px rgba(0,0,0,0.25); box-sizing: border-box;
+            display: flex; flex-direction: column;
+        }
+        .form-modal-inner .sidebar { flex: 1; min-height: 0; overflow-y: auto; }
+        .form-modal-footer {
+            display: flex; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--border-color); flex-shrink: 0;
         }
 
         #chartViewContainer { position: relative; height: 100vh; }
@@ -275,10 +280,6 @@
                 <div class="nav-strip">
                     <div class="nav-avatar">🜂</div>
                     <input type="text" id="name" class="nav-name-input" placeholder="Введите название">
-                    <div class="nav-actions">
-                        <button type="button" class="btn-cancel" onclick="window.cancelFormModal()">Отменить</button>
-                        <button type="submit" form="astroForm" class="btn-save">Сохранить</button>
-                    </div>
                 </div>
 
                 <div class="form-panel">
@@ -341,6 +342,10 @@
                     </form>
                 </div>
             </aside>
+            <div class="form-modal-footer">
+                <button type="button" class="btn-cancel" onclick="window.cancelFormModal()">Отменить</button>
+                <button type="submit" form="astroForm" class="btn-save">Сохранить</button>
+            </div>
             </div>
         </div>
     </div>
