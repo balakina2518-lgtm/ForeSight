@@ -867,7 +867,7 @@
             const baseRadius = radius - 75;
             let planets = JSON.parse(JSON.stringify(data.planets || []));
             planets.sort((a, b) => b.longitude - a.longitude);
-            const angleStep = 6.5; // градусов смещения символа на каждую коллизию
+            const angleStep = 10; // градусов смещения символа на каждую коллизию
 
             // Группируем подряд идущие (по долготе) близкие планеты в кластеры-стеллиумы
             planets.forEach(p => { p.trueAngle = getScreenAngle(p.longitude); });
@@ -963,7 +963,7 @@
                                 <title>${tooltipText}</title>
                                 ${linkShape}
                                 ${(isConjunction || isOpposition) ? '' : (isQuintile || isBiquintile)
-                                    ? `<circle cx="${midX}" cy="${midY}" r="9" fill="var(--canvas-bg)" />
+                                    ? `<circle cx="${midX}" cy="${midY}" r="7" fill="var(--canvas-bg)" />
                                 <g transform="translate(${midX} ${midY})">${fivePointBurst(aspect.color, 1, isBiquintile)}</g>`
                                     : `<circle cx="${midX}" cy="${midY}" r="9" fill="var(--canvas-bg)" />
                                 <text x="${midX}" y="${midY}" fill="${aspect.color}" font-size="13" font-weight="bold" text-anchor="middle" dominant-baseline="central">${aspect.symbol}</text>`}
@@ -1146,7 +1146,7 @@
                         // У Марса и Венеры глиф в системных шрифтах визуально тоньше остальных
                         // планет даже при том же font-weight — усиливаем обводкой того же цвета
                         const needsBoldStroke = body.id === 'Mars' || body.id === 'Venus';
-                        const strokeAttr = needsBoldStroke ? ` stroke="var(--planet-color)" stroke-width="0.7"` : '';
+                        const strokeAttr = needsBoldStroke ? ` stroke="var(--planet-color)" stroke-width="1.3"` : '';
                         const hoverIn = needsBoldStroke
                             ? `this.setAttribute('fill', '#c9a054'); this.setAttribute('stroke', '#c9a054')`
                             : `this.setAttribute('fill', '#c9a054')`;
