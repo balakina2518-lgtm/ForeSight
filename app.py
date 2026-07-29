@@ -189,23 +189,46 @@ def list_charts():
 @app.route('/api/charts', methods=['POST'])
 def save_chart():
     data = request.json
+    name = (data.get('name') or '').strip()
     try:
         conn = get_db_connection()
         try:
             with conn.cursor() as cur:
-                cur.execute(
-                    "INSERT INTO charts (name, birth_date, birth_time, lat, lon, "
-                    "place_name, timezone_offset, gender, chart_type, comment) "
-                    "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-                    (
-                        data.get('name', ''), data['date'], data['time'],
-                        float(data['lat']), float(data['lon']),
-                        data.get('place_name', ''), float(data['timezone']),
-                        data.get('gender', ''), data.get('chart_type', 'natal'),
-                        data.get('comment', '')
+                # Карта с таким же названием уже есть — обновляем её вместо дубля.
+                # Безымянные карты (пустое название) не дедуплицируются между собой.
+                existing_id = None
+                if name:
+                    cur.execute("SELECT id FROM charts WHERE name=%s LIMIT 1", (name,))
+                    existing = cur.fetchone()
+                    if existing:
+                        existing_id = existing['id']
+
+                if existing_id:
+                    cur.execute(
+                        "UPDATE charts SET birth_date=%s, birth_time=%s, lat=%s, lon=%s, "
+                        "place_name=%s, timezone_offset=%s, gender=%s, chart_type=%s WHERE id=%s",
+                        (
+                            data['date'], data['time'], float(data['lat']), float(data['lon']),
+                            data.get('place_name', ''), float(data['timezone']),
+                            data.get('gender', ''), data.get('chart_type', 'natal'),
+                            existing_id
+                        )
                     )
-                )
-                new_id = cur.lastrowid
+                    new_id = existing_id
+                else:
+                    cur.execute(
+                        "INSERT INTO charts (name, birth_date, birth_time, lat, lon, "
+                        "place_name, timezone_offset, gender, chart_type, comment) "
+                        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                        (
+                            name, data['date'], data['time'],
+                            float(data['lat']), float(data['lon']),
+                            data.get('place_name', ''), float(data['timezone']),
+                            data.get('gender', ''), data.get('chart_type', 'natal'),
+                            data.get('comment', '')
+                        )
+                    )
+                    new_id = cur.lastrowid
             conn.commit()
         finally:
             conn.close()
