@@ -204,7 +204,7 @@
         
         .main-content {
             height: 100%; width: 100%; box-sizing: border-box; display: flex; flex-direction: column; align-items: center;
-            justify-content: center; padding: 30px; background: #ffffff; overflow: hidden;
+            justify-content: center; padding: 90px 30px 30px; background: #ffffff; overflow: hidden;
         }
         
         .canvas-container {
@@ -399,11 +399,11 @@
         ];
         // Массив аспектов: мажорные и минорные с правильными символами
         const ASPECTS = [
-            { name: 'Соединение', angle: 0, orbis: 8, color: '#1a56db', symbol: '☌', type: 'major' },
-            { name: 'Секстиль', angle: 60, orbis: 5.5, color: '#e74c3c', symbol: '⚹', type: 'major' },
-            { name: 'Квадратура', angle: 90, orbis: 6, color: 'var(--neutral-line)', symbol: '□', type: 'major' },
-            { name: 'Трин', angle: 120, orbis: 7, color: '#e74c3c', symbol: '△', type: 'major' },
-            { name: 'Оппозиция', angle: 180, orbis: 7, color: 'var(--neutral-line)', symbol: '☍', type: 'major' },
+            { name: 'Соединение', angle: 0, orbis: 5, color: '#1a56db', symbol: '☌', type: 'major' },
+            { name: 'Секстиль', angle: 60, orbis: 5, color: '#e74c3c', symbol: '⚹', type: 'major' },
+            { name: 'Квадратура', angle: 90, orbis: 5, color: 'var(--neutral-line)', symbol: '□', type: 'major' },
+            { name: 'Трин', angle: 120, orbis: 5, color: '#e74c3c', symbol: '△', type: 'major' },
+            { name: 'Оппозиция', angle: 180, orbis: 5, color: 'var(--neutral-line)', symbol: '☍', type: 'major' },
             { name: 'Полусекстиль', angle: 30, orbis: 1.5, color: '#95a5a6', symbol: '⚺', type: 'minor' },
             { name: 'Квиконс', angle: 150, orbis: 1.5, color: '#95a5a6', symbol: '⚻', type: 'minor' },
             { name: 'Полуквадрат', angle: 45, orbis: 2, color: '#95a5a6', symbol: '∠', type: 'minor' },
@@ -901,12 +901,15 @@
             // иначе их перекрывает линия внутреннего круга и другие элементы, рисуемые позже
             let conjunctionOverlay = '';
 
-            // 1. АСПЕКТЫ
-            if (data.planets && data.planets.length > 1) {
-                for (let i = 0; i < data.planets.length; i++) {
-                    for (let j = i + 1; j < data.planets.length; j++) {
-                        const p1 = data.planets[i];
-                        const p2 = data.planets[j];
+            // 1. АСПЕКТЫ — только к 10 настоящим планетам, фиктивные точки
+            // (Хирон, Лилит, Северный Узел) в аспектах не участвуют
+            const FICTITIOUS_POINTS = ['Chiron', 'Lilith', 'Mean_Node'];
+            const aspectPlanets = (data.planets || []).filter(p => !FICTITIOUS_POINTS.includes(p.id));
+            if (aspectPlanets.length > 1) {
+                for (let i = 0; i < aspectPlanets.length; i++) {
+                    for (let j = i + 1; j < aspectPlanets.length; j++) {
+                        const p1 = aspectPlanets[i];
+                        const p2 = aspectPlanets[j];
                         if (typeof p1.longitude !== 'number' || typeof p2.longitude !== 'number') continue;
 
                         const aspect = detectAspect(p1.longitude, p2.longitude);
