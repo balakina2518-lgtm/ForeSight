@@ -129,8 +129,8 @@
         .charts-home {
             width: 100%; max-width: 1100px; margin: 0 auto; padding: 40px 30px; box-sizing: border-box;
         }
-        .brand-hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; margin-bottom: 44px; }
-        .brand-emblem { display: block; }
+        .brand-hero { display: flex; flex-direction: row; align-items: center; text-align: left; gap: 10px; margin-bottom: 24px; }
+        .brand-emblem { display: block; flex-shrink: 0; }
         .brand-hero-title { margin: 0; font-size: 2rem; color: var(--accent); font-weight: 600; letter-spacing: 2px; }
         .charts-home-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
         .charts-home-header h1 { margin: 0; font-size: 1.6rem; color: var(--accent); font-weight: 500; letter-spacing: 1px; }
@@ -243,11 +243,10 @@
     <div id="root">
         <div id="chartsHomeView" class="charts-home">
             <div class="brand-hero">
-                <svg width="64" height="82" viewBox="0 0 70 90" class="brand-emblem">
-                    <path d="M35 3 C32.5 22 32.5 32 35 45 C37.5 32 37.5 22 35 3 Z" fill="var(--accent)"/>
-                    <path d="M35 45 C32.5 58 32.5 68 35 87 C37.5 68 37.5 58 35 45 Z" fill="var(--accent)"/>
-                    <ellipse cx="35" cy="45" rx="30" ry="10" fill="none" stroke="var(--accent)" stroke-width="1.4" transform="rotate(-15 35 45)"/>
-                    <circle cx="59" cy="37" r="3" fill="var(--accent)"/>
+                <svg width="22" height="28" viewBox="0 0 100 100" class="brand-emblem">
+                    <path d="M50,15 C46,32 46,42 46,50 C46,58 46,68 50,85 C54,68 54,58 54,50 C54,42 54,32 50,15 Z" fill="var(--accent)"/>
+                    <ellipse cx="48" cy="48" rx="32" ry="9" fill="none" stroke="var(--accent)" stroke-width="2.6" transform="rotate(-14 48 48)"/>
+                    <circle cx="76" cy="40" r="3.4" fill="var(--accent)"/>
                 </svg>
                 <h1 class="brand-hero-title">Астропроцессор Форсайт</h1>
             </div>
