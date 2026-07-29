@@ -32,14 +32,41 @@
             transition: background-color 0.3s, color 0.3s;
         }
         
-        .app-container { display: flex; height: 100vh; }
-        
         .sidebar {
-            width: 460px; background-color: var(--bg-sidebar);
-            border-right: 1px solid var(--border-color); display: flex; flex-direction: row;
-            box-shadow: 2px 0 15px rgba(0,0,0,0.03);
-            z-index: 10; overflow-y: auto; box-sizing: border-box;
+            width: 100%; background-color: var(--bg-sidebar);
+            display: flex; flex-direction: row; overflow-y: auto; box-sizing: border-box;
         }
+
+        .form-modal-overlay {
+            position: fixed; inset: 0; background: rgba(62, 50, 41, 0.35);
+            z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px;
+        }
+        .form-modal-inner {
+            background: var(--bg-sidebar); border-radius: 12px; width: 100%; max-width: 640px;
+            max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.25); box-sizing: border-box;
+        }
+
+        #chartViewContainer { position: relative; height: 100vh; }
+        .btn-back-floating {
+            position: absolute; top: 20px; left: 20px; z-index: 10;
+            background: var(--bg-sidebar); border: 1px solid var(--border-color); border-radius: 20px;
+            padding: 8px 16px; font-size: 0.85rem; color: var(--text-muted); cursor: pointer;
+        }
+        .btn-back-floating:hover { color: var(--accent); border-color: var(--accent); }
+
+        .bottom-toolbar {
+            position: absolute; bottom: 26px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 8px; background: var(--bg-sidebar); border: 1px solid var(--border-color);
+            border-radius: 30px; padding: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.12); z-index: 10;
+        }
+        .toolbar-btn {
+            min-width: 38px; height: 38px; border-radius: 19px; border: 1px solid var(--border-color);
+            background: var(--bg-app); display: flex; align-items: center; justify-content: center; gap: 3px;
+            cursor: pointer; font-size: 1rem; color: var(--text-main); padding: 0 10px; box-sizing: border-box;
+        }
+        .toolbar-btn:hover { border-color: var(--accent); }
+        .toolbar-btn-edit { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .bottom-toolbar .chart-type-nav { top: auto; bottom: calc(100% + 8px); min-width: 190px; }
 
         /* Левая узкая колонка: имя карты + переключатель разделов */
         .nav-strip {
@@ -58,14 +85,7 @@
             margin-bottom: 20px; box-sizing: border-box;
         }
         .nav-name-input:focus { outline: none; border-color: var(--accent); }
-        .chart-type-dropdown { position: relative; flex: 1; }
-        .chart-type-toggle {
-            display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 10px;
-            background: var(--bg-app); border: 1px solid var(--border-color); border-radius: 6px;
-            font-size: 0.92rem; color: var(--accent); font-weight: 600; cursor: pointer; box-sizing: border-box;
-        }
-        .chart-type-toggle:hover { border-color: var(--accent); }
-        .chart-type-toggle .dropdown-arrow { margin-left: auto; font-size: 0.75rem; color: var(--text-muted); }
+        .chart-type-dropdown { position: relative; }
         .chart-type-nav {
             position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 20;
             display: flex; flex-direction: column; gap: 2px; padding: 6px;
@@ -173,7 +193,7 @@
         .suggestions-list li:hover { background-color: var(--bg-app); color: var(--accent); }
         
         .main-content {
-            flex: 1; display: flex; flex-direction: column; align-items: center;
+            height: 100%; width: 100%; box-sizing: border-box; display: flex; flex-direction: column; align-items: center;
             justify-content: center; padding: 30px; background: #ffffff; overflow: hidden;
         }
         
@@ -197,10 +217,10 @@
         .aspect-link:hover text { font-size: 18px; transition: 0.2s; }
 
         @media (max-width: 768px) {
-            .app-container { flex-direction: column; height: auto; overflow-y: auto; }
-            .sidebar { width: 100%; height: auto; flex-direction: column; border-right: none; border-bottom: 1px solid var(--border-color); }
+            .sidebar { flex-direction: column; }
             .nav-strip { width: 100%; border-right: none; border-bottom: 1px solid var(--border-color); }
-            .main-content { padding: 15px; height: auto; overflow: visible; }
+            .form-modal-inner { max-height: 95vh; }
+            .main-content { padding: 15px; height: 100%; overflow: visible; }
             .canvas-container { max-width: 95vw; max-height: 95vw; }
         }
     </style>
@@ -220,26 +240,43 @@
             </table>
         </div>
 
-        <div class="app-container" id="appContainer" style="display:none;">
+        <div id="chartViewContainer" style="display:none;">
+            <button type="button" class="btn-back-floating" onclick="window.showChartsHome()">← Карты</button>
+            <main class="main-content">
+                <div class="canvas-container" id="canvasContainer">
+                    <div style="color: var(--text-muted); text-align: center;" id="placeholderText">
+                        <span style="font-size: 3.5rem; display:block; margin-bottom:10px;">⚜️</span>
+                        Астропроцессор «Форсайт»<br>
+                        <span style="font-size:0.95rem; opacity: 0.6;">Профессиональная визуализация</span>
+                    </div>
+                </div>
+                <div class="info-panel" id="infoPanel">Заполните данные для старта вычислений</div>
+            </main>
+            <div class="bottom-toolbar">
+                <div class="chart-type-dropdown">
+                    <button type="button" class="toolbar-btn" onclick="window.toggleChartTypeMenu()">▾</button>
+                    <nav class="chart-type-nav" id="chartTypeMenu" style="display:none;">
+                        <button type="button" class="nav-item active" onclick="window.toggleChartTypeMenu()"><span class="nav-icon">◎</span>Натал</button>
+                        <button type="button" class="nav-item disabled" disabled title="Скоро"><span class="nav-icon">◐</span>Синастрия<span class="nav-badge">+</span></button>
+                        <button type="button" class="nav-item disabled" disabled title="Скоро"><span class="nav-icon">◈</span>Прогностика<span class="nav-badge">+</span></button>
+                        <button type="button" class="nav-item disabled" disabled title="Скоро"><span class="nav-icon">◇</span>Релокация<span class="nav-badge">+</span></button>
+                        <button type="button" class="nav-item disabled" disabled title="Скоро"><span class="nav-icon">◔</span>Хорар<span class="nav-badge">+</span></button>
+                    </nav>
+                </div>
+                <button type="button" class="toolbar-btn toolbar-btn-edit" onclick="window.openFormModal()" title="Редактировать данные">
+                    <span class="nav-icon">◎</span>✏️
+                </button>
+            </div>
+        </div>
+
+        <div id="formModal" class="form-modal-overlay" style="display:none;">
+            <div class="form-modal-inner">
             <aside class="sidebar">
                 <div class="nav-strip">
-                    <button type="button" class="btn-back-to-list" onclick="window.showChartsHome()">← Карты</button>
                     <div class="nav-avatar">🜂</div>
                     <input type="text" id="name" class="nav-name-input" placeholder="Введите название">
-                    <div class="chart-type-dropdown">
-                        <button type="button" class="chart-type-toggle" onclick="window.toggleChartTypeMenu()">
-                            <span class="nav-icon">◎</span> Натал <span class="dropdown-arrow">▾</span>
-                        </button>
-                        <nav class="chart-type-nav" id="chartTypeMenu" style="display:none;">
-                            <button type="button" class="nav-item active" onclick="window.toggleChartTypeMenu()"><span class="nav-icon">◎</span>Натал</button>
-                            <button type="button" class="nav-item disabled" disabled title="Скоро"><span class="nav-icon">◐</span>Синастрия<span class="nav-badge">+</span></button>
-                            <button type="button" class="nav-item disabled" disabled title="Скоро"><span class="nav-icon">◈</span>Прогностика<span class="nav-badge">+</span></button>
-                            <button type="button" class="nav-item disabled" disabled title="Скоро"><span class="nav-icon">◇</span>Релокация<span class="nav-badge">+</span></button>
-                            <button type="button" class="nav-item disabled" disabled title="Скоро"><span class="nav-icon">◔</span>Хорар<span class="nav-badge">+</span></button>
-                        </nav>
-                    </div>
                     <div class="nav-actions">
-                        <button type="button" class="btn-cancel" onclick="window.resetForm(); window.showChartsHome();">Отменить</button>
+                        <button type="button" class="btn-cancel" onclick="window.cancelFormModal()">Отменить</button>
                         <button type="submit" form="astroForm" class="btn-save">Сохранить</button>
                     </div>
                 </div>
@@ -304,17 +341,7 @@
                     </form>
                 </div>
             </aside>
-
-            <main class="main-content">
-                <div class="canvas-container" id="canvasContainer">
-                    <div style="color: var(--text-muted); text-align: center;" id="placeholderText">
-                        <span style="font-size: 3.5rem; display:block; margin-bottom:10px;">⚜️</span>
-                        Астропроцессор «Форсайт»<br>
-                        <span style="font-size:0.95rem; opacity: 0.6;">Профессиональная визуализация</span>
-                    </div>
-                </div>
-                <div class="info-panel" id="infoPanel">Заполните данные для старта вычислений</div>
-            </main>
+            </div>
         </div>
     </div>
 
@@ -455,21 +482,35 @@
 
         let chartsCache = [];
 
-        // Переключение между домашним экраном (список карт) и формой построения карты
+        // Переключение между домашним экраном (список карт), видом колеса и всплывающей формой
         window.showChartsHome = function() {
-            document.getElementById('appContainer').style.display = 'none';
+            document.getElementById('formModal').style.display = 'none';
+            document.getElementById('chartViewContainer').style.display = 'none';
             document.getElementById('chartsHomeView').style.display = 'block';
             window.refreshChartsList();
         };
 
-        window.showFormView = function() {
+        window.showChartView = function() {
             document.getElementById('chartsHomeView').style.display = 'none';
-            document.getElementById('appContainer').style.display = 'flex';
+            document.getElementById('chartViewContainer').style.display = 'block';
         };
 
+        window.openFormModal = function() {
+            document.getElementById('formModal').style.display = 'flex';
+        };
+
+        window.cancelFormModal = function() {
+            document.getElementById('formModal').style.display = 'none';
+            if (!window.lastChartData) {
+                window.showChartsHome();
+            }
+        };
+
+        // "+ Добавить карту" — чистая форма, сразу открытая (карты ещё нет, показывать нечего)
         window.showChartForm = function() {
             window.resetForm();
-            window.showFormView();
+            window.showChartView();
+            window.openFormModal();
         };
 
         const CHART_TYPE_ICONS = {
@@ -526,7 +567,7 @@
 
         window.loadChart = function(index) {
             const c = chartsCache[index];
-            window.showFormView();
+            window.showChartView();
             document.getElementById('name').value = c.name;
             document.getElementById('date').value = c.birth_date;
             document.getElementById('time').value = c.birth_time.slice(0, 5);
@@ -718,6 +759,7 @@
                 if (data.status === "success") {
                     window.lastChartData = data;
                     window.drawZodiacChart(data);
+                    document.getElementById('formModal').style.display = 'none';
                     document.getElementById('infoPanel').innerHTML = "Карта успешно построена.<br><span style='color:var(--accent); font-size:0.9rem;'>Кликая на планеты, можно изучать их бизнес-трактовку.</span>";
 
                     // Сохраняем карту в библиотеку — тихо, ошибка сохранения не должна мешать
