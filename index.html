@@ -917,14 +917,8 @@
             document.querySelectorAll('[data-a][data-b]').forEach(el => {
                 const a = el.getAttribute('data-a'), b = el.getAttribute('data-b');
                 if ((a === idA && b === idB) || (a === idB && b === idA)) {
-                    const line = el.tagName.toLowerCase() === 'path' ? el : el.querySelector('line, path');
-                    if (!line) return;
                     found = true;
                     el.classList.add('aspect-highlighted');
-                    line.dataset.origStrokeWidth = line.getAttribute('stroke-width') || '';
-                    line.dataset.origStrokeOpacity = line.getAttribute('stroke-opacity') || '';
-                    line.setAttribute('stroke-width', String((parseFloat(line.getAttribute('stroke-width')) || 1.5) * 2.5));
-                    line.setAttribute('stroke-opacity', '1');
                 }
             });
             if (!found) return; // на колесе такого аспекта нет (фиктивная точка/ось дома) — гасить нечего
@@ -936,14 +930,7 @@
         };
 
         window.unhighlightWheelAspect = function() {
-            document.querySelectorAll('.aspect-highlighted').forEach(el => {
-                el.classList.remove('aspect-highlighted');
-                const line = el.tagName.toLowerCase() === 'path' ? el : el.querySelector('line, path');
-                if (line && line.dataset.origStrokeWidth !== undefined) {
-                    line.setAttribute('stroke-width', line.dataset.origStrokeWidth);
-                    line.setAttribute('stroke-opacity', line.dataset.origStrokeOpacity);
-                }
-            });
+            document.querySelectorAll('.aspect-highlighted').forEach(el => el.classList.remove('aspect-highlighted'));
             document.querySelectorAll('.planet-focus').forEach(pb => pb.classList.remove('planet-focus'));
             const svg = document.querySelector('#canvasContainer svg');
             if (svg) svg.classList.remove('wheel-focus-mode');
