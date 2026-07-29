@@ -58,7 +58,20 @@
             margin-bottom: 20px; box-sizing: border-box;
         }
         .nav-name-input:focus { outline: none; border-color: var(--accent); }
-        .chart-type-nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+        .chart-type-dropdown { position: relative; flex: 1; }
+        .chart-type-toggle {
+            display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 10px;
+            background: var(--bg-app); border: 1px solid var(--border-color); border-radius: 6px;
+            font-size: 0.92rem; color: var(--accent); font-weight: 600; cursor: pointer; box-sizing: border-box;
+        }
+        .chart-type-toggle:hover { border-color: var(--accent); }
+        .chart-type-toggle .dropdown-arrow { margin-left: auto; font-size: 0.75rem; color: var(--text-muted); }
+        .chart-type-nav {
+            position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 20;
+            display: flex; flex-direction: column; gap: 2px; padding: 6px;
+            background: var(--bg-sidebar); border: 1px solid var(--border-color); border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        }
         .nav-item {
             display: flex; align-items: center; gap: 9px; padding: 9px 8px; border-radius: 6px;
             font-size: 0.92rem; color: var(--text-main); background: none; border: none;
@@ -213,13 +226,18 @@
                     <button type="button" class="btn-back-to-list" onclick="window.showChartsHome()">← Карты</button>
                     <div class="nav-avatar">🜂</div>
                     <input type="text" id="name" class="nav-name-input" placeholder="Введите название">
-                    <nav class="chart-type-nav">
-                        <button type="button" class="nav-item active"><span class="nav-icon">◎</span>Натал</button>
-                        <button type="button" class="nav-item disabled" disabled title="Скоро"><span class="nav-icon">◐</span>Синастрия<span class="nav-badge">+</span></button>
-                        <button type="button" class="nav-item disabled" disabled title="Скоро"><span class="nav-icon">◈</span>Прогностика<span class="nav-badge">+</span></button>
-                        <button type="button" class="nav-item disabled" disabled title="Скоро"><span class="nav-icon">◇</span>Релокация<span class="nav-badge">+</span></button>
-                        <button type="button" class="nav-item disabled" disabled title="Скоро"><span class="nav-icon">◔</span>Хорар<span class="nav-badge">+</span></button>
-                    </nav>
+                    <div class="chart-type-dropdown">
+                        <button type="button" class="chart-type-toggle" onclick="window.toggleChartTypeMenu()">
+                            <span class="nav-icon">◎</span> Натал <span class="dropdown-arrow">▾</span>
+                        </button>
+                        <nav class="chart-type-nav" id="chartTypeMenu" style="display:none;">
+                            <button type="button" class="nav-item active" onclick="window.toggleChartTypeMenu()"><span class="nav-icon">◎</span>Натал</button>
+                            <button type="button" class="nav-item disabled" disabled title="Скоро"><span class="nav-icon">◐</span>Синастрия<span class="nav-badge">+</span></button>
+                            <button type="button" class="nav-item disabled" disabled title="Скоро"><span class="nav-icon">◈</span>Прогностика<span class="nav-badge">+</span></button>
+                            <button type="button" class="nav-item disabled" disabled title="Скоро"><span class="nav-icon">◇</span>Релокация<span class="nav-badge">+</span></button>
+                            <button type="button" class="nav-item disabled" disabled title="Скоро"><span class="nav-icon">◔</span>Хорар<span class="nav-badge">+</span></button>
+                        </nav>
+                    </div>
                     <div class="nav-actions">
                         <button type="button" class="btn-cancel" onclick="window.resetForm(); window.showChartsHome();">Отменить</button>
                         <button type="submit" form="astroForm" class="btn-save">Сохранить</button>
@@ -587,7 +605,18 @@
             if (e.target !== cityInput && !suggestionsEl.contains(e.target)) {
                 suggestionsEl.style.display = 'none';
             }
+
+            const menuEl = document.getElementById('chartTypeMenu');
+            const dropdownEl = document.querySelector('.chart-type-dropdown');
+            if (menuEl && dropdownEl && !dropdownEl.contains(e.target)) {
+                menuEl.style.display = 'none';
+            }
         });
+
+        window.toggleChartTypeMenu = function() {
+            const menuEl = document.getElementById('chartTypeMenu');
+            menuEl.style.display = menuEl.style.display === 'none' ? 'flex' : 'none';
+        };
 
         function rad(deg) { return deg * Math.PI / 180; }
         function dCos(deg) { return Math.cos(rad(deg)); }
