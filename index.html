@@ -69,6 +69,7 @@
             display: flex; gap: 8px; background: var(--bg-sidebar); border: 1px solid var(--border-color);
             border-radius: 30px; padding: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.12); z-index: 10;
         }
+        .bottom-toolbar-right { left: auto; right: 26px; }
         .toolbar-btn {
             min-width: 38px; height: 38px; border-radius: 19px; border: 1px solid var(--border-color);
             background: var(--bg-app); display: flex; align-items: center; justify-content: center; gap: 3px;
@@ -318,6 +319,8 @@
                 <button type="button" class="toolbar-btn toolbar-btn-edit" onclick="window.openFormModal()" title="Редактировать данные">
                     <span class="nav-icon">◎</span>✏️
                 </button>
+            </div>
+            <div class="bottom-toolbar bottom-toolbar-right">
                 <button type="button" class="toolbar-btn" onclick="window.openInfoPopup('aspects')" title="Таблица аспектов">⊞</button>
                 <button type="button" class="toolbar-btn" onclick="window.openInfoPopup('coords')" title="Координаты планет и домов">⊘</button>
             </div>
@@ -806,9 +809,10 @@
         }
 
         // Та же логика "конфигурация → орбис 7°, одиночный мажорный аспект → орбис 5°",
-        // что и в отрисовке колеса, вынесена сюда, чтобы таблица аспектов её тоже использовала
-        function computeAspectPairs(planets) {
-            const bodies = (planets || []).filter(p => !['Chiron', 'Lilith', 'Mean_Node'].includes(p.id));
+        // что и в отрисовке колеса. В таблице (в отличие от колеса) фиктивные точки
+        // (Хирон/Лилит/Узел) и оси домов ПОЛНОПРАВНО участвуют — сюда просто передаётся
+        // готовый список тел, без фильтрации на колёсной стороне
+        function computeAspectPairs(bodies) {
             const pairAspects = {};
             for (let i = 0; i < bodies.length; i++) {
                 for (let j = i + 1; j < bodies.length; j++) {
@@ -836,26 +840,46 @@
             return { bodies, pairs };
         }
 
+        // Оси домов: по одной точке на пару противоположных домов (1↔7, 2↔8, 3↔9,
+        // 10↔4, 5↔11, 6↔12) — как в эталонной таблице, без дублирования пар
+        const HOUSE_AXIS_NUMS = [1, 2, 3, 10, 5, 6];
+
         function buildAspectTableHTML(data) {
-            const { bodies, pairs } = computeAspectPairs(data.planets);
+            const planetBodies = data.planets.map(p => ({ name: p.name, symbol: p.symbol, longitude: p.longitude }));
+            const axisBodies = HOUSE_AXIS_NUMS.map(num => {
+                const h = data.houses.find(hh => hh.num === num);
+                return { name: `Дом ${num}`, symbol: String(num), longitude: h.longitude };
+            });
+            const allBodies = [...planetBodies, ...axisBodies];
+            const { bodies, pairs } = computeAspectPairs(allBodies);
             const pairMap = {};
             pairs.forEach(p => { pairMap[`${p.i},${p.j}`] = p.aspect; });
+
+            const cell = (i, j, rowBody, colBody) => {
+                const asp = i < j ? pairMap[`${i},${j}`] : pairMap[`${j},${i}`];
+                if (!asp) return '<td></td>';
+                return `<td style="color:${asp.color}" title="${escapeHtml(rowBody.name)} ${asp.symbol} ${escapeHtml(colBody.name)} (${asp.name})">${asp.symbol}</td>`;
+            };
+
             let html = '<table class="aspect-grid"><thead><tr><th></th>';
-            bodies.forEach(b => { html += `<th>${b.symbol}</th>`; });
+            planetBodies.forEach(b => { html += `<th>${b.symbol}</th>`; });
             html += '</tr></thead><tbody>';
-            bodies.forEach((rowBody, i) => {
+
+            planetBodies.forEach((rowBody, i) => {
                 html += `<tr><th>${rowBody.symbol}</th>`;
-                bodies.forEach((colBody, j) => {
-                    if (i === j) { html += '<td class="aspect-grid-diag"></td>'; return; }
-                    const asp = i < j ? pairMap[`${i},${j}`] : pairMap[`${j},${i}`];
-                    if (asp) {
-                        html += `<td style="color:${asp.color}" title="${escapeHtml(rowBody.name)} ${asp.symbol} ${escapeHtml(colBody.name)} (${asp.name})">${asp.symbol}</td>`;
-                    } else {
-                        html += '<td></td>';
-                    }
+                planetBodies.forEach((colBody, j) => {
+                    html += i === j ? '<td class="aspect-grid-diag"></td>' : cell(i, j, rowBody, colBody);
                 });
                 html += '</tr>';
             });
+
+            axisBodies.forEach((rowBody, ai) => {
+                const i = planetBodies.length + ai;
+                html += `<tr><th>${rowBody.symbol}</th>`;
+                planetBodies.forEach((colBody, j) => { html += cell(i, j, rowBody, colBody); });
+                html += '</tr>';
+            });
+
             html += '</tbody></table>';
             return html;
         }
