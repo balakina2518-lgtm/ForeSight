@@ -461,20 +461,39 @@
             { bg: "rgba(135, 206, 235, 0.3)", fg: "#87CEEB" },
             { bg: "rgba(0, 102, 204, 0.3)", fg: "#0066CC" }
         ];
-        // Массив аспектов: мажорные и минорные с правильными символами
+        // Массив аспектов: мажорные и минорные с правильными символами.
+        // Орбис здесь больше не хранится по типу аспекта — он зависит от
+        // конкретной пары тел (см. getPairOrb) и одинаков для всех типов
+        // аспектов внутри одной пары.
         const ASPECTS = [
-            { name: 'Соединение', angle: 0, orbis: 7, color: '#1a56db', symbol: '☌', type: 'major' },
-            { name: 'Секстиль', angle: 60, orbis: 7, color: '#e74c3c', symbol: '⚹', type: 'major' },
-            { name: 'Квадратура', angle: 90, orbis: 7, color: 'var(--neutral-line)', symbol: '□', type: 'major' },
-            { name: 'Трин', angle: 120, orbis: 7, color: '#e74c3c', symbol: '△', type: 'major' },
-            { name: 'Оппозиция', angle: 180, orbis: 7, color: 'var(--neutral-line)', symbol: '☍', type: 'major' },
-            { name: 'Полусекстиль', angle: 30, orbis: 1.5, color: '#95a5a6', symbol: '⚺', type: 'minor' },
-            { name: 'Квиконс', angle: 150, orbis: 1.5, color: '#95a5a6', symbol: '⚻', type: 'minor' },
-            { name: 'Полуквадрат', angle: 45, orbis: 2, color: '#95a5a6', symbol: '∠', type: 'minor' },
-            { name: 'Полуторный квадрат', angle: 135, orbis: 2, color: '#95a5a6', symbol: '⚼', type: 'minor' },
-            { name: 'Квинтиль', angle: 72, orbis: 2, color: '#95a5a6', symbol: 'Q', type: 'minor' },
-            { name: 'Биквинтиль', angle: 144, orbis: 2, color: '#95a5a6', symbol: 'bQ', type: 'minor' }
+            { name: 'Соединение', angle: 0, color: '#1a56db', symbol: '☌', type: 'major' },
+            { name: 'Секстиль', angle: 60, color: '#e74c3c', symbol: '⚹', type: 'major' },
+            { name: 'Квадратура', angle: 90, color: 'var(--neutral-line)', symbol: '□', type: 'major' },
+            { name: 'Трин', angle: 120, color: '#e74c3c', symbol: '△', type: 'major' },
+            { name: 'Оппозиция', angle: 180, color: 'var(--neutral-line)', symbol: '☍', type: 'major' },
+            { name: 'Полусекстиль', angle: 30, color: '#95a5a6', symbol: '⚺', type: 'minor' },
+            { name: 'Квиконс', angle: 150, color: '#95a5a6', symbol: '⚻', type: 'minor' },
+            { name: 'Полуквадрат', angle: 45, color: '#95a5a6', symbol: '∠', type: 'minor' },
+            { name: 'Полуторный квадрат', angle: 135, color: '#95a5a6', symbol: '⚼', type: 'minor' },
+            { name: 'Квинтиль', angle: 72, color: '#95a5a6', symbol: 'Q', type: 'minor' },
+            { name: 'Биквинтиль', angle: 144, color: '#95a5a6', symbol: 'bQ', type: 'minor' }
         ];
+
+        // Орбис по таблице Елены: базовый орбис зависит от тела, орбис пары —
+        // среднее арифметическое орбисов двух тел, кроме узлов (всегда 5° с
+        // любой планетой) и куспидов домов (всегда 4° с планетой/узлом).
+        const BASE_ORB = { Sun: 10, Moon: 9, Jupiter: 7 };
+        const DEFAULT_ORB = 5;
+        const NODE_IDS = ['Mean_Node', 'South_Node'];
+        const isCuspId = id => typeof id === 'string' && id.startsWith('house');
+        const isNodeId = id => NODE_IDS.includes(id);
+        function getPairOrb(idA, idB) {
+            if (isCuspId(idA) || isCuspId(idB)) return 4;
+            if (isNodeId(idA) || isNodeId(idB)) return 5;
+            const orbA = BASE_ORB[idA] ?? DEFAULT_ORB;
+            const orbB = BASE_ORB[idB] ?? DEFAULT_ORB;
+            return (orbA + orbB) / 2;
+        }
 
         window.resetLocation = function() {
             selectedLocation = { lat: null, lon: null, name: "" };
@@ -799,30 +818,39 @@
             return path;
         }
 
-        // Логика обнаружения аспекта
-        function detectAspect(angle1, angle2) {
+        // Логика обнаружения аспекта. orb — орбис конкретной пары тел (см. getPairOrb),
+        // одинаков для всех типов аспектов. Возвращает ближайший по delta аспект,
+        // укладывающийся в орбис (может уложиться несколько кандидатов сразу при
+        // широком орбисе — берём точнейший).
+        function detectAspect(angle1, angle2, orb) {
             const diff = shortestArc(angle1, angle2);
+            let best = null;
             for (const asp of ASPECTS) {
                 const delta = Math.abs(diff - asp.angle);
-                if (delta <= asp.orbis) {
-                    // Для "чистых" аспектов (кратных 30°: соединение, полусекстиль,
-                    // секстиль, квадратура, трин, квиконс, оппозиция) орбиса по
-                    // градусам недостаточно — расстояние между ЗНАКАМИ должно точно
-                    // совпадать с ожидаемым для этого аспекта. Иначе это "внезнаковый"
-                    // (dissociate) аспект — числа рядом, а по факту такого аспекта нет
-                    // (например почти секстиль, но одна из точек ещё не дошла/уже
-                    // перешла в нужный знак — на самом деле это не секстиль).
-                    if (asp.angle % 30 === 0) {
-                        const sign1 = Math.floor(((angle1 % 360) + 360) % 360 / 30);
-                        const sign2 = Math.floor(((angle2 % 360) + 360) % 360 / 30);
-                        let signDiff = Math.abs(sign1 - sign2) % 12;
-                        signDiff = Math.min(signDiff, 12 - signDiff);
-                        if (signDiff !== asp.angle / 30) continue;
+                if (delta > orb) continue;
+                // Для "чистых" аспектов (кратных 30°: соединение, полусекстиль,
+                // секстиль, квадратура, трин, квиконс, оппозиция) орбиса по
+                // градусам недостаточно — расстояние между ЗНАКАМИ должно точно
+                // совпадать с ожидаемым для этого аспекта. Иначе это "через знак"
+                // (dissociate) случай — числа рядом, но точки в разных знаках:
+                // аспект не отменяется, а действует по уменьшенному орбису —
+                // ÷2 для соединения, ×0.7 для остальных.
+                let effectiveOrb = orb;
+                if (asp.angle % 30 === 0) {
+                    const sign1 = Math.floor(((angle1 % 360) + 360) % 360 / 30);
+                    const sign2 = Math.floor(((angle2 % 360) + 360) % 360 / 30);
+                    let signDiff = Math.abs(sign1 - sign2) % 12;
+                    signDiff = Math.min(signDiff, 12 - signDiff);
+                    if (signDiff !== asp.angle / 30) {
+                        effectiveOrb = asp.angle === 0 ? orb / 2 : orb * 0.7;
+                        if (delta > effectiveOrb) continue;
                     }
-                    return { ...asp, diff, delta, exact: delta <= 1 };
+                }
+                if (!best || delta < best.delta) {
+                    best = { ...asp, diff, delta, exact: delta <= 1, orb: effectiveOrb };
                 }
             }
-            return null;
+            return best;
         }
 
         function toDMS(deg) {
@@ -833,33 +861,17 @@
             return `${d}°${String(m).padStart(2, '0')}'${String(s).padStart(2, '0')}"`;
         }
 
-        // Та же логика "конфигурация → орбис 7°, одиночный мажорный аспект → орбис 5°",
-        // что и в отрисовке колеса. В таблице (в отличие от колеса) фиктивные точки
-        // (Хирон/Лилит/Узел) и оси домов ПОЛНОПРАВНО участвуют — сюда просто передаётся
-        // готовый список тел, без фильтрации на колёсной стороне
+        // Орбис для каждой пары берётся по таблице (getPairOrb), по id тел.
+        // В таблице (в отличие от колеса) фиктивные точки (Хирон/Лилит/Узел) и
+        // оси домов ПОЛНОПРАВНО участвуют — сюда просто передаётся готовый список
+        // тел, без фильтрации на колёсной стороне
         function computeAspectPairs(bodies) {
-            const pairAspects = {};
-            for (let i = 0; i < bodies.length; i++) {
-                for (let j = i + 1; j < bodies.length; j++) {
-                    const asp = detectAspect(bodies[i].longitude, bodies[j].longitude);
-                    if (asp) pairAspects[`${i},${j}`] = asp;
-                }
-            }
-            function findPairAspect(i, j) { return i < j ? pairAspects[`${i},${j}`] : pairAspects[`${j},${i}`]; }
-            function isPartOfConfiguration(i, j) {
-                for (let k = 0; k < bodies.length; k++) {
-                    if (k === i || k === j) continue;
-                    if (findPairAspect(i, k) && findPairAspect(j, k)) return true;
-                }
-                return false;
-            }
             const pairs = [];
             for (let i = 0; i < bodies.length; i++) {
                 for (let j = i + 1; j < bodies.length; j++) {
-                    const asp = pairAspects[`${i},${j}`];
-                    if (!asp) continue;
-                    if (asp.type === 'major' && asp.delta > 5 && !isPartOfConfiguration(i, j)) continue;
-                    pairs.push({ i, j, aspect: asp });
+                    const orb = getPairOrb(bodies[i].id, bodies[j].id);
+                    const asp = detectAspect(bodies[i].longitude, bodies[j].longitude, orb);
+                    if (asp) pairs.push({ i, j, aspect: asp });
                 }
             }
             return { bodies, pairs };
@@ -1112,11 +1124,9 @@
             let conjunctionOverlay = '';
 
             // 1. АСПЕКТЫ — только к 10 настоящим планетам, фиктивные точки
-            // (Хирон, Лилит, Северный Узел) в аспектах не участвуют.
-            // Орбис зависит от того, входит ли аспект в конфигурацию: если у пары
-            // планет есть общая третья планета, связанная аспектом с обеими
-            // (треугольник) — допускаем широкий орбис 7°; одиночным мажорным
-            // аспектам без такой связи — только строгий орбис 5°.
+            // (Хирон, Лилит, Северный/Южный Узел) в видимых аспектах не участвуют.
+            // Орбис для каждой пары — по таблице (getPairOrb), одинаковый для всех
+            // типов аспектов внутри пары.
             const FICTITIOUS_POINTS = ['Chiron', 'Lilith', 'Mean_Node', 'South_Node'];
             const aspectPlanets = (data.planets || []).filter(p => !FICTITIOUS_POINTS.includes(p.id));
 
@@ -1126,20 +1136,11 @@
                     for (let j = i + 1; j < aspectPlanets.length; j++) {
                         const p1 = aspectPlanets[i], p2 = aspectPlanets[j];
                         if (typeof p1.longitude !== 'number' || typeof p2.longitude !== 'number') continue;
-                        const asp = detectAspect(p1.longitude, p2.longitude);
+                        const orb = getPairOrb(p1.id, p2.id);
+                        const asp = detectAspect(p1.longitude, p2.longitude, orb);
                         if (asp) pairAspects[`${i},${j}`] = asp;
                     }
                 }
-            }
-            function findPairAspect(i, j) {
-                return i < j ? pairAspects[`${i},${j}`] : pairAspects[`${j},${i}`];
-            }
-            function isPartOfConfiguration(i, j) {
-                for (let k = 0; k < aspectPlanets.length; k++) {
-                    if (k === i || k === j) continue;
-                    if (findPairAspect(i, k) && findPairAspect(j, k)) return true;
-                }
-                return false;
             }
 
             if (aspectPlanets.length > 1) {
@@ -1147,7 +1148,6 @@
                     for (let j = i + 1; j < aspectPlanets.length; j++) {
                         const aspect = pairAspects[`${i},${j}`];
                         if (!aspect) continue;
-                        if (aspect.type === 'major' && aspect.delta > 5 && !isPartOfConfiguration(i, j)) continue;
 
                         const p1 = aspectPlanets[i];
                         const p2 = aspectPlanets[j];
