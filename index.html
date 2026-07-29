@@ -1212,6 +1212,35 @@
                 });
             }
 
+            // Дополнительно: аспекты осей домов (нижние строки таблицы аспектов) к
+            // планетам — тоже только СКРЫТЫЕ крючки для подсветки, на круге их не
+            // видно никогда (в отличие от фиктивных точек выше, которые хотя бы
+            // могут в теории быть частью видимого набора)
+            {
+                const houseAxisBodies = HOUSE_AXIS_NUMS.map(num => {
+                    const h = (data.houses || []).find(hh => hh.num === num);
+                    return h ? { id: `house${num}`, name: `Дом ${num}`, longitude: h.longitude, isAxis: true } : null;
+                }).filter(Boolean);
+                const combined = [...(data.planets || []), ...houseAxisBodies];
+                const { bodies: hxBodies, pairs: hxPairs } = computeAspectPairs(combined);
+                hxPairs.forEach(({ i, j, aspect }) => {
+                    const b1 = hxBodies[i], b2 = hxBodies[j];
+                    if (!!b1.isAxis === !!b2.isAxis) return; // нужна ровно одна ось дома в паре
+
+                    const hx1 = center + innerRadius * dCos(getScreenAngle(b1.longitude));
+                    const hy1 = center + innerRadius * dSin(getScreenAngle(b1.longitude));
+                    const hx2 = center + innerRadius * dCos(getScreenAngle(b2.longitude));
+                    const hy2 = center + innerRadius * dSin(getScreenAngle(b2.longitude));
+                    const hTooltip = `${aspect.angle}° ${b1.name} ↔ ${b2.name} ${toDMS(aspect.diff)} (${toDMS(aspect.delta)})`;
+
+                    svgContent += `
+                        <g class="aspect-link aspect-hidden" data-a="${b1.id}" data-b="${b2.id}">
+                            <title>${hTooltip}</title>
+                            <line x1="${hx1}" y1="${hy1}" x2="${hx2}" y2="${hy2}" stroke="${aspect.color}" stroke-width="${aspect.type === 'major' ? 1.5 : 1}" stroke-dasharray="${aspect.type === 'minor' ? '4,4' : ''}" />
+                        </g>`;
+                });
+            }
+
             // 3. ДОМА
             if (data.houses) {
                 data.houses.forEach(house => {
