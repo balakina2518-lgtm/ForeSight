@@ -173,7 +173,7 @@ def list_charts():
             with conn.cursor() as cur:
                 cur.execute(
                     "SELECT id, name, birth_date, birth_time, lat, lon, place_name, "
-                    "timezone_offset, gender, created_at FROM charts ORDER BY created_at DESC"
+                    "timezone_offset, gender, chart_type, comment, created_at FROM charts ORDER BY created_at DESC"
                 )
                 rows = cur.fetchall()
         finally:
@@ -195,12 +195,14 @@ def save_chart():
             with conn.cursor() as cur:
                 cur.execute(
                     "INSERT INTO charts (name, birth_date, birth_time, lat, lon, "
-                    "place_name, timezone_offset, gender) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+                    "place_name, timezone_offset, gender, chart_type, comment) "
+                    "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                     (
                         data.get('name', ''), data['date'], data['time'],
                         float(data['lat']), float(data['lon']),
                         data.get('place_name', ''), float(data['timezone']),
-                        data.get('gender', '')
+                        data.get('gender', ''), data.get('chart_type', 'natal'),
+                        data.get('comment', '')
                     )
                 )
                 new_id = cur.lastrowid
@@ -208,6 +210,24 @@ def save_chart():
         finally:
             conn.close()
         return jsonify({"status": "success", "id": new_id})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/charts/<int:chart_id>/comment', methods=['PATCH'])
+def update_chart_comment(chart_id):
+    data = request.json
+    try:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE charts SET comment=%s WHERE id=%s",
+                    (data.get('comment', ''), chart_id)
+                )
+            conn.commit()
+        finally:
+            conn.close()
+        return jsonify({"status": "success"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 

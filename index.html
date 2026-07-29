@@ -102,6 +102,12 @@
             font-size: 0.8rem; cursor: pointer; color: var(--text-main); margin-right: 6px;
         }
         .charts-table button:hover { border-color: var(--accent); color: var(--accent); }
+        .comment-input {
+            width: 100%; border: 1px solid transparent; background: none; color: var(--text-main);
+            font-size: 0.88rem; padding: 5px 6px; border-radius: 4px; box-sizing: border-box; font-family: inherit;
+        }
+        .comment-input:hover { border-color: var(--border-color); }
+        .comment-input:focus { outline: none; border-color: var(--accent); background: var(--input-bg); }
         .btn-save:hover, .btn-cancel:hover { opacity: 0.85; }
 
         /* Правая колонка: сама форма */
@@ -195,7 +201,7 @@
             </div>
             <table class="charts-table">
                 <thead>
-                    <tr><th>Название</th><th>Дата и время рождения</th><th>Место рождения</th><th></th></tr>
+                    <tr><th>Название</th><th>Карты</th><th>Дата и время рождения</th><th>Место рождения</th><th>Комментарий</th><th></th></tr>
                 </thead>
                 <tbody id="chartsTableBody"></tbody>
             </table>
@@ -448,26 +454,47 @@
             window.showFormView();
         };
 
+        const CHART_TYPE_ICONS = {
+            natal: { icon: '◎', title: 'Натал' },
+            synastry: { icon: '◐', title: 'Синастрия' },
+            progression: { icon: '◈', title: 'Прогностика' },
+            relocation: { icon: '◇', title: 'Релокация' },
+            horary: { icon: '◔', title: 'Хорар' }
+        };
+
+        function renderChartTypeIcons(chartType) {
+            const types = (chartType || 'natal').split(',').map(t => t.trim()).filter(Boolean);
+            return types.map(t => {
+                const meta = CHART_TYPE_ICONS[t] || { icon: '◎', title: t };
+                return `<span title="${escapeHtml(meta.title)}" style="margin-right:4px;">${meta.icon}</span>`;
+            }).join('');
+        }
+
         window.refreshChartsList = async function() {
             const tbody = document.getElementById('chartsTableBody');
-            tbody.innerHTML = '<tr><td colspan="4">Загрузка…</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6">Загрузка…</td></tr>';
             try {
                 const response = await fetch('/api/charts');
                 const data = await response.json();
                 if (data.status !== 'success') {
-                    tbody.innerHTML = `<tr><td colspan="4">Ошибка: ${escapeHtml(data.message)}</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="6">Ошибка: ${escapeHtml(data.message)}</td></tr>`;
                     return;
                 }
                 chartsCache = data.charts;
                 if (chartsCache.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4">Пока нет сохранённых карт — нажмите «+ Добавить карту»</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6">Пока нет сохранённых карт — нажмите «+ Добавить карту»</td></tr>';
                     return;
                 }
                 tbody.innerHTML = chartsCache.map((c, i) => `
                     <tr>
                         <td>${escapeHtml(c.name) || '(без названия)'}</td>
+                        <td>${renderChartTypeIcons(c.chart_type)}</td>
                         <td>${c.birth_date}, ${c.birth_time.slice(0, 5)}</td>
                         <td>${escapeHtml(c.place_name)}</td>
+                        <td>
+                            <input type="text" class="comment-input" value="${escapeHtml(c.comment || '')}"
+                                   placeholder="—" onblur="window.saveComment(${c.id}, this.value)">
+                        </td>
                         <td>
                             <button type="button" onclick="window.loadChart(${i})">Открыть</button>
                             <button type="button" onclick="window.deleteChart(${c.id})">Удалить</button>
@@ -475,7 +502,7 @@
                     </tr>
                 `).join('');
             } catch (err) {
-                tbody.innerHTML = '<tr><td colspan="4">Не удалось связаться с сервером</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6">Не удалось связаться с сервером</td></tr>';
             }
         };
 
@@ -500,6 +527,18 @@
                 window.refreshChartsList();
             } catch (err) {
                 alert('Не удалось удалить карту.');
+            }
+        };
+
+        window.saveComment = async function(id, value) {
+            try {
+                await fetch('/api/charts/' + id + '/comment', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ comment: value })
+                });
+            } catch (err) {
+                console.error('Не удалось сохранить комментарий:', err);
             }
         };
 
