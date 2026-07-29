@@ -78,6 +78,31 @@
         .toolbar-btn-edit { background: var(--accent); color: #fff; border-color: var(--accent); }
         .bottom-toolbar .chart-type-nav { top: auto; bottom: calc(100% + 8px); min-width: 190px; }
 
+        .info-popup-overlay {
+            position: fixed; inset: 0; background: rgba(62, 50, 41, 0.35);
+            z-index: 300; display: flex; align-items: center; justify-content: center; padding: 20px;
+        }
+        .info-popup {
+            background: var(--bg-sidebar); border-radius: 12px; width: 100%; max-width: 640px;
+            max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+            box-sizing: border-box; padding: 20px 24px;
+        }
+        .info-popup-header { display: flex; align-items: center; justify-content: space-between; font-size: 1.05rem; color: var(--text-main); }
+        .info-popup-close { background: none; border: none; font-size: 1rem; color: var(--text-muted); cursor: pointer; }
+        .info-popup-close:hover { color: var(--accent); }
+        .info-popup-subtitle { color: var(--accent); font-size: 0.85rem; margin: 4px 0 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border-color); }
+
+        .coords-columns { display: flex; gap: 24px; flex-wrap: wrap; }
+        .coords-table { border-collapse: collapse; font-size: 0.88rem; flex: 1; min-width: 220px; }
+        .coords-table th { text-align: left; color: var(--text-muted); font-weight: 500; font-size: 0.78rem; padding: 5px 8px; border-bottom: 1px solid var(--border-color); }
+        .coords-table td { padding: 5px 8px; color: var(--text-main); border-bottom: 1px solid var(--bg-app); }
+
+        .aspect-grid { border-collapse: collapse; font-size: 0.82rem; }
+        .aspect-grid th, .aspect-grid td { width: 26px; height: 26px; text-align: center; border: 1px solid var(--border-color); padding: 0; }
+        .aspect-grid th { color: var(--text-muted); font-weight: 500; background: var(--bg-app); }
+        .aspect-grid td { color: var(--text-main); cursor: default; }
+        .aspect-grid-diag { background: var(--bg-app); }
+
         /* Левая узкая колонка: имя карты + переключатель разделов */
         .nav-strip {
             width: 170px; flex-shrink: 0; padding: 22px 14px;
@@ -293,6 +318,19 @@
                 <button type="button" class="toolbar-btn toolbar-btn-edit" onclick="window.openFormModal()" title="Редактировать данные">
                     <span class="nav-icon">◎</span>✏️
                 </button>
+                <button type="button" class="toolbar-btn" onclick="window.openInfoPopup('aspects')" title="Таблица аспектов">⊞</button>
+                <button type="button" class="toolbar-btn" onclick="window.openInfoPopup('coords')" title="Координаты планет и домов">⊘</button>
+            </div>
+        </div>
+
+        <div id="infoPopupOverlay" class="info-popup-overlay" style="display:none;" onclick="if(event.target===this) window.closeInfoPopup()">
+            <div class="info-popup">
+                <div class="info-popup-header">
+                    <span id="infoPopupTitle"></span>
+                    <button type="button" class="info-popup-close" onclick="window.closeInfoPopup()">✕</button>
+                </div>
+                <div class="info-popup-subtitle">Натал</div>
+                <div class="info-popup-body" id="infoPopupBody"></div>
             </div>
         </div>
 
@@ -766,6 +804,94 @@
             const s = Math.round((mFull - m) * 60);
             return `${d}°${String(m).padStart(2, '0')}'${String(s).padStart(2, '0')}"`;
         }
+
+        // Та же логика "конфигурация → орбис 7°, одиночный мажорный аспект → орбис 5°",
+        // что и в отрисовке колеса, вынесена сюда, чтобы таблица аспектов её тоже использовала
+        function computeAspectPairs(planets) {
+            const bodies = (planets || []).filter(p => !['Chiron', 'Lilith', 'Mean_Node'].includes(p.id));
+            const pairAspects = {};
+            for (let i = 0; i < bodies.length; i++) {
+                for (let j = i + 1; j < bodies.length; j++) {
+                    const asp = detectAspect(bodies[i].longitude, bodies[j].longitude);
+                    if (asp) pairAspects[`${i},${j}`] = asp;
+                }
+            }
+            function findPairAspect(i, j) { return i < j ? pairAspects[`${i},${j}`] : pairAspects[`${j},${i}`]; }
+            function isPartOfConfiguration(i, j) {
+                for (let k = 0; k < bodies.length; k++) {
+                    if (k === i || k === j) continue;
+                    if (findPairAspect(i, k) && findPairAspect(j, k)) return true;
+                }
+                return false;
+            }
+            const pairs = [];
+            for (let i = 0; i < bodies.length; i++) {
+                for (let j = i + 1; j < bodies.length; j++) {
+                    const asp = pairAspects[`${i},${j}`];
+                    if (!asp) continue;
+                    if (asp.type === 'major' && asp.delta > 5 && !isPartOfConfiguration(i, j)) continue;
+                    pairs.push({ i, j, aspect: asp });
+                }
+            }
+            return { bodies, pairs };
+        }
+
+        function buildAspectTableHTML(data) {
+            const { bodies, pairs } = computeAspectPairs(data.planets);
+            const pairMap = {};
+            pairs.forEach(p => { pairMap[`${p.i},${p.j}`] = p.aspect; });
+            let html = '<table class="aspect-grid"><thead><tr><th></th>';
+            bodies.forEach(b => { html += `<th>${b.symbol}</th>`; });
+            html += '</tr></thead><tbody>';
+            bodies.forEach((rowBody, i) => {
+                html += `<tr><th>${rowBody.symbol}</th>`;
+                bodies.forEach((colBody, j) => {
+                    if (i === j) { html += '<td class="aspect-grid-diag"></td>'; return; }
+                    const asp = i < j ? pairMap[`${i},${j}`] : pairMap[`${j},${i}`];
+                    if (asp) {
+                        html += `<td style="color:${asp.color}" title="${escapeHtml(rowBody.name)} ${asp.symbol} ${escapeHtml(colBody.name)} (${asp.name})">${asp.symbol}</td>`;
+                    } else {
+                        html += '<td></td>';
+                    }
+                });
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+            return html;
+        }
+
+        function buildCoordsTableHTML(data) {
+            const planetRows = data.planets.map(p => {
+                const signIndex = Math.floor(((p.longitude % 360) + 360) % 360 / 30);
+                const posInSign = ((p.longitude % 30) + 30) % 30;
+                return `<tr><td>${p.symbol}${p.retrograde ? '<sub>r</sub>' : ''}</td><td>${toDMS(posInSign)}</td><td>${ZODIAC_SYMBOLS[signIndex]}</td></tr>`;
+            }).join('');
+            const houseLabels = { 1: 'Asc', 4: 'IC', 7: 'Dsc', 10: 'MC' };
+            const houseRows = data.houses.map(h => {
+                const signIndex = Math.floor(((h.longitude % 360) + 360) % 360 / 30);
+                const posInSign = ((h.longitude % 30) + 30) % 30;
+                const label = houseLabels[h.num] || ROMAN_NUMERALS[h.num];
+                return `<tr><td>${label}</td><td>${toDMS(posInSign)}</td><td>${ZODIAC_SYMBOLS[signIndex]}</td></tr>`;
+            }).join('');
+            return `<div class="coords-columns">
+                <table class="coords-table"><thead><tr><th>Планета</th><th>Положение</th><th>Знак</th></tr></thead><tbody>${planetRows}</tbody></table>
+                <table class="coords-table"><thead><tr><th>Дом</th><th>Положение</th><th>Знак</th></tr></thead><tbody>${houseRows}</tbody></table>
+            </div>`;
+        }
+
+        const INFO_POPUP_TITLES = { aspects: '⊞ Таблица аспектов', coords: '⊘ Координаты планет и домов' };
+
+        window.openInfoPopup = function(type) {
+            if (!window.lastChartData) { alert('Сначала постройте карту.'); return; }
+            document.getElementById('infoPopupTitle').textContent = INFO_POPUP_TITLES[type] || '';
+            document.getElementById('infoPopupBody').innerHTML =
+                type === 'aspects' ? buildAspectTableHTML(window.lastChartData) : buildCoordsTableHTML(window.lastChartData);
+            document.getElementById('infoPopupOverlay').style.display = 'flex';
+        };
+
+        window.closeInfoPopup = function() {
+            document.getElementById('infoPopupOverlay').style.display = 'none';
+        };
 
         window.calculateChart = async function(event) {
             event.preventDefault();
