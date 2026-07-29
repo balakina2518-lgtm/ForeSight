@@ -1040,7 +1040,10 @@
             return { results, configs };
         }
 
-        // Сила дома — 6 флагов по конспекту (1 и 2 эшелон), тоже "все по +1"
+        // Сила дома — 1 эшелон весит +2, 2 эшелон +1 (по прямому уточнению Елены)
+        const HOUSE_TIER1_WEIGHT = 2;
+        const HOUSE_TIER2_WEIGHT = 1;
+
         function computeHouseStrength(data, planetResults, configs) {
             const houses = data.houses || [];
             const asc = houses.find(h => h.num === 1);
@@ -1051,26 +1054,30 @@
 
             return houses.map(h => {
                 const flags = [];
+                let score = 0;
+                const addFlag = (label, weight) => { flags.push(label); score += weight; };
                 const signIdx = getSignIndex(h.longitude);
                 const naturalSignificator = SIGN_MAJOR_RULER[h.num - 1];
                 const houseRuler = SIGN_MAJOR_RULER[signIdx];
                 const inHouse = planetsByHouse[h.num] || [];
 
-                if (inHouse.includes(naturalSignificator)) flags.push('Сигнификатор в доме');
-                if (inHouse.includes(houseRuler)) flags.push('Управитель в доме');
-                if (inHouse.length >= 3) flags.push('3+ планеты');
-                if (inHouse.includes('Sun') || inHouse.includes('Moon') || (ascRulerId && inHouse.includes(ascRulerId))) flags.push('Светила/А1 в доме');
-                if (inHouse.some(id => apexIds.has(id))) flags.push('Вершина конфигурации в доме');
-                if (ANGULAR_HOUSES.includes(h.num)) flags.push('Угловой дом');
+                // 1 эшелон (+2)
+                if (inHouse.includes(naturalSignificator)) addFlag('Сигнификатор в доме', HOUSE_TIER1_WEIGHT);
+                if (inHouse.includes(houseRuler)) addFlag('Управитель в доме', HOUSE_TIER1_WEIGHT);
+                if (inHouse.length >= 3) addFlag('3+ планеты', HOUSE_TIER1_WEIGHT);
+                // 2 эшелон (+1)
+                if (inHouse.includes('Sun') || inHouse.includes('Moon') || (ascRulerId && inHouse.includes(ascRulerId))) addFlag('Светила/А1 в доме', HOUSE_TIER2_WEIGHT);
+                if (inHouse.some(id => apexIds.has(id))) addFlag('Вершина конфигурации в доме', HOUSE_TIER2_WEIGHT);
+                if (ANGULAR_HOUSES.includes(h.num)) addFlag('Угловой дом', HOUSE_TIER2_WEIGHT);
 
-                return { num: h.num, score: flags.length, flags, houseRuler, naturalSignificator };
+                return { num: h.num, score, flags, houseRuler, naturalSignificator };
             });
         }
 
         // Точки полного резонанса = сильная планета, управляющая сильным домом
-        function computeFullResonancePoints(planetResults, houseResults, threshold) {
-            const strongPlanetIds = new Set(planetResults.filter(p => p.score >= threshold).map(p => p.id));
-            const strongHouseNums = new Set(houseResults.filter(h => h.score >= threshold).map(h => h.num));
+        function computeFullResonancePoints(planetResults, houseResults, planetThreshold, houseThreshold) {
+            const strongPlanetIds = new Set(planetResults.filter(p => p.score >= planetThreshold).map(p => p.id));
+            const strongHouseNums = new Set(houseResults.filter(h => h.score >= houseThreshold).map(h => h.num));
             const points = [];
             houseResults.forEach(h => {
                 if (strongHouseNums.has(h.num) && strongPlanetIds.has(h.houseRuler)) {
@@ -1188,20 +1195,21 @@
             </div>`;
         }
 
-        // Порог "силы" (в баллах) — ни книга, ни конспект курса не дают явного
-        // порога, только список признаков без весов. 2+ признака выбраны как
-        // разумное значение по умолчанию (единственный признак — слишком слабый
-        // сигнал, например любой угловой дом всегда получил бы +1 просто так)
-        const STRONG_OBJECT_THRESHOLD = 2;
+        // Пороги "силы": для домов Елена задала явно — больше 4 баллов (при весах
+        // 1 эшелон +2 / 2 эшелон +1). Для планет источники порог не называют —
+        // 2+ признака оставлены как разумное значение по умолчанию (единственный
+        // признак — слишком слабый сигнал).
+        const PLANET_STRONG_THRESHOLD = 2;
+        const HOUSE_STRONG_THRESHOLD = 5; // строго "> 4"
 
         function buildStrongObjectsHTML(data) {
             const { results: planetResults, configs } = computePlanetStrength(data);
             const houseResults = computeHouseStrength(data, planetResults, configs);
             const elements = computeElementsCore(data);
-            const resonancePoints = computeFullResonancePoints(planetResults, houseResults, STRONG_OBJECT_THRESHOLD);
+            const resonancePoints = computeFullResonancePoints(planetResults, houseResults, PLANET_STRONG_THRESHOLD, HOUSE_STRONG_THRESHOLD);
 
-            const strongPlanets = planetResults.filter(p => p.score >= STRONG_OBJECT_THRESHOLD).sort((a, b) => b.score - a.score);
-            const strongHouses = houseResults.filter(h => h.score >= STRONG_OBJECT_THRESHOLD).sort((a, b) => b.score - a.score);
+            const strongPlanets = planetResults.filter(p => p.score >= PLANET_STRONG_THRESHOLD).sort((a, b) => b.score - a.score);
+            const strongHouses = houseResults.filter(h => h.score >= HOUSE_STRONG_THRESHOLD).sort((a, b) => b.score - a.score);
 
             const planetSymbolById = {};
             (data.planets || []).forEach(p => { planetSymbolById[p.id] = p.id === 'Pluto' ? plutoTableIcon() : p.symbol; });
