@@ -98,6 +98,9 @@
         .coords-table th { text-align: left; color: var(--text-muted); font-weight: 500; font-size: 0.78rem; padding: 5px 8px; border-bottom: 1px solid var(--border-color); }
         .coords-table td { padding: 5px 8px; color: var(--text-main); border-bottom: 1px solid var(--bg-app); }
 
+        .strong-badges { display: flex; flex-wrap: wrap; gap: 8px; }
+        .strong-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 32px; height: 32px; padding: 0 6px; border-radius: 6px; background: var(--bg-app); border: 1px solid var(--border-color); color: var(--text-main); font-size: 1rem; cursor: help; }
+
         .aspect-grid { border-collapse: collapse; font-size: 0.82rem; }
         .aspect-grid th, .aspect-grid td { width: 26px; height: 26px; text-align: center; border: 1px solid var(--border-color); padding: 0; }
         .aspect-grid th { color: var(--text-muted); font-weight: 500; background: var(--bg-app); }
@@ -334,6 +337,7 @@
             <div class="bottom-toolbar bottom-toolbar-right">
                 <button type="button" class="toolbar-btn" onclick="window.openInfoPopup('aspects')" title="Таблица аспектов">⊞</button>
                 <button type="button" class="toolbar-btn" onclick="window.openInfoPopup('coords')" title="Координаты планет и домов">⊘</button>
+                <button type="button" class="toolbar-btn" onclick="window.openInfoPopup('strong')" title="Сильные объекты">⊛</button>
             </div>
         </div>
 
@@ -881,6 +885,220 @@
         // наведениях на колесе)
         const FICTITIOUS_POINTS = ['Chiron', 'Lilith', 'Mean_Node', 'South_Node'];
 
+        // Данные для фичи "Сильные объекты" (по конспекту курса "Нептун" и книге
+        // Андреева, гл.3). Управители знаков — мажорная обитель (современная
+        // астрология); минорная обитель — только там, где расходится с
+        // традиционным управителем (Скорпион/Водолей/Рыбы). Индекс 0 = Овен.
+        const SIGN_MAJOR_RULER = ['Mars', 'Venus', 'Mercury', 'Moon', 'Sun', 'Mercury', 'Venus', 'Pluto', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'];
+        const SIGN_MINOR_RULER = { 7: 'Mars', 10: 'Saturn', 11: 'Jupiter' };
+        const PERSONAL_PLANETS = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars'];
+        const DESTROYER_PLANETS = ['Mars', 'Saturn', 'Uranus', 'Neptune', 'Pluto'];
+        const ANGULAR_HOUSES = [1, 4, 7, 10];
+        const SIGN_ELEMENT = ['Fire', 'Earth', 'Air', 'Water', 'Fire', 'Earth', 'Air', 'Water', 'Fire', 'Earth', 'Air', 'Water'];
+        const ELEMENT_RU = { Fire: 'Огонь', Earth: 'Земля', Air: 'Воздух', Water: 'Вода' };
+        const ELEMENT_ADJ_PREFIX = { Fire: 'огненно', Earth: 'земно', Air: 'воздушно', Water: 'водно' };
+        const ELEMENT_ADJ_FULL = { Fire: 'огненное', Earth: 'земное', Air: 'воздушное', Water: 'водное' };
+
+        function getSignIndex(longitude) {
+            return Math.floor(((longitude % 360) + 360) % 360 / 30);
+        }
+
+        // Дом, в котором стоит планета/точка — по долготе относительно 12 куспидов
+        function getHouseOfLongitude(longitude, houses) {
+            const sorted = [...houses].sort((a, b) => a.num - b.num);
+            const lon = ((longitude % 360) + 360) % 360;
+            for (let i = 0; i < 12; i++) {
+                const cuspStart = ((sorted[i].longitude % 360) + 360) % 360;
+                const cuspEnd = ((sorted[(i + 1) % 12].longitude % 360) + 360) % 360;
+                let spanToPlanet = lon - cuspStart; if (spanToPlanet < 0) spanToPlanet += 360;
+                let spanToNext = cuspEnd - cuspStart; if (spanToNext <= 0) spanToNext += 360;
+                if (spanToPlanet < spanToNext) return sorted[i].num;
+            }
+            return sorted[11].num;
+        }
+
+        // Треугольные конфигурации аспектов с вершиной (тау-квадрат, бисекстиль,
+        // перст судьбы, косой парус) — геометрия по книге Андреева, стр.454-457.
+        // Большой трин без вершины (все три угла равноправны) для очков силы не
+        // используется — в книге вершина у него не указана.
+        function findConfigurations(realPlanets) {
+            const n = realPlanets.length;
+            const aspectAt = {};
+            for (let i = 0; i < n; i++) {
+                for (let j = i + 1; j < n; j++) {
+                    const orb = getPairOrb(realPlanets[i].id, realPlanets[j].id);
+                    const asp = detectAspect(realPlanets[i].longitude, realPlanets[j].longitude, orb);
+                    if (asp) aspectAt[`${i},${j}`] = asp.name;
+                }
+            }
+            const has = (i, j, name) => aspectAt[i < j ? `${i},${j}` : `${j},${i}`] === name;
+            const configs = [];
+            for (let i = 0; i < n; i++) {
+                for (let j = i + 1; j < n; j++) {
+                    for (let k = 0; k < n; k++) {
+                        if (k === i || k === j) continue;
+                        if (has(i, j, 'Оппозиция') && has(i, k, 'Квадратура') && has(j, k, 'Квадратура')) {
+                            configs.push({ type: 'Тау-квадрат', apexId: realPlanets[k].id, memberIds: [realPlanets[i].id, realPlanets[j].id, realPlanets[k].id] });
+                        }
+                        if (has(i, j, 'Трин') && has(i, k, 'Секстиль') && has(j, k, 'Секстиль')) {
+                            configs.push({ type: 'Бисекстиль', apexId: realPlanets[k].id, memberIds: [realPlanets[i].id, realPlanets[j].id, realPlanets[k].id] });
+                        }
+                        if (has(i, j, 'Секстиль') && has(i, k, 'Квиконс') && has(j, k, 'Квиконс')) {
+                            configs.push({ type: 'Перст судьбы', apexId: realPlanets[k].id, memberIds: [realPlanets[i].id, realPlanets[j].id, realPlanets[k].id] });
+                        }
+                        if (has(i, j, 'Оппозиция') && ((has(i, k, 'Трин') && has(j, k, 'Секстиль')) || (has(i, k, 'Секстиль') && has(j, k, 'Трин')))) {
+                            configs.push({ type: 'Косой парус', apexId: realPlanets[k].id, memberIds: [realPlanets[i].id, realPlanets[j].id, realPlanets[k].id] });
+                        }
+                    }
+                }
+            }
+            return configs;
+        }
+
+        // Сила планеты — 9 применимых флагов из конспекта курса "Нептун" (без
+        // обители/Джонса/элевации/статуса "королевы аспектов" — либо уже учтено
+        // иначе, либо не хватает точного определения источника). Каждый флаг = +1,
+        // без весов — по прямому указанию Елены ("все по +1"), формулы с весами
+        // ни книга, ни конспект не публикуют.
+        function computePlanetStrength(data) {
+            const realPlanets = (data.planets || []).filter(p => !FICTITIOUS_POINTS.includes(p.id));
+            const southNode = (data.planets || []).find(p => p.id === 'South_Node');
+            const houses = data.houses || [];
+            const configs = findConfigurations(realPlanets.map(p => ({ id: p.id, longitude: p.longitude })));
+            const apexIds = new Set(configs.map(c => c.apexId).filter(Boolean));
+
+            const majorStats = {};
+            realPlanets.forEach(p => { majorStats[p.id] = { count: 0, tense: 0 }; });
+            for (let i = 0; i < realPlanets.length; i++) {
+                for (let j = i + 1; j < realPlanets.length; j++) {
+                    const p1 = realPlanets[i], p2 = realPlanets[j];
+                    const orb = getPairOrb(p1.id, p2.id);
+                    const asp = detectAspect(p1.longitude, p2.longitude, orb);
+                    if (asp && asp.type === 'major') {
+                        majorStats[p1.id].count++; majorStats[p2.id].count++;
+                        if (asp.name === 'Квадратура' || asp.name === 'Оппозиция') {
+                            majorStats[p1.id].tense++; majorStats[p2.id].tense++;
+                        }
+                    }
+                }
+            }
+
+            const results = realPlanets.map(p => {
+                const flags = [];
+                const signIdx = getSignIndex(p.longitude);
+                const houseNum = getHouseOfLongitude(p.longitude, houses);
+                const isPersonal = PERSONAL_PLANETS.includes(p.id);
+                const posInSign = ((p.longitude % 30) + 30) % 30;
+
+                const angularCusps = houses.filter(h => ANGULAR_HOUSES.includes(h.num));
+                if (angularCusps.some(h => {
+                    const delta = shortestArc(p.longitude, h.longitude);
+                    const sameSign = getSignIndex(p.longitude) === getSignIndex(h.longitude);
+                    return delta <= (sameSign ? 4 : 2);
+                })) flags.push('Ангуляр');
+
+                if (SIGN_MAJOR_RULER[signIdx] === p.id) flags.push('Мажорная обитель');
+                else if (SIGN_MINOR_RULER[signIdx] === p.id) flags.push('Минорная обитель');
+
+                if (!houses.some(h => getSignIndex(h.longitude) === signIdx)) flags.push('Включена в дом');
+
+                const stat = majorStats[p.id];
+                if (stat.count === 1 && stat.tense === 1) flags.push('На хвосте');
+                if (stat.count === 0) flags.push('В шахте');
+
+                if (isPersonal) {
+                    if (posInSign >= 28) flags.push('Критический градус');
+                    if (posInSign < 3) flags.push('Первый градус');
+                }
+
+                if (['Mercury', 'Venus', 'Mars'].includes(p.id)) {
+                    const sun = realPlanets.find(pl => pl.id === 'Sun');
+                    if (sun) {
+                        const delta = shortestArc(p.longitude, sun.longitude);
+                        const sameSign = getSignIndex(p.longitude) === getSignIndex(sun.longitude);
+                        if (delta <= (sameSign ? 5 : 2.5)) flags.push('Сожжение');
+                    }
+                }
+
+                if (isPersonal && p.retrograde) flags.push('Ретроградность');
+
+                if (isPersonal) {
+                    const besieged = realPlanets.some(pl => DESTROYER_PLANETS.includes(pl.id) && pl.id !== p.id
+                        && shortestArc(p.longitude, pl.longitude) <= getPairOrb(p.id, pl.id));
+                    if (besieged) flags.push('Осада');
+                }
+
+                if (southNode && shortestArc(p.longitude, southNode.longitude) <= getPairOrb(p.id, 'South_Node')) {
+                    flags.push('С Южным Узлом');
+                }
+
+                if (apexIds.has(p.id)) flags.push('Вершина конфигурации');
+
+                return { id: p.id, name: p.name, symbol: p.symbol, score: flags.length, flags, houseNum };
+            });
+
+            return { results, configs };
+        }
+
+        // Сила дома — 6 флагов по конспекту (1 и 2 эшелон), тоже "все по +1"
+        function computeHouseStrength(data, planetResults, configs) {
+            const houses = data.houses || [];
+            const asc = houses.find(h => h.num === 1);
+            const ascRulerId = asc ? SIGN_MAJOR_RULER[getSignIndex(asc.longitude)] : null;
+            const apexIds = new Set(configs.map(c => c.apexId).filter(Boolean));
+            const planetsByHouse = {};
+            planetResults.forEach(p => { (planetsByHouse[p.houseNum] = planetsByHouse[p.houseNum] || []).push(p.id); });
+
+            return houses.map(h => {
+                const flags = [];
+                const signIdx = getSignIndex(h.longitude);
+                const naturalSignificator = SIGN_MAJOR_RULER[h.num - 1];
+                const houseRuler = SIGN_MAJOR_RULER[signIdx];
+                const inHouse = planetsByHouse[h.num] || [];
+
+                if (inHouse.includes(naturalSignificator)) flags.push('Сигнификатор в доме');
+                if (inHouse.includes(houseRuler)) flags.push('Управитель в доме');
+                if (inHouse.length >= 3) flags.push('3+ планеты');
+                if (inHouse.includes('Sun') || inHouse.includes('Moon') || (ascRulerId && inHouse.includes(ascRulerId))) flags.push('Светила/А1 в доме');
+                if (inHouse.some(id => apexIds.has(id))) flags.push('Вершина конфигурации в доме');
+                if (ANGULAR_HOUSES.includes(h.num)) flags.push('Угловой дом');
+
+                return { num: h.num, score: flags.length, flags, houseRuler, naturalSignificator };
+            });
+        }
+
+        // Точки полного резонанса = сильная планета, управляющая сильным домом
+        function computeFullResonancePoints(planetResults, houseResults, threshold) {
+            const strongPlanetIds = new Set(planetResults.filter(p => p.score >= threshold).map(p => p.id));
+            const strongHouseNums = new Set(houseResults.filter(h => h.score >= threshold).map(h => h.num));
+            const points = [];
+            houseResults.forEach(h => {
+                if (strongHouseNums.has(h.num) && strongPlanetIds.has(h.houseRuler)) {
+                    points.push({ planetId: h.houseRuler, houseNum: h.num });
+                }
+            });
+            return points;
+        }
+
+        // Сильные стихии/архитектура ядра — топ-2 стихии по числу планет (10
+        // настоящих). Устойчивость по книге размечена только для 2 из 6
+        // возможных пар (огонь+земля / вода+воздух) — для остальных 4 пар книга
+        // и конспект дают другие оси (рациональность, янь/инь), не устойчивость
+        function computeElementsCore(data) {
+            const realPlanets = (data.planets || []).filter(p => !FICTITIOUS_POINTS.includes(p.id));
+            const counts = { Fire: 0, Earth: 0, Air: 0, Water: 0 };
+            realPlanets.forEach(p => { counts[SIGN_ELEMENT[getSignIndex(p.longitude)]]++; });
+            const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+            const top1 = sorted[0][0], top2 = sorted[1][0];
+            const AXIS_LABELS = {
+                'Earth+Fire': 'устойчивое', 'Air+Water': 'неустойчивое',
+                'Air+Earth': 'рациональное', 'Fire+Water': 'иррациональное',
+                'Air+Fire': 'янь (энергия наружу)', 'Earth+Water': 'инь (энергия вовнутрь)'
+            };
+            const label = AXIS_LABELS[[top1, top2].sort().join('+')] || '';
+            return { counts, top1, top2, label };
+        }
+
         // Тот же вручную нарисованный значок Плутона, что и на колесе (юникод-символ
         // ♇ ненадёжно поддерживается шрифтами) — переиспользуем в таблицах как
         // маленькую inline-SVG иконку вместо текстового символа
@@ -970,6 +1188,47 @@
             </div>`;
         }
 
+        // Порог "силы" (в баллах) — ни книга, ни конспект курса не дают явного
+        // порога, только список признаков без весов. 2+ признака выбраны как
+        // разумное значение по умолчанию (единственный признак — слишком слабый
+        // сигнал, например любой угловой дом всегда получил бы +1 просто так)
+        const STRONG_OBJECT_THRESHOLD = 2;
+
+        function buildStrongObjectsHTML(data) {
+            const { results: planetResults, configs } = computePlanetStrength(data);
+            const houseResults = computeHouseStrength(data, planetResults, configs);
+            const elements = computeElementsCore(data);
+            const resonancePoints = computeFullResonancePoints(planetResults, houseResults, STRONG_OBJECT_THRESHOLD);
+
+            const strongPlanets = planetResults.filter(p => p.score >= STRONG_OBJECT_THRESHOLD).sort((a, b) => b.score - a.score);
+            const strongHouses = houseResults.filter(h => h.score >= STRONG_OBJECT_THRESHOLD).sort((a, b) => b.score - a.score);
+
+            const planetSymbolById = {};
+            (data.planets || []).forEach(p => { planetSymbolById[p.id] = p.id === 'Pluto' ? plutoTableIcon() : p.symbol; });
+            const planetNameById = {};
+            (data.planets || []).forEach(p => { planetNameById[p.id] = p.name; });
+
+            const planetBadge = p => `<span class="strong-badge" title="${escapeHtml(p.name)}: ${escapeHtml(p.flags.join(', '))} (${p.score} б.)">${planetSymbolById[p.id]}</span>`;
+            const houseBadge = h => `<span class="strong-badge" title="Дом ${h.num}: ${escapeHtml(h.flags.join(', '))} (${h.score} б.)">${ROMAN_NUMERALS[h.num]}</span>`;
+            const section = (title, innerHTML) => `<h4 style="margin:18px 0 8px; font-size:0.95rem; font-weight:600; color:var(--text-main);">${title}</h4>${innerHTML}`;
+            const empty = `<div style="color:var(--text-muted); font-size:0.85rem;">Не найдено</div>`;
+
+            let html = '';
+            html += section('Сильные планеты', strongPlanets.length ? `<div class="strong-badges">${strongPlanets.map(planetBadge).join('')}</div>` : empty);
+            html += section('Сильные дома', strongHouses.length ? `<div class="strong-badges">${strongHouses.map(houseBadge).join('')}</div>` : empty);
+            html += section('Точки полного резонанса', resonancePoints.length
+                ? `<div class="strong-badges">${resonancePoints.map(rp => `<span class="strong-badge" title="${escapeHtml(planetNameById[rp.planetId])} управляет домом ${rp.houseNum}">${planetSymbolById[rp.planetId]}</span>`).join('')}</div>`
+                : empty);
+
+            const compound = `${ELEMENT_ADJ_PREFIX[elements.top1]}-${ELEMENT_ADJ_FULL[elements.top2]}`;
+            const labelText = elements.label ? `${elements.label.charAt(0).toUpperCase()}${elements.label.slice(1)} ${compound} ядро` : `Ядро: ${ELEMENT_RU[elements.top1]} + ${ELEMENT_RU[elements.top2]}`;
+            html += section('Сильные стихии', `<div style="color:var(--text-main); font-size:0.88rem;">${escapeHtml(labelText)}
+                <div style="margin-top:6px; color:var(--text-muted); font-size:0.8rem;">Огонь: ${elements.counts.Fire} · Земля: ${elements.counts.Earth} · Воздух: ${elements.counts.Air} · Вода: ${elements.counts.Water}</div>
+            </div>`);
+
+            return html;
+        }
+
         window.highlightWheelAspect = function(idA, idB) {
             const svg = document.querySelector('#canvasContainer svg');
             if (!svg) return;
@@ -1003,13 +1262,13 @@
             if (svg) svg.classList.remove('wheel-focus-mode');
         };
 
-        const INFO_POPUP_TITLES = { aspects: '⊞ Таблица аспектов', coords: '⊘ Координаты планет и домов' };
+        const INFO_POPUP_TITLES = { aspects: '⊞ Таблица аспектов', coords: '⊘ Координаты планет и домов', strong: '⊛ Сильные объекты' };
+        const INFO_POPUP_BUILDERS = { aspects: buildAspectTableHTML, coords: buildCoordsTableHTML, strong: buildStrongObjectsHTML };
 
         window.openInfoPopup = function(type) {
             if (!window.lastChartData) { alert('Сначала постройте карту.'); return; }
             document.getElementById('infoPopupTitle').textContent = INFO_POPUP_TITLES[type] || '';
-            document.getElementById('infoPopupBody').innerHTML =
-                type === 'aspects' ? buildAspectTableHTML(window.lastChartData) : buildCoordsTableHTML(window.lastChartData);
+            document.getElementById('infoPopupBody').innerHTML = INFO_POPUP_BUILDERS[type](window.lastChartData);
             document.getElementById('infoPopupOverlay').style.display = 'flex';
         };
 
