@@ -1221,7 +1221,7 @@
         // 2+ признака оставлены как разумное значение по умолчанию (единственный
         // признак — слишком слабый сигнал).
         const PLANET_STRONG_THRESHOLD = 2;
-        const HOUSE_STRONG_THRESHOLD = 5; // строго "> 4"
+        const HOUSE_STRONG_THRESHOLD = 4; // 4 и более
 
         function buildStrongObjectsHTML(data) {
             const { results: planetResults, configs } = computePlanetStrength(data);
