@@ -3,3 +3,4 @@ kerykeion
 gunicorn
 flask-cors
 timezonefinder
+pymysql

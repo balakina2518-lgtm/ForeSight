@@ -5,9 +5,26 @@ from timezonefinder import TimezoneFinder
 from zoneinfo import ZoneInfo
 from datetime import datetime
 import os
+import pymysql
+import pymysql.cursors
 
 app = Flask(__name__)
 CORS(app)
+
+# Данные для подключения к БД лежат в config.py прямо на сервере (не в гите —
+# файл с паролем от базы не должен попадать в публичный репозиторий)
+try:
+    from config import DB_HOST, DB_USER, DB_PASSWORD, DB_NAME
+except ImportError:
+    DB_HOST = DB_USER = DB_PASSWORD = DB_NAME = None
+
+def get_db_connection():
+    if not DB_HOST:
+        raise RuntimeError("База данных не настроена (нет config.py на сервере)")
+    return pymysql.connect(
+        host=DB_HOST, user=DB_USER, password=DB_PASSWORD, database=DB_NAME,
+        cursorclass=pymysql.cursors.DictCursor, charset='utf8mb4'
+    )
 tf = TimezoneFinder()
 
 # Карта символов для планет
@@ -145,10 +162,70 @@ def calculate():
         })
 
     except Exception as e:
-        print(f"Ошибка при расчете: {e}") 
+        print(f"Ошибка при расчете: {e}")
         return jsonify({"status": "error", "message": str(e)}), 400
 
-# Главная страница 
+@app.route('/api/charts', methods=['GET'])
+def list_charts():
+    try:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT id, name, birth_date, birth_time, lat, lon, place_name, "
+                    "timezone_offset, gender, created_at FROM charts ORDER BY created_at DESC"
+                )
+                rows = cur.fetchall()
+        finally:
+            conn.close()
+        for r in rows:
+            r['birth_date'] = r['birth_date'].isoformat()
+            r['birth_time'] = str(r['birth_time'])
+            r['created_at'] = r['created_at'].isoformat()
+        return jsonify({"status": "success", "charts": rows})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/charts', methods=['POST'])
+def save_chart():
+    data = request.json
+    try:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO charts (name, birth_date, birth_time, lat, lon, "
+                    "place_name, timezone_offset, gender) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+                    (
+                        data.get('name', ''), data['date'], data['time'],
+                        float(data['lat']), float(data['lon']),
+                        data.get('place_name', ''), float(data['timezone']),
+                        data.get('gender', '')
+                    )
+                )
+                new_id = cur.lastrowid
+            conn.commit()
+        finally:
+            conn.close()
+        return jsonify({"status": "success", "id": new_id})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/charts/<int:chart_id>', methods=['DELETE'])
+def delete_chart(chart_id):
+    try:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM charts WHERE id=%s", (chart_id,))
+            conn.commit()
+        finally:
+            conn.close()
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# Главная страница
 @app.route('/', methods=['GET', 'HEAD'])
 def index():
     if request.method == 'HEAD':

@@ -71,12 +71,38 @@
             margin-left: auto; font-size: 0.75rem; color: var(--text-muted); border: 1px solid var(--border-color);
             border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;
         }
+        .btn-charts-list {
+            width: 100%; padding: 9px; border-radius: 6px; font-size: 0.88rem; cursor: pointer;
+            border: 1px solid var(--border-color); background: none; color: var(--text-main); margin-top: 10px;
+        }
+        .btn-charts-list:hover { border-color: var(--accent); color: var(--accent); }
         .nav-actions { display: flex; gap: 8px; margin-top: 14px; }
         .btn-cancel, .btn-save {
             flex: 1; padding: 9px; border-radius: 6px; font-size: 0.88rem; cursor: pointer; border: 1px solid var(--border-color);
         }
         .btn-cancel { background: none; color: var(--text-muted); }
         .btn-save { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+
+        .charts-modal {
+            position: fixed; inset: 0; background: rgba(62, 50, 41, 0.35);
+            z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px;
+        }
+        .charts-modal-inner {
+            background: var(--bg-sidebar); border-radius: 10px; padding: 22px; width: 100%; max-width: 800px;
+            max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.2); box-sizing: border-box;
+        }
+        .charts-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .charts-modal-header h3 { margin: 0; color: var(--accent); font-weight: 500; }
+        .charts-modal-close { background: none; border: none; font-size: 1.1rem; color: var(--text-muted); cursor: pointer; }
+        .charts-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        .charts-table th { text-align: left; color: var(--text-muted); font-weight: 500; font-size: 0.82rem; padding: 8px 10px; border-bottom: 1px solid var(--border-color); }
+        .charts-table td { padding: 10px; border-bottom: 1px solid var(--border-color); color: var(--text-main); }
+        .charts-table tr:hover td { background: var(--bg-app); }
+        .charts-table button {
+            background: none; border: 1px solid var(--border-color); border-radius: 5px; padding: 4px 10px;
+            font-size: 0.8rem; cursor: pointer; color: var(--text-main); margin-right: 6px;
+        }
+        .charts-table button:hover { border-color: var(--accent); color: var(--accent); }
         .btn-save:hover, .btn-cancel:hover { opacity: 0.85; }
 
         /* Правая колонка: сама форма */
@@ -175,6 +201,7 @@
                         <button type="button" class="nav-item disabled" disabled title="Скоро"><span class="nav-icon">◇</span>Релокация<span class="nav-badge">+</span></button>
                         <button type="button" class="nav-item disabled" disabled title="Скоро"><span class="nav-icon">◔</span>Хорар<span class="nav-badge">+</span></button>
                     </nav>
+                    <button type="button" class="btn-charts-list" onclick="window.openChartsList()">🗂 Мои карты</button>
                     <div class="nav-actions">
                         <button type="button" class="btn-cancel" onclick="window.resetForm()">Отменить</button>
                         <button type="submit" form="astroForm" class="btn-save">Сохранить</button>
@@ -252,6 +279,21 @@
                 </div>
                 <div class="info-panel" id="infoPanel">Заполните данные для старта вычислений</div>
             </main>
+        </div>
+
+        <div id="chartsModal" class="charts-modal" style="display:none;">
+            <div class="charts-modal-inner">
+                <div class="charts-modal-header">
+                    <h3>Мои карты</h3>
+                    <button type="button" class="charts-modal-close" onclick="window.closeChartsList()">✕</button>
+                </div>
+                <table class="charts-table">
+                    <thead>
+                        <tr><th>Название</th><th>Дата и время рождения</th><th>Место рождения</th><th></th></tr>
+                    </thead>
+                    <tbody id="chartsTableBody"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -382,6 +424,74 @@
                     <span style="font-size:0.95rem; opacity: 0.6;">Профессиональная визуализация</span>
                 </div>`;
             document.getElementById('infoPanel').innerText = "Заполните данные для старта вычислений";
+        };
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str || '';
+            return div.innerHTML;
+        }
+
+        let chartsCache = [];
+
+        window.openChartsList = async function() {
+            document.getElementById('chartsModal').style.display = 'flex';
+            const tbody = document.getElementById('chartsTableBody');
+            tbody.innerHTML = '<tr><td colspan="4">Загрузка…</td></tr>';
+            try {
+                const response = await fetch('/api/charts');
+                const data = await response.json();
+                if (data.status !== 'success') {
+                    tbody.innerHTML = `<tr><td colspan="4">Ошибка: ${escapeHtml(data.message)}</td></tr>`;
+                    return;
+                }
+                chartsCache = data.charts;
+                if (chartsCache.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4">Пока нет сохранённых карт</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = chartsCache.map((c, i) => `
+                    <tr>
+                        <td>${escapeHtml(c.name) || '(без названия)'}</td>
+                        <td>${c.birth_date}, ${c.birth_time.slice(0, 5)}</td>
+                        <td>${escapeHtml(c.place_name)}</td>
+                        <td>
+                            <button type="button" onclick="window.loadChart(${i})">Открыть</button>
+                            <button type="button" onclick="window.deleteChart(${c.id})">Удалить</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                tbody.innerHTML = '<tr><td colspan="4">Не удалось связаться с сервером</td></tr>';
+            }
+        };
+
+        window.closeChartsList = function() {
+            document.getElementById('chartsModal').style.display = 'none';
+        };
+
+        window.loadChart = function(index) {
+            const c = chartsCache[index];
+            document.getElementById('name').value = c.name;
+            document.getElementById('date').value = c.birth_date;
+            document.getElementById('time').value = c.birth_time.slice(0, 5);
+            document.getElementById('timezone').value = c.timezone_offset;
+            timezoneManuallyEdited = true;
+            document.getElementById('city').value = c.place_name;
+            document.getElementById('gender').value = c.gender || '';
+            selectedLocation = { lat: c.lat, lon: c.lon, name: c.place_name };
+            window.closeChartsList();
+            window.calculateChart({ preventDefault: () => {} });
+        };
+
+        window.deleteChart = async function(id) {
+            if (!confirm('Удалить эту карту из списка?')) return;
+            try {
+                await fetch('/api/charts/' + id, { method: 'DELETE' });
+                window.openChartsList();
+            } catch (err) {
+                alert('Не удалось удалить карту.');
+            }
         };
 
         window.searchCities = function(query) {
@@ -527,11 +637,32 @@
                     body: JSON.stringify(payload)
                 });
                 const data = await response.json();
-                
+
                 if (data.status === "success") {
                     window.lastChartData = data;
                     window.drawZodiacChart(data);
                     document.getElementById('infoPanel').innerHTML = "Карта успешно построена.<br><span style='color:var(--accent); font-size:0.9rem;'>Кликая на планеты, можно изучать их бизнес-трактовку.</span>";
+
+                    // Сохраняем карту в библиотеку — тихо, ошибка сохранения не должна мешать
+                    // уже построенной карте на экране
+                    try {
+                        await fetch('/api/charts', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                name: payload.name,
+                                date: payload.date,
+                                time: payload.time,
+                                lat: payload.lat,
+                                lon: payload.lon,
+                                place_name: selectedLocation.name,
+                                timezone: document.getElementById('timezone').value,
+                                gender: payload.gender
+                            })
+                        });
+                    } catch (saveErr) {
+                        console.error("Не удалось сохранить карту в библиотеку:", saveErr);
+                    }
                 } else {
                     document.getElementById('infoPanel').innerText = "Ошибка: " + data.message;
                 }
