@@ -917,6 +917,27 @@
             return sorted[11].num;
         }
 
+        // Дома, на которые реально влияет планета — с учётом орбиса ангулярности
+        // (соединение с куспидом 4°, через знак 2°): в пределах орбиса планета
+        // работает на ОБА дома по обе стороны куспида; если стоит партильно на
+        // куспиде (до 1°) — снимается с предыдущего дома и работает только на
+        // тот, который куспид открывает (по уточнению Елены)
+        function getHousesOfLongitude(longitude, houses) {
+            const nominalHouse = getHouseOfLongitude(longitude, houses);
+            let closestCusp = null, closestDelta = Infinity, closestSameSign = false;
+            houses.forEach(h => {
+                const delta = shortestArc(longitude, h.longitude);
+                const sameSign = getSignIndex(longitude) === getSignIndex(h.longitude);
+                if (delta < closestDelta) { closestDelta = delta; closestCusp = h; closestSameSign = sameSign; }
+            });
+            const angularOrb = closestSameSign ? 4 : 2;
+            if (closestCusp && closestDelta <= angularOrb) {
+                if (closestDelta <= 1) return [closestCusp.num]; // партиль — только дом куспида
+                return [...new Set([nominalHouse, closestCusp.num])]; // в орбисе, не партиль — оба дома
+            }
+            return [nominalHouse];
+        }
+
         // Треугольные конфигурации аспектов с вершиной (тау-квадрат, бисекстиль,
         // перст судьбы, косой парус) — геометрия по книге Андреева, стр.454-457.
         // Большой трин без вершины (все три угла равноправны) для очков силы не
@@ -986,7 +1007,7 @@
             const results = realPlanets.map(p => {
                 const flags = [];
                 const signIdx = getSignIndex(p.longitude);
-                const houseNum = getHouseOfLongitude(p.longitude, houses);
+                const houseNums = getHousesOfLongitude(p.longitude, houses);
                 const isPersonal = PERSONAL_PLANETS.includes(p.id);
                 const posInSign = ((p.longitude % 30) + 30) % 30;
 
@@ -1034,7 +1055,7 @@
 
                 if (apexIds.has(p.id)) flags.push('Вершина конфигурации');
 
-                return { id: p.id, name: p.name, symbol: p.symbol, score: flags.length, flags, houseNum };
+                return { id: p.id, name: p.name, symbol: p.symbol, score: flags.length, flags, houseNums };
             });
 
             return { results, configs };
@@ -1050,7 +1071,7 @@
             const ascRulerId = asc ? SIGN_MAJOR_RULER[getSignIndex(asc.longitude)] : null;
             const apexIds = new Set(configs.map(c => c.apexId).filter(Boolean));
             const planetsByHouse = {};
-            planetResults.forEach(p => { (planetsByHouse[p.houseNum] = planetsByHouse[p.houseNum] || []).push(p.id); });
+            planetResults.forEach(p => { p.houseNums.forEach(num => { (planetsByHouse[num] = planetsByHouse[num] || []).push(p.id); }); });
 
             return houses.map(h => {
                 const flags = [];
