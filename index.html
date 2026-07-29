@@ -927,6 +927,20 @@
             });
 
             html += '</tbody></table>';
+
+            // Список мажорных аспектов планета-аспект-планета — то же самое, что и
+            // клетки сетки выше в разделе "планета×планета", просто в виде списка,
+            // без домов/фиктивных точек и без минорных аспектов
+            const majorPairs = pairs.filter(p => p.j < planetBodies.length && p.aspect.type === 'major');
+            if (majorPairs.length) {
+                const rows = majorPairs.map(({ i, j, aspect }) => {
+                    const p1 = planetBodies[i], p2 = planetBodies[j];
+                    return `<tr><td>${escapeHtml(p1.name)}</td><td style="color:${aspect.color}">${aspect.symbol} ${escapeHtml(aspect.name)}</td><td>${escapeHtml(p2.name)}</td></tr>`;
+                }).join('');
+                html += `<h4 style="margin:18px 0 8px; font-size:0.95rem; font-weight:600; color:var(--text-main);">Мажорные аспекты</h4>
+                    <table class="coords-table"><thead><tr><th>Планета</th><th>Аспект</th><th>Планета</th></tr></thead><tbody>${rows}</tbody></table>`;
+            }
+
             return html;
         }
 
