@@ -483,19 +483,20 @@
         const WHEEL_HIDDEN_MINOR_ASPECTS = ['Полусекстиль', 'Полуквадрат'];
 
         // Орбис по таблице Елены: базовый орбис зависит от тела, орбис пары —
-        // среднее арифметическое орбисов двух тел, кроме узлов (всегда 5° с
-        // любой планетой) и куспидов домов (всегда 4° с планетой/узлом).
-        // "Прочие планеты" на практике (сверено с эталоном по тестовой карте:
-        // секстили Меркурий-Венера/Венера-Юпитер/Венера-Сатурн пропадали при
-        // орбисе 5° и вернулись при 7°) — тот же орбис, что у Юпитера, не 5°.
+        // среднее арифметическое орбисов двух тел, кроме узлов и Лилит (всегда
+        // 5° с любой планетой, фиксированно) и куспидов домов (всегда 4° с
+        // планетой/узлом). "Прочие планеты" на практике (сверено с эталоном по
+        // тестовой карте: секстили Меркурий-Венера/Венера-Юпитер/Венера-Сатурн
+        // пропадали при орбисе 5° и вернулись при 7°) — тот же орбис, что у
+        // Юпитера, не 5°.
         const BASE_ORB = { Sun: 10, Moon: 9, Jupiter: 7 };
         const DEFAULT_ORB = 7;
-        const NODE_IDS = ['Mean_Node', 'South_Node'];
+        const FIXED_5_IDS = ['Mean_Node', 'South_Node', 'Lilith'];
         const isCuspId = id => typeof id === 'string' && id.startsWith('house');
-        const isNodeId = id => NODE_IDS.includes(id);
+        const isFixed5Id = id => FIXED_5_IDS.includes(id);
         function getPairOrb(idA, idB) {
             if (isCuspId(idA) || isCuspId(idB)) return 4;
-            if (isNodeId(idA) || isNodeId(idB)) return 5;
+            if (isFixed5Id(idA) || isFixed5Id(idB)) return 5;
             const orbA = BASE_ORB[idA] ?? DEFAULT_ORB;
             const orbB = BASE_ORB[idB] ?? DEFAULT_ORB;
             return (orbA + orbB) / 2;
