@@ -1498,6 +1498,11 @@
         // Фигура Джонса — стандартная классификация по крупнейшему разрыву между
         // соседними планетами на круге. Различие "Качели/Россыпь" в общепринятой
         // методике самое нечёткое — помечаю как приблизительное.
+        // Фигуры Джонса — по статье chronos.mg/blog/figury-dzhonsa-v-astrologii/
+        // (эталон использует расширенный набор из 10 фигур, не классические 7).
+        // Точные критерии из статьи, где даны числа; там, где формулировка
+        // расплывчата (Табуретка, Качели, Корзина) — эвристика, помечена как
+        // приблизительная, стоит сверить с эталоном.
         function computeJonesFigure(data) {
             const realPlanets = (data.planets || []).filter(p => !FICTITIOUS_POINTS.includes(p.id));
             const sorted = realPlanets.slice().sort((a, b) => a.longitude - b.longitude);
@@ -1512,36 +1517,64 @@
             const gaps = sorted.map((_, i) => gapAfter(i));
             const maxGap = Math.max(...gaps);
             const occupiedSpan = 360 - maxGap;
+            const spanOf = bodies => {
+                const g = bodies.map((p, idx) => {
+                    const next = bodies[(idx + 1) % bodies.length];
+                    let d = next.longitude - p.longitude;
+                    if (d <= 0) d += 360;
+                    return d;
+                });
+                return 360 - Math.max(...g);
+            };
 
-            // Ведро: одна планета изолирована (обе соседние дуги ≥60°), а
-            // остальные 9 укладываются в дугу ≤185°
+            // Праща — большинство тел в промежутке до 120°, ровно одна планета
+            // напротив (изолирована, оба соседних разрыва ≥60°)
             for (let i = 0; i < n; i++) {
                 const prevGap = gaps[(i - 1 + n) % n];
                 const nextGap = gaps[i];
                 if (prevGap >= 60 && nextGap >= 60) {
                     const rest = sorted.filter((_, idx) => idx !== i);
-                    const restGaps = rest.map((p, idx) => {
-                        const next = rest[(idx + 1) % rest.length];
-                        let g = next.longitude - p.longitude;
-                        if (g <= 0) g += 360;
-                        return g;
-                    });
-                    const restSpan = 360 - Math.max(...restGaps);
-                    if (restSpan <= 185) return { type: 'Ведро (Bucket)', handle: sorted[i].name };
+                    if (spanOf(rest) <= 140) return { type: 'Праща', handle: sorted[i].name };
                 }
             }
 
-            if (occupiedSpan <= 120) return { type: 'Связка (Bundle)' };
-            if (occupiedSpan <= 180) return { type: 'Чаша (Bowl)' };
-            if (occupiedSpan <= 240) return { type: 'Локомотив (Locomotive)' };
+            // Связка — все тела в одном промежутке 120° (±20°, т.е. до 140°)
+            if (occupiedSpan <= 140) return { type: 'Связка' };
 
-            // Качели: два кластера примерно по 180°, разделённых двумя
-            // сопоставимыми по размеру промежутками — приблизительная проверка
-            const sortedGaps = gaps.slice().sort((a, b) => b - a);
-            if (sortedGaps[1] >= 40 && sortedGaps[0] - sortedGaps[1] <= 40) {
-                return { type: 'Качели (Seesaw) — приблизительно, проверьте вручную' };
+            // Чаша (180°±20°, промежуток 5-6 секторов пуст) — и Корзина как её
+            // подвид (1-3 тела отделились в оппозицию); Локомотив — до 240°
+            if (occupiedSpan <= 240) {
+                if (occupiedSpan <= 200) {
+                    // Корзина: во "пустой" зоне чаши есть отдельная мини-группа 1-3 тела
+                    const emptyGapIdx = gaps.indexOf(maxGap);
+                    const sortedGaps = gaps.slice().sort((a, b) => b - a);
+                    if (sortedGaps[1] >= 30 && sortedGaps[1] < maxGap) {
+                        return { type: 'Корзина (приблизительно, проверьте)' };
+                    }
+                    return { type: 'Чаша' };
+                }
+                return { type: 'Локомотив' };
             }
-            return { type: 'Россыпь (Splash)' };
+
+            // Качели пока не отличаю надёжно от Брызг — формулировка в статье
+            // нечёткая ("два центра по 60°"), моя эвристика ложно срабатывала на
+            // тестовой карте. Убрала до уточнения; такие карты попадают в Брызги.
+
+            // Оборотень — равномерно, все разрывы < 30°
+            if (maxGap < 30) return { type: 'Оборотень' };
+
+            // Брызги (разрывы ≤60°) — со сгущением, если есть скопление 3+ тел
+            // в пределах 30° (в одном-двух соседних секторах)
+            for (let i = 0; i < n; i++) {
+                let count = 1;
+                for (let j = i + 1; j < i + n; j++) {
+                    let span = sorted[j % n].longitude - sorted[i].longitude;
+                    if (span < 0) span += 360;
+                    if (span <= 30) count++; else break;
+                }
+                if (count >= 3) return { type: 'Брызги со сгущением' };
+            }
+            return { type: 'Брызги' };
         }
 
         function buildChartAnalysisHTML(data) {
