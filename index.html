@@ -901,6 +901,16 @@
         const ELEMENT_STABILITY = { Fire: 'Устойчивый', Earth: 'Устойчивый', Air: 'Неустойчивый', Water: 'Неустойчивый' };
         const ELEMENT_POLARITY = { Fire: 'Ян', Earth: 'Инь', Air: 'Ян', Water: 'Инь' };
         const ELEMENT_MODE = { Fire: 'Эмоциональный', Earth: 'Рациональный', Air: 'Рациональный', Water: 'Эмоциональный' };
+        // Стихия планеты — по управляемому знаку (обители), а не по факту, где
+        // она стоит в конкретной карте: Плутон всегда Вода (Скорпион) и т.п.
+        // (подтверждено Еленой, для всех тел без исключений). Меркурий/Венера —
+        // управляют двумя знаками разной стихии, стихия берётся по сноске из
+        // "Таблицы Конспект.xlsx" (лист ИП): Меркурий → Воздух, Венера → Земля.
+        // Асцендент — не планета, обители не имеет, стихия по факту знака на куспиде.
+        const PLANET_ELEMENT = {
+            Sun: 'Fire', Moon: 'Water', Mercury: 'Air', Venus: 'Earth', Mars: 'Fire',
+            Jupiter: 'Fire', Saturn: 'Earth', Uranus: 'Air', Neptune: 'Water', Pluto: 'Water'
+        };
 
         function getSignIndex(longitude) {
             return Math.floor(((longitude % 360) + 360) % 360 / 30);
@@ -1123,40 +1133,44 @@
             const qualifiesById = {};
             (planetResults || []).forEach(p => { qualifiesById[p.id] = p.qualifies; });
 
-            const rowFor = (label, longitude) => {
+            // Стихия планеты — по обители (PLANET_ELEMENT), не по факту знака,
+            // где она стоит. Асцендент — исключение (не планета), стихия по
+            // факту знака на куспиде 1 дома.
+            const rowFor = (label, longitude, planetId) => {
                 const signIdx = getSignIndex(longitude);
-                const element = SIGN_ELEMENT[signIdx];
+                const element = planetId ? PLANET_ELEMENT[planetId] : SIGN_ELEMENT[signIdx];
                 return { label, sign: ZODIAC_SIGNS[signIdx], element,
                     stability: ELEMENT_STABILITY[element], polarity: ELEMENT_POLARITY[element], mode: ELEMENT_MODE[element] };
             };
 
             const rows = [];
-            if (sun) rows.push(rowFor('Солнце', sun.longitude));
-            if (moon) rows.push(rowFor('Луна', moon.longitude));
+            if (sun) rows.push(rowFor('Солнце', sun.longitude, 'Sun'));
+            if (moon) rows.push(rowFor('Луна', moon.longitude, 'Moon'));
             if (asc) rows.push(rowFor('Асцендент', asc.longitude));
 
             // Планеты в соединении с Солнцем/Луной/Асцендентом — своими строками
             // (орбис к телам — как обычно для пары, к Асценденту — как к куспиду)
             const anchors = [['Солнце', sun], ['Луна', moon], ['Асцендент', asc]].filter(([, body]) => body);
-            const conjunctLongitudes = [];
+            const conjunctPlanetIds = [];
             realPlanets.forEach(p => {
                 anchors.forEach(([label, target]) => {
                     if (target === p) return;
                     const sameSign = getSignIndex(p.longitude) === getSignIndex(target.longitude);
                     const orb = target.id ? getPairOrb(p.id, target.id) : (sameSign ? 4 : 2);
                     if (shortestArc(p.longitude, target.longitude) <= orb) {
-                        rows.push(rowFor(`${p.name} (соед. с ${label})`, p.longitude));
-                        conjunctLongitudes.push(p.longitude);
+                        rows.push(rowFor(`${p.name} (соед. с ${label})`, p.longitude, p.id));
+                        conjunctPlanetIds.push(p.id);
                     }
                 });
             });
 
+            const ascElement = asc ? SIGN_ELEMENT[getSignIndex(asc.longitude)] : null;
             const counts = { Fire: 0, Earth: 0, Air: 0, Water: 0 };
-            const addCount = lon => { counts[SIGN_ELEMENT[getSignIndex(lon)]]++; };
-            if (sun) addCount(qualifiesById.Sun ? sun.longitude : (asc || sun).longitude);
-            if (moon) addCount(qualifiesById.Moon ? moon.longitude : (asc || moon).longitude);
-            if (asc) addCount(asc.longitude);
-            conjunctLongitudes.forEach(addCount);
+            const addCount = element => { counts[element]++; };
+            if (sun) addCount(qualifiesById.Sun ? PLANET_ELEMENT.Sun : (ascElement || PLANET_ELEMENT.Sun));
+            if (moon) addCount(qualifiesById.Moon ? PLANET_ELEMENT.Moon : (ascElement || PLANET_ELEMENT.Moon));
+            if (ascElement) addCount(ascElement);
+            conjunctPlanetIds.forEach(id => addCount(PLANET_ELEMENT[id]));
 
             const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
             const top1 = sorted[0][0], top2 = sorted[1][0];
