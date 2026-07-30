@@ -88,6 +88,7 @@
             max-height: 100%; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.25);
             box-sizing: border-box; padding: 20px 24px;
         }
+        .info-popup:has(.elements-table) { width: 620px; }
         .info-popup-header { display: flex; align-items: center; justify-content: space-between; font-size: 1.05rem; color: var(--text-main); }
         .info-popup-close { background: none; border: none; font-size: 1rem; color: var(--text-muted); cursor: pointer; }
         .info-popup-close:hover { color: var(--accent); }
@@ -1188,7 +1189,19 @@
 
             const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
             const top1 = sorted[0][0], top2 = sorted[1][0];
-            return { rows, counts, top1, top2 };
+
+            // Устойчивость/полярность/рацио-эмоцио для заголовка ядра — не по
+            // топ-1 стихии, а большинством голосов по всем строкам таблицы
+            const majorityOf = key => {
+                const tally = {};
+                rows.forEach(r => { tally[r[key]] = (tally[r[key]] || 0) + 1; });
+                return Object.entries(tally).sort((a, b) => b[1] - a[1])[0][0];
+            };
+            const majorityStability = majorityOf('stability');
+            const majorityPolarity = majorityOf('polarity');
+            const majorityMode = majorityOf('mode');
+
+            return { rows, counts, top1, top2, majorityStability, majorityPolarity, majorityMode };
         }
 
         // Тот же вручную нарисованный значок Плутона, что и на колесе (юникод-символ
@@ -1317,15 +1330,18 @@
                 ? `<div class="strong-badges">${resonancePlanetIds.map(id => `<span class="strong-badge" title="${escapeHtml(planetNameById[id])} управляет домом ${resonanceByPlanet[id].join(', ')}">${planetSymbolById[id]}</span>`).join('')}</div>`
                 : empty);
 
-            // Заголовок ядра — по свойствам ведущей (топ-1) стихии
+            // Заголовок ядра: название — по двум самым частым стихиям, а
+            // устойчивость/полярность/рацио-эмоцио — большинством голосов по
+            // всем строкам таблицы (не по свойствам топ-1 стихии)
             const compound = `${ELEMENT_ADJ_PREFIX[elements.top1]}-${ELEMENT_ADJ_FULL[elements.top2]}`;
-            const labelText = `${ELEMENT_STABILITY[elements.top1]} ${compound} ядро (${ELEMENT_POLARITY[elements.top1]}, ${ELEMENT_MODE[elements.top1]})`;
+            const stabilityNeuter = elements.majorityStability === 'Устойчивый' ? 'Устойчивое' : 'Неустойчивое';
+            const labelText = `${stabilityNeuter} ${compound} ядро (${elements.majorityPolarity}, ${elements.majorityMode})`;
             const elementsRows = elements.rows.map(r =>
                 `<tr><td>${escapeHtml(r.label)}</td><td>${escapeHtml(r.sign)}</td><td>${ELEMENT_RU[r.element]}</td><td>${r.stability}</td><td>${r.polarity}</td><td>${r.mode}</td></tr>`
             ).join('');
             html += section('Сильные стихии', `<div style="color:var(--text-main); font-size:0.88rem;">${escapeHtml(labelText)}
                 <div style="margin-top:6px; color:var(--text-muted); font-size:0.8rem;">Огонь: ${elements.counts.Fire} · Земля: ${elements.counts.Earth} · Воздух: ${elements.counts.Air} · Вода: ${elements.counts.Water}</div>
-                <table class="coords-table" style="margin-top:10px;"><thead><tr><th>Тело</th><th>Знак</th><th>Стихия</th><th>Устойчивость</th><th>Полярность</th><th>Рацио/Эмоцио</th></tr></thead><tbody>${elementsRows}</tbody></table>
+                <table class="coords-table elements-table" style="margin-top:10px; width:100%;"><thead><tr><th>Тело</th><th>Знак</th><th>Стихия</th><th>Устойчивость</th><th>Полярность</th><th>Рацио/Эмоцио</th></tr></thead><tbody>${elementsRows}</tbody></table>
             </div>`);
 
             return html;
