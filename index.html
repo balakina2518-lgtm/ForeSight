@@ -1376,8 +1376,59 @@
                 const management = [...new Set([...own, ...companionHouses])].sort((a, b) => a - b);
                 const placement = (houseNumsById[p.id] || []).slice().sort((a, b) => a - b);
                 const signification = PLANET_SIGNIFICATION_FIXED[p.id] || [];
-                return { id: p.id, name: p.name, symbol: p.symbol, management, placement, signification };
+                return { id: p.id, name: p.name, symbol: p.symbol, management, ownManagement: own.sort((a, b) => a - b), placement, signification };
             });
+        }
+
+        const HOUSE_ROLE_LABEL = { significator: 'сигнификатор', ruler: 'управитель', placed: 'в доме', cusp: 'куспид' };
+
+        // Тела, связанные с домом N: сигнификатор(ы), управитель(и) (свои+пары),
+        // планета(ы) в доме, сам куспид — по подтверждённому Еленой правилу
+        function getHouseLinkedBodies(houseNum, data, formulaRows) {
+            const houses = data.houses || [];
+            const h = houses.find(hh => hh.num === houseNum);
+            const longitudeById = {};
+            (data.planets || []).forEach(p => { longitudeById[p.id] = p.longitude; });
+            const bodies = [];
+            formulaRows.forEach(r => {
+                if (r.signification.includes(houseNum)) bodies.push({ id: r.id, name: r.name, role: 'significator', longitude: longitudeById[r.id] });
+                if (r.ownManagement.includes(houseNum)) bodies.push({ id: r.id, name: r.name, role: 'ruler', longitude: longitudeById[r.id] });
+                if (r.placement.includes(houseNum)) bodies.push({ id: r.id, name: r.name, role: 'placed', longitude: longitudeById[r.id] });
+            });
+            if (h) bodies.push({ id: `house${houseNum}`, name: `куспид ${ROMAN_NUMERALS[houseNum]}`, role: 'cusp', longitude: h.longitude });
+            return bodies;
+        }
+
+        // Связь между парой домов = мажорный аспект между любым телом, связанным
+        // с домом A, и любым телом, связанным с домом B (кроме тела самого с
+        // собой). Каждая пара ролей — отдельная связь, даже если это одна и та
+        // же физическая пара планет (подтверждено Еленой на примере 1-2).
+        function computeHouseConnection(houseA, houseB, data, formulaRows) {
+            const bodiesA = getHouseLinkedBodies(houseA, data, formulaRows);
+            const bodiesB = getHouseLinkedBodies(houseB, data, formulaRows);
+            const details = [];
+            for (let i = 0; i < bodiesA.length; i++) {
+                for (let j = 0; j < bodiesB.length; j++) {
+                    if (houseA === houseB && j <= i) continue;
+                    const a = bodiesA[i], b = bodiesB[j];
+                    if (a.id === b.id) continue;
+                    const orb = getPairOrb(a.id, b.id);
+                    const asp = detectAspect(a.longitude, b.longitude, orb);
+                    if (asp && asp.type === 'major') details.push({ a, b, aspect: asp });
+                }
+            }
+            return { count: details.length, details };
+        }
+
+        function computeAllHouseConnections(data, formulaRows) {
+            const pairs = [];
+            for (let i = 1; i <= 12; i++) {
+                for (let j = i; j <= 12; j++) {
+                    const { count, details } = computeHouseConnection(i, j, data, formulaRows);
+                    if (count > 0) pairs.push({ houseA: i, houseB: j, count, details });
+                }
+            }
+            return pairs;
         }
 
         function buildHouseFormulasHTML(data) {
@@ -1390,9 +1441,15 @@
                 `<tr><td>${planetSymbolById[r.id]} ${escapeHtml(r.name)}</td><td>${r.management.join(', ')}</td><td>${r.placement.join(', ')}</td><td>${r.signification.join(', ')}</td></tr>`
             ).join('');
 
-            return `<div style="color:var(--text-muted); font-size:0.82rem; margin-bottom:10px;">
-                Сетка со связями между парами домов пока не реализована — не разобралась в точной формуле подсчёта, уточняю у Елены.
-            </div>
+            const connections = computeAllHouseConnections(data, formulaRows);
+            const describeBody = (b, houseNum) => `${b.name} (${HOUSE_ROLE_LABEL[b.role]}${b.role === 'cusp' ? '' : ' ' + ROMAN_NUMERALS[houseNum]})`;
+            const connectionRows = connections.map(c => {
+                const list = c.details.map(d => `${describeBody(d.a, c.houseA)} ${d.aspect.symbol} ${describeBody(d.b, c.houseB)}`).join('<br>');
+                return `<tr><td>${c.houseA}#${c.houseB}=${c.count}</td><td style="font-size:0.8rem; color:var(--text-muted);">${list}</td><td></td></tr>`;
+            }).join('');
+
+            return `<h4 style="margin:0 0 8px; font-size:0.95rem; font-weight:600; color:var(--text-main);">Формулы домов</h4>
+            <table class="coords-table elements-table" style="width:100%;"><thead><tr><th>Формула</th><th>Формула связи</th><th>Трактовка</th></tr></thead><tbody>${connectionRows}</tbody></table>
             <h4 style="margin:18px 0 8px; font-size:0.95rem; font-weight:600; color:var(--text-main);">Домарные свойства планет</h4>
             <table class="coords-table elements-table" style="width:100%;"><thead><tr><th>Планета</th><th>Управление</th><th>Дом</th><th>Сигнификация</th></tr></thead><tbody>${rows}</tbody></table>`;
         }
