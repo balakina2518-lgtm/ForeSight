@@ -1161,11 +1161,13 @@
         // считаем не по всем 10 планетам, а по Солнцу, Луне, Асценденту и
         // планетам в соединении с ними. Подсчёт — прямо по строкам итоговой
         // таблицы, один голос на строку (без скрытой подмены слотов).
-        function computeElementsCore(data) {
+        function computeElementsCore(data, planetResults) {
             const realPlanets = (data.planets || []).filter(p => !FICTITIOUS_POINTS.includes(p.id));
             const asc = (data.houses || []).find(h => h.num === 1);
             const sun = realPlanets.find(p => p.id === 'Sun');
             const moon = realPlanets.find(p => p.id === 'Moon');
+            const qualifiesById = {};
+            (planetResults || []).forEach(p => { qualifiesById[p.id] = p.qualifies; });
 
             // Солнце/Луна/Асцендент — стихия по факту, где реально стоят.
             // Планеты в соединении с ними — по природному достоинству (своя
@@ -1187,6 +1189,15 @@
             if (sun) rows.push(positionRow('Солнце', sun.longitude));
             if (moon) rows.push(positionRow('Луна', moon.longitude));
             if (asc) rows.push(positionRow('Асцендент', asc.longitude));
+
+            // Личные планеты (Меркурий, Венера, Марс) — добавляем в ядро своей
+            // строкой (по факту положения), если сами являются сильными
+            // планетами (по уточнению Елены)
+            ['Mercury', 'Venus', 'Mars'].forEach(id => {
+                if (!qualifiesById[id]) return;
+                const p = realPlanets.find(pl => pl.id === id);
+                if (p) rows.push(positionRow(`${p.name} (сильная)`, p.longitude));
+            });
 
             // Планеты в соединении с Солнцем/Луной/Асцендентом — своими строками
             // (орбис к телам — как обычно для пары, к Асценденту — как к куспиду)
@@ -1322,7 +1333,7 @@
         function buildStrongObjectsHTML(data) {
             const { results: planetResults, configs } = computePlanetStrength(data);
             const houseResults = computeHouseStrength(data, planetResults, configs);
-            const elements = computeElementsCore(data);
+            const elements = computeElementsCore(data, planetResults);
             const resonancePoints = computeFullResonancePoints(planetResults, houseResults, HOUSE_STRONG_THRESHOLD);
 
             const strongPlanets = planetResults.filter(p => p.qualifies).sort((a, b) => b.score - a.score);
