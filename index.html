@@ -1316,7 +1316,7 @@
             const resonanceByPlanet = {};
             resonancePoints.forEach(rp => { (resonanceByPlanet[rp.planetId] = resonanceByPlanet[rp.planetId] || []).push(rp.houseNum); });
             const resonancePlanetIds = Object.keys(resonanceByPlanet);
-            html += section('Точки полного резонанса', resonancePlanetIds.length
+            html += section('Точки полного резонанса (Сильная планета управляющая сильным домом)', resonancePlanetIds.length
                 ? `<div class="strong-badges">${resonancePlanetIds.map(id => `<span class="strong-badge" title="${escapeHtml(planetNameById[id])} управляет домом ${resonanceByPlanet[id].join(', ')}">${planetSymbolById[id]}</span>`).join('')}</div>`
                 : empty);
 
