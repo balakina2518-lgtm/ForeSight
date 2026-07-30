@@ -1244,8 +1244,13 @@
             let html = '';
             html += section('Сильные планеты', strongPlanets.length ? `<div class="strong-badges">${strongPlanets.map(planetBadge).join('')}</div>` : empty);
             html += section('Сильные дома', strongHouses.length ? `<div class="strong-badges">${strongHouses.map(houseBadge).join('')}</div>` : empty);
-            html += section('Точки полного резонанса', resonancePoints.length
-                ? `<div class="strong-badges">${resonancePoints.map(rp => `<span class="strong-badge" title="${escapeHtml(planetNameById[rp.planetId])} управляет домом ${rp.houseNum}">${planetSymbolById[rp.planetId]}</span>`).join('')}</div>`
+            // Одна планета может управлять сразу несколькими сильными домами —
+            // в списке она должна появиться один раз, с перечнем всех домов
+            const resonanceByPlanet = {};
+            resonancePoints.forEach(rp => { (resonanceByPlanet[rp.planetId] = resonanceByPlanet[rp.planetId] || []).push(rp.houseNum); });
+            const resonancePlanetIds = Object.keys(resonanceByPlanet);
+            html += section('Точки полного резонанса', resonancePlanetIds.length
+                ? `<div class="strong-badges">${resonancePlanetIds.map(id => `<span class="strong-badge" title="${escapeHtml(planetNameById[id])} управляет домом ${resonanceByPlanet[id].join(', ')}">${planetSymbolById[id]}</span>`).join('')}</div>`
                 : empty);
 
             const compound = `${ELEMENT_ADJ_PREFIX[elements.top1]}-${ELEMENT_ADJ_FULL[elements.top2]}`;
