@@ -339,6 +339,7 @@
                 <button type="button" class="toolbar-btn" onclick="window.openInfoPopup('aspects')" title="Таблица аспектов">⊞</button>
                 <button type="button" class="toolbar-btn" onclick="window.openInfoPopup('coords')" title="Координаты планет и домов">⊘</button>
                 <button type="button" class="toolbar-btn" onclick="window.openInfoPopup('strong')" title="Сильные объекты">⊛</button>
+                <button type="button" class="toolbar-btn" onclick="window.openInfoPopup('formulas')" title="Формулы домов">⊞⊞</button>
             </div>
         </div>
 
@@ -918,6 +919,16 @@
             Sun: 'Лев', Moon: 'Рак', Mercury: 'Близнецы', Venus: 'Телец', Mars: 'Овен',
             Jupiter: 'Стрелец', Saturn: 'Козерог', Uranus: 'Водолей', Neptune: 'Рыбы', Pluto: 'Скорпион'
         };
+        // "Планеты-пары" (традиционный + современный со-управитель одной стихии
+        // знака, плюс два светила как отдельная пара) — для "Управления" домом:
+        // каждая планета управляет и своими куспидами, и куспидами пары
+        const PLANET_COMPANION = { Sun: 'Moon', Moon: 'Sun', Mars: 'Pluto', Pluto: 'Mars', Saturn: 'Uranus', Uranus: 'Saturn', Jupiter: 'Neptune', Neptune: 'Jupiter' };
+        // Сигнификация — фиксированная таблица, не зависит от конкретной карты
+        // (подтверждено Еленой: "как правило не меняется")
+        const PLANET_SIGNIFICATION_FIXED = {
+            Sun: [5, 1], Moon: [4, 1], Mercury: [3], Venus: [2, 7], Mars: [8],
+            Jupiter: [9, 12], Saturn: [10], Uranus: [11], Neptune: [9, 12], Pluto: [8]
+        };
 
         function getSignIndex(longitude) {
             return Math.floor(((longitude % 360) + 360) % 360 / 30);
@@ -1337,6 +1348,55 @@
             return html;
         }
 
+        // Домарные свойства планет: Управление (свои куспиды + куспиды планеты-
+        // пары), Дом (где реально стоит, с учётом орбиса куспидов), Сигнификация
+        // (фиксированная таблица). Проверено и подтверждено Еленой на тестовой карте.
+        function computeHouseRulerships(houses) {
+            const rulership = {};
+            houses.forEach(h => {
+                const signIdx = getSignIndex(h.longitude);
+                [SIGN_MAJOR_RULER[signIdx], SIGN_MINOR_RULER[signIdx]].filter(Boolean).forEach(pid => {
+                    (rulership[pid] = rulership[pid] || new Set()).add(h.num);
+                });
+            });
+            return rulership;
+        }
+
+        function computeHouseFormulaTable(data, planetResults) {
+            const realPlanets = (data.planets || []).filter(p => !FICTITIOUS_POINTS.includes(p.id));
+            const houses = data.houses || [];
+            const rulership = computeHouseRulerships(houses);
+            const houseNumsById = {};
+            (planetResults || []).forEach(p => { houseNumsById[p.id] = p.houseNums; });
+
+            return realPlanets.map(p => {
+                const own = rulership[p.id] ? [...rulership[p.id]] : [];
+                const companion = PLANET_COMPANION[p.id];
+                const companionHouses = companion && rulership[companion] ? [...rulership[companion]] : [];
+                const management = [...new Set([...own, ...companionHouses])].sort((a, b) => a - b);
+                const placement = (houseNumsById[p.id] || []).slice().sort((a, b) => a - b);
+                const signification = PLANET_SIGNIFICATION_FIXED[p.id] || [];
+                return { id: p.id, name: p.name, symbol: p.symbol, management, placement, signification };
+            });
+        }
+
+        function buildHouseFormulasHTML(data) {
+            const { results: planetResults } = computePlanetStrength(data);
+            const formulaRows = computeHouseFormulaTable(data, planetResults);
+            const planetSymbolById = {};
+            (data.planets || []).forEach(p => { planetSymbolById[p.id] = p.id === 'Pluto' ? plutoTableIcon() : p.symbol; });
+
+            const rows = formulaRows.map(r =>
+                `<tr><td>${planetSymbolById[r.id]} ${escapeHtml(r.name)}</td><td>${r.management.join(', ')}</td><td>${r.placement.join(', ')}</td><td>${r.signification.join(', ')}</td></tr>`
+            ).join('');
+
+            return `<div style="color:var(--text-muted); font-size:0.82rem; margin-bottom:10px;">
+                Сетка со связями между парами домов пока не реализована — не разобралась в точной формуле подсчёта, уточняю у Елены.
+            </div>
+            <h4 style="margin:18px 0 8px; font-size:0.95rem; font-weight:600; color:var(--text-main);">Домарные свойства планет</h4>
+            <table class="coords-table elements-table" style="width:100%;"><thead><tr><th>Планета</th><th>Управление</th><th>Дом</th><th>Сигнификация</th></tr></thead><tbody>${rows}</tbody></table>`;
+        }
+
         window.highlightWheelAspect = function(idA, idB) {
             const svg = document.querySelector('#canvasContainer svg');
             if (!svg) return;
@@ -1370,8 +1430,8 @@
             if (svg) svg.classList.remove('wheel-focus-mode');
         };
 
-        const INFO_POPUP_TITLES = { aspects: '⊞ Таблица аспектов', coords: '⊘ Координаты планет и домов', strong: '⊛ Сильные объекты' };
-        const INFO_POPUP_BUILDERS = { aspects: buildAspectTableHTML, coords: buildCoordsTableHTML, strong: buildStrongObjectsHTML };
+        const INFO_POPUP_TITLES = { aspects: '⊞ Таблица аспектов', coords: '⊘ Координаты планет и домов', strong: '⊛ Сильные объекты', formulas: '⊞⊞ Формулы домов' };
+        const INFO_POPUP_BUILDERS = { aspects: buildAspectTableHTML, coords: buildCoordsTableHTML, strong: buildStrongObjectsHTML, formulas: buildHouseFormulasHTML };
 
         window.openInfoPopup = function(type) {
             if (!window.lastChartData) { alert('Сначала постройте карту.'); return; }
