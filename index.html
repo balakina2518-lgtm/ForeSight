@@ -1001,8 +1001,9 @@
             const signCounts = {};
             realPlanets.forEach(pl => { const idx = getSignIndex(pl.longitude); signCounts[idx] = (signCounts[idx] || 0) + 1; });
             const stelliumSignIdx = Object.keys(signCounts).find(idx => signCounts[idx] >= 3);
-            const stelliumRulers = stelliumSignIdx !== undefined
-                ? [SIGN_MAJOR_RULER[stelliumSignIdx], SIGN_MINOR_RULER[stelliumSignIdx]].filter(Boolean) : [];
+            // Диспозиторы (Асц/Солнца/Луны/стеллиума) — только мажорная обитель,
+            // минорную здесь не считаем (по прямому уточнению Елены)
+            const stelliumRuler = stelliumSignIdx !== undefined ? SIGN_MAJOR_RULER[stelliumSignIdx] : null;
             // Элевация — направленная дистанция: планета ещё НЕ прошла МЦ и
             // приближается к нему по ходу вращения (МЦ - долгота планеты, по
             // модулю 360, вперёд). Обычная кратчайшая дуга тут не подходит —
@@ -1036,11 +1037,10 @@
 
                 dispositorTargets.forEach(([label, lon]) => {
                     if (lon == null) return;
-                    const idx = getSignIndex(lon);
-                    if ([SIGN_MAJOR_RULER[idx], SIGN_MINOR_RULER[idx]].filter(Boolean).includes(p.id)) flags.push(label);
+                    if (SIGN_MAJOR_RULER[getSignIndex(lon)] === p.id) flags.push(label);
                 });
 
-                if (stelliumRulers.includes(p.id)) flags.push('Диспозитор стеллиума');
+                if (stelliumRuler === p.id) flags.push('Диспозитор стеллиума');
 
                 if (houseNums.includes(1)) flags.push('Планета в 1 доме');
 
