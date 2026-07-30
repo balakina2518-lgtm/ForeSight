@@ -352,6 +352,7 @@
                         <line x1="9.5" y1="13.5" x2="9.5" y2="9" />
                     </svg>
                 </button>
+                <button type="button" class="toolbar-btn" onclick="window.openInfoPopup('analysis')" title="Анализ карты">ⓘ</button>
             </div>
         </div>
 
@@ -1485,6 +1486,92 @@
             <table class="coords-table elements-table" style="width:100%;"><thead><tr><th>Планета</th><th>Управление</th><th>Дом</th><th>Сигнификация</th></tr></thead><tbody>${rows}</tbody></table>`;
         }
 
+        const SIGN_MODALITY = ['Кардинальный', 'Фиксированный', 'Мутабельный', 'Кардинальный', 'Фиксированный', 'Мутабельный', 'Кардинальный', 'Фиксированный', 'Мутабельный', 'Кардинальный', 'Фиксированный', 'Мутабельный'];
+
+        function computeModalitySynthesis(data) {
+            const realPlanets = (data.planets || []).filter(p => !FICTITIOUS_POINTS.includes(p.id));
+            const groups = { 'Кардинальный': [], 'Фиксированный': [], 'Мутабельный': [] };
+            realPlanets.forEach(p => { groups[SIGN_MODALITY[getSignIndex(p.longitude)]].push(p); });
+            return groups;
+        }
+
+        // Фигура Джонса — стандартная классификация по крупнейшему разрыву между
+        // соседними планетами на круге. Различие "Качели/Россыпь" в общепринятой
+        // методике самое нечёткое — помечаю как приблизительное.
+        function computeJonesFigure(data) {
+            const realPlanets = (data.planets || []).filter(p => !FICTITIOUS_POINTS.includes(p.id));
+            const sorted = realPlanets.slice().sort((a, b) => a.longitude - b.longitude);
+            const n = sorted.length;
+            if (n < 2) return { type: 'Недостаточно данных' };
+            const gapAfter = i => {
+                const next = sorted[(i + 1) % n];
+                let g = next.longitude - sorted[i].longitude;
+                if (g <= 0) g += 360;
+                return g;
+            };
+            const gaps = sorted.map((_, i) => gapAfter(i));
+            const maxGap = Math.max(...gaps);
+            const occupiedSpan = 360 - maxGap;
+
+            // Ведро: одна планета изолирована (обе соседние дуги ≥60°), а
+            // остальные 9 укладываются в дугу ≤185°
+            for (let i = 0; i < n; i++) {
+                const prevGap = gaps[(i - 1 + n) % n];
+                const nextGap = gaps[i];
+                if (prevGap >= 60 && nextGap >= 60) {
+                    const rest = sorted.filter((_, idx) => idx !== i);
+                    const restGaps = rest.map((p, idx) => {
+                        const next = rest[(idx + 1) % rest.length];
+                        let g = next.longitude - p.longitude;
+                        if (g <= 0) g += 360;
+                        return g;
+                    });
+                    const restSpan = 360 - Math.max(...restGaps);
+                    if (restSpan <= 185) return { type: 'Ведро (Bucket)', handle: sorted[i].name };
+                }
+            }
+
+            if (occupiedSpan <= 120) return { type: 'Связка (Bundle)' };
+            if (occupiedSpan <= 180) return { type: 'Чаша (Bowl)' };
+            if (occupiedSpan <= 240) return { type: 'Локомотив (Locomotive)' };
+
+            // Качели: два кластера примерно по 180°, разделённых двумя
+            // сопоставимыми по размеру промежутками — приблизительная проверка
+            const sortedGaps = gaps.slice().sort((a, b) => b - a);
+            if (sortedGaps[1] >= 40 && sortedGaps[0] - sortedGaps[1] <= 40) {
+                return { type: 'Качели (Seesaw) — приблизительно, проверьте вручную' };
+            }
+            return { type: 'Россыпь (Splash)' };
+        }
+
+        function buildChartAnalysisHTML(data) {
+            const configs = findConfigurations((data.planets || []).filter(p => !FICTITIOUS_POINTS.includes(p.id)).map(p => ({ id: p.id, longitude: p.longitude })));
+            const planetSymbolById = {};
+            const planetNameById = {};
+            (data.planets || []).forEach(p => { planetSymbolById[p.id] = p.id === 'Pluto' ? plutoTableIcon() : p.symbol; planetNameById[p.id] = p.name; });
+            const jones = computeJonesFigure(data);
+            const modality = computeModalitySynthesis(data);
+
+            const configBadges = configs.length
+                ? configs.map(c => `<span class="strong-badge" title="${escapeHtml(c.memberIds.map(id => planetNameById[id]).join(', '))}">${escapeHtml(c.type)} ${c.memberIds.map(id => planetSymbolById[id]).join(' ')}</span>`).join('')
+                : '';
+
+            const modalityBlock = Object.entries(modality).map(([label, planets]) => `
+                <div style="min-width:150px;">
+                    <div style="font-size:0.85rem; color:var(--text-main); margin-bottom:6px;">${label} <span style="color:var(--text-muted);">${planets.length}</span></div>
+                    <div class="strong-badges">${planets.map(p => `<span class="strong-badge" title="${escapeHtml(p.name)}">${planetSymbolById[p.id]}</span>`).join('')}</div>
+                </div>`).join('');
+
+            return `<h4 style="margin:0 0 8px; font-size:0.95rem; font-weight:600; color:var(--text-main);">Фигура Джонса</h4>
+            <div class="strong-badge" style="display:inline-flex; padding:8px 14px;">${escapeHtml(jones.type)}${jones.handle ? ' — ручка: ' + escapeHtml(jones.handle) : ''}</div>
+
+            <h4 style="margin:18px 0 8px; font-size:0.95rem; font-weight:600; color:var(--text-main);">Конфигурации</h4>
+            <div class="strong-badges">${configBadges || '<div style="color:var(--text-muted); font-size:0.85rem;">Не найдено</div>'}</div>
+
+            <h4 style="margin:18px 0 8px; font-size:0.95rem; font-weight:600; color:var(--text-main);">Знак синтеза</h4>
+            <div style="display:flex; gap:24px; flex-wrap:wrap;">${modalityBlock}</div>`;
+        }
+
         window.filterHouseFormulas = function(value) {
             const table = document.getElementById('houseFormulasTable');
             if (!table) return;
@@ -1551,8 +1638,8 @@
             if (svg) svg.classList.remove('wheel-focus-mode');
         };
 
-        const INFO_POPUP_TITLES = { aspects: '⊞ Таблица аспектов', coords: '⊘ Координаты планет и домов', strong: '⊛ Сильные объекты', formulas: '⊞⊞ Формулы домов' };
-        const INFO_POPUP_BUILDERS = { aspects: buildAspectTableHTML, coords: buildCoordsTableHTML, strong: buildStrongObjectsHTML, formulas: buildHouseFormulasHTML };
+        const INFO_POPUP_TITLES = { aspects: '⊞ Таблица аспектов', coords: '⊘ Координаты планет и домов', strong: '⊛ Сильные объекты', formulas: '⌂ Формулы домов', analysis: 'ⓘ Анализ карты' };
+        const INFO_POPUP_BUILDERS = { aspects: buildAspectTableHTML, coords: buildCoordsTableHTML, strong: buildStrongObjectsHTML, formulas: buildHouseFormulasHTML, analysis: buildChartAnalysisHTML };
 
         window.openInfoPopup = function(type) {
             if (!window.lastChartData) { alert('Сначала постройте карту.'); return; }
