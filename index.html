@@ -988,6 +988,31 @@
             const configs = findConfigurations(realPlanets.map(p => ({ id: p.id, longitude: p.longitude })));
             const apexIds = new Set(configs.map(c => c.apexId).filter(Boolean));
 
+            // Доп. критерии из конспекта (лекция 7, "Способ, критерии определения
+            // силы"): диспозитор Асцендента/Солнца/Луны, диспозитор стеллиума,
+            // планета в 1 доме, сигнификатор в доме (планетоцентрично), элевация
+            const asc = houses.find(h => h.num === 1);
+            const mc = houses.find(h => h.num === 10);
+            const sunBody = realPlanets.find(pl => pl.id === 'Sun');
+            const moonBody = realPlanets.find(pl => pl.id === 'Moon');
+            const dispositorTargets = [
+                ['Диспозитор Асцендента', asc ? asc.longitude : null],
+                ['Диспозитор Солнца', sunBody ? sunBody.longitude : null],
+                ['Диспозитор Луны', moonBody ? moonBody.longitude : null]
+            ];
+            const signCounts = {};
+            realPlanets.forEach(pl => { const idx = getSignIndex(pl.longitude); signCounts[idx] = (signCounts[idx] || 0) + 1; });
+            const stelliumSignIdx = Object.keys(signCounts).find(idx => signCounts[idx] >= 3);
+            const stelliumRulers = stelliumSignIdx !== undefined
+                ? [SIGN_MAJOR_RULER[stelliumSignIdx], SIGN_MINOR_RULER[stelliumSignIdx]].filter(Boolean) : [];
+            let elevatedId = null, elevatedDelta = Infinity;
+            if (mc) {
+                realPlanets.forEach(pl => {
+                    const d = shortestArc(pl.longitude, mc.longitude);
+                    if (d < elevatedDelta) { elevatedDelta = d; elevatedId = pl.id; }
+                });
+            }
+
             const majorStats = {};
             realPlanets.forEach(p => { majorStats[p.id] = { count: 0, tense: 0 }; });
             for (let i = 0; i < realPlanets.length; i++) {
@@ -1054,6 +1079,20 @@
                 }
 
                 if (apexIds.has(p.id)) flags.push('Вершина конфигурации');
+
+                dispositorTargets.forEach(([label, lon]) => {
+                    if (lon == null) return;
+                    const idx = getSignIndex(lon);
+                    if ([SIGN_MAJOR_RULER[idx], SIGN_MINOR_RULER[idx]].filter(Boolean).includes(p.id)) flags.push(label);
+                });
+
+                if (stelliumRulers.includes(p.id)) flags.push('Диспозитор стеллиума');
+
+                if (houseNums.includes(1)) flags.push('Планета в 1 доме');
+
+                if (houseNums.some(hn => SIGN_MAJOR_RULER[hn - 1] === p.id)) flags.push('Сигнификатор в доме');
+
+                if (p.id === elevatedId) flags.push('Элевация (ближе всех к МЦ)');
 
                 return { id: p.id, name: p.name, symbol: p.symbol, score: flags.length, flags, houseNums };
             });
