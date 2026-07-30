@@ -829,21 +829,16 @@
             for (const asp of ASPECTS) {
                 const delta = Math.abs(diff - asp.angle);
                 if (delta > orb) continue;
-                // Для "чистых" аспектов (кратных 30°: соединение, полусекстиль,
-                // секстиль, квадратура, трин, квиконс, оппозиция) орбиса по
-                // градусам недостаточно — расстояние между ЗНАКАМИ должно точно
-                // совпадать с ожидаемым для этого аспекта. Иначе это "через знак"
-                // (dissociate) случай — числа рядом, но точки в разных знаках:
-                // аспект не отменяется, а действует по уменьшенному орбису —
-                // ÷2 для соединения, ×0.7 для остальных.
+                // Правило "через знак" (числа рядом, но точки в разных знаках —
+                // аспект не отменяется, а действует по уменьшенному орбису)
+                // применяется ТОЛЬКО к соединению (по уточнению Елены), для
+                // остальных аспектов знак не проверяем вообще — чистый градусный орбис.
                 let effectiveOrb = orb;
-                if (asp.angle % 30 === 0) {
+                if (asp.angle === 0) {
                     const sign1 = Math.floor(((angle1 % 360) + 360) % 360 / 30);
                     const sign2 = Math.floor(((angle2 % 360) + 360) % 360 / 30);
-                    let signDiff = Math.abs(sign1 - sign2) % 12;
-                    signDiff = Math.min(signDiff, 12 - signDiff);
-                    if (signDiff !== asp.angle / 30) {
-                        effectiveOrb = asp.angle === 0 ? orb / 2 : orb * 0.7;
+                    if (sign1 !== sign2) {
+                        effectiveOrb = orb / 2;
                         if (delta > effectiveOrb) continue;
                     }
                 }
@@ -1389,13 +1384,21 @@
             const h = houses.find(hh => hh.num === houseNum);
             const longitudeById = {};
             (data.planets || []).forEach(p => { longitudeById[p.id] = p.longitude; });
-            const bodies = [];
+            // Один и тот же признак (роль) для планеты в этом доме не повторяем —
+            // если планета одновременно и управитель, и стоит в доме, это всё
+            // равно один узел связи, не два (по уточнению Елены)
+            const roleByPlanet = {};
+            const addRole = (id, name, role) => {
+                if (!roleByPlanet[id]) roleByPlanet[id] = { id, name, roles: [] };
+                roleByPlanet[id].roles.push(role);
+            };
             formulaRows.forEach(r => {
-                if (r.signification.includes(houseNum)) bodies.push({ id: r.id, name: r.name, role: 'significator', longitude: longitudeById[r.id] });
-                if (r.ownManagement.includes(houseNum)) bodies.push({ id: r.id, name: r.name, role: 'ruler', longitude: longitudeById[r.id] });
-                if (r.placement.includes(houseNum)) bodies.push({ id: r.id, name: r.name, role: 'placed', longitude: longitudeById[r.id] });
+                if (r.signification.includes(houseNum)) addRole(r.id, r.name, 'significator');
+                if (r.management.includes(houseNum)) addRole(r.id, r.name, 'ruler');
+                if (r.placement.includes(houseNum)) addRole(r.id, r.name, 'placed');
             });
-            if (h) bodies.push({ id: `house${houseNum}`, name: `куспид ${ROMAN_NUMERALS[houseNum]}`, role: 'cusp', longitude: h.longitude });
+            const bodies = Object.values(roleByPlanet).map(b => ({ id: b.id, name: b.name, role: b.roles[0], roles: b.roles, longitude: longitudeById[b.id] }));
+            if (h) bodies.push({ id: `house${houseNum}`, name: `куспид ${ROMAN_NUMERALS[houseNum]}`, role: 'cusp', roles: ['cusp'], longitude: h.longitude });
             return bodies;
         }
 
@@ -1412,6 +1415,7 @@
                     if (houseA === houseB && j <= i) continue;
                     const a = bodiesA[i], b = bodiesB[j];
                     if (a.id === b.id) continue;
+                    if (a.role === 'cusp' && b.role === 'cusp') continue; // куспид с куспидом не считаем, только с планетами
                     const orb = getPairOrb(a.id, b.id);
                     const asp = detectAspect(a.longitude, b.longitude, orb);
                     if (asp && asp.type === 'major') details.push({ a, b, aspect: asp });
@@ -1442,7 +1446,7 @@
             ).join('');
 
             const connections = computeAllHouseConnections(data, formulaRows);
-            const describeBody = (b, houseNum) => `${b.name} (${HOUSE_ROLE_LABEL[b.role]}${b.role === 'cusp' ? '' : ' ' + ROMAN_NUMERALS[houseNum]})`;
+            const describeBody = (b, houseNum) => `${b.name} (${b.roles.map(r => HOUSE_ROLE_LABEL[r]).join('+')}${b.role === 'cusp' ? '' : ' ' + ROMAN_NUMERALS[houseNum]})`;
             const connectionRows = connections.map(c => {
                 const list = c.details.map(d => `${describeBody(d.a, c.houseA)} ${d.aspect.symbol} ${describeBody(d.b, c.houseB)}`).join('<br>');
                 return `<tr><td>${c.houseA}#${c.houseB}=${c.count}</td><td style="font-size:0.8rem; color:var(--text-muted);">${list}</td><td></td></tr>`;
