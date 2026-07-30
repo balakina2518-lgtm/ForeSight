@@ -1129,16 +1129,13 @@
 
         // Сильные стихии/архитектура ядра — по Таблицы Конспект.xlsx (лист "ИП"):
         // считаем не по всем 10 планетам, а по Солнцу, Луне, Асценденту и
-        // планетам в соединении с ними. Приоритет (по уточнению Елены): если
-        // Солнце/Луна сами не входят в сильные планеты — их слот в подсчёте
-        // забирает Асцендент; если сильные — берём их.
-        function computeElementsCore(data, planetResults) {
+        // планетам в соединении с ними. Подсчёт — прямо по строкам итоговой
+        // таблицы, один голос на строку (без скрытой подмены слотов).
+        function computeElementsCore(data) {
             const realPlanets = (data.planets || []).filter(p => !FICTITIOUS_POINTS.includes(p.id));
             const asc = (data.houses || []).find(h => h.num === 1);
             const sun = realPlanets.find(p => p.id === 'Sun');
             const moon = realPlanets.find(p => p.id === 'Moon');
-            const qualifiesById = {};
-            (planetResults || []).forEach(p => { qualifiesById[p.id] = p.qualifies; });
 
             // Солнце/Луна/Асцендент — стихия по факту, где реально стоят.
             // Планеты в соединении с ними — по природному достоинству (своя
@@ -1164,7 +1161,6 @@
             // Планеты в соединении с Солнцем/Луной/Асцендентом — своими строками
             // (орбис к телам — как обычно для пары, к Асценденту — как к куспиду)
             const anchors = [['Солнце', sun], ['Луна', moon], ['Асцендент', asc]].filter(([, body]) => body);
-            const conjunctPlanetIds = [];
             realPlanets.forEach(p => {
                 anchors.forEach(([label, target]) => {
                     if (target === p) return;
@@ -1172,20 +1168,14 @@
                     const orb = target.id ? getPairOrb(p.id, target.id) : (sameSign ? 4 : 2);
                     if (shortestArc(p.longitude, target.longitude) <= orb) {
                         rows.push(dignityRow(`${p.name} (соед. с ${label})`, p.id));
-                        conjunctPlanetIds.push(p.id);
                     }
                 });
             });
 
-            const sunElement = sun ? SIGN_ELEMENT[getSignIndex(sun.longitude)] : null;
-            const moonElement = moon ? SIGN_ELEMENT[getSignIndex(moon.longitude)] : null;
-            const ascElement = asc ? SIGN_ELEMENT[getSignIndex(asc.longitude)] : null;
+            // Подсчёт стихий — прямо по строкам таблицы выше (каждая строка = 1
+            // голос своей стихии), без скрытой замены слотов Солнца/Луны
             const counts = { Fire: 0, Earth: 0, Air: 0, Water: 0 };
-            const addCount = element => { counts[element]++; };
-            if (sunElement) addCount(qualifiesById.Sun ? sunElement : (ascElement || sunElement));
-            if (moonElement) addCount(qualifiesById.Moon ? moonElement : (ascElement || moonElement));
-            if (ascElement) addCount(ascElement);
-            conjunctPlanetIds.forEach(id => addCount(PLANET_ELEMENT[id]));
+            rows.forEach(r => { counts[r.element]++; });
 
             const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
             const top1 = sorted[0][0], top2 = sorted[1][0];
@@ -1302,7 +1292,7 @@
         function buildStrongObjectsHTML(data) {
             const { results: planetResults, configs } = computePlanetStrength(data);
             const houseResults = computeHouseStrength(data, planetResults, configs);
-            const elements = computeElementsCore(data, planetResults);
+            const elements = computeElementsCore(data);
             const resonancePoints = computeFullResonancePoints(planetResults, houseResults, HOUSE_STRONG_THRESHOLD);
 
             const strongPlanets = planetResults.filter(p => p.qualifies).sort((a, b) => b.score - a.score);
