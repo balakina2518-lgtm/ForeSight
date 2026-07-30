@@ -891,8 +891,6 @@
         // традиционным управителем (Скорпион/Водолей/Рыбы). Индекс 0 = Овен.
         const SIGN_MAJOR_RULER = ['Mars', 'Venus', 'Mercury', 'Moon', 'Sun', 'Mercury', 'Venus', 'Pluto', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'];
         const SIGN_MINOR_RULER = { 7: 'Mars', 10: 'Saturn', 11: 'Jupiter' };
-        const PERSONAL_PLANETS = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars'];
-        const DESTROYER_PLANETS = ['Mars', 'Saturn', 'Uranus', 'Neptune', 'Pluto'];
         const ANGULAR_HOUSES = [1, 4, 7, 10];
         const SIGN_ELEMENT = ['Fire', 'Earth', 'Air', 'Water', 'Fire', 'Earth', 'Air', 'Water', 'Fire', 'Earth', 'Air', 'Water'];
         const ELEMENT_RU = { Fire: 'Огонь', Earth: 'Земля', Air: 'Воздух', Water: 'Вода' };
@@ -1005,96 +1003,56 @@
             const stelliumSignIdx = Object.keys(signCounts).find(idx => signCounts[idx] >= 3);
             const stelliumRulers = stelliumSignIdx !== undefined
                 ? [SIGN_MAJOR_RULER[stelliumSignIdx], SIGN_MINOR_RULER[stelliumSignIdx]].filter(Boolean) : [];
+            // Элевация — направленная дистанция: планета ещё НЕ прошла МЦ и
+            // приближается к нему по ходу вращения (МЦ - долгота планеты, по
+            // модулю 360, вперёд). Обычная кратчайшая дуга тут не подходит —
+            // планета, которая уже МЦ прошла, элеватором не считается, даже
+            // если численно стоит ближе.
             let elevatedId = null, elevatedDelta = Infinity;
             if (mc) {
                 realPlanets.forEach(pl => {
-                    const d = shortestArc(pl.longitude, mc.longitude);
+                    const d = ((mc.longitude - pl.longitude) % 360 + 360) % 360;
                     if (d < elevatedDelta) { elevatedDelta = d; elevatedId = pl.id; }
                 });
             }
 
-            const majorStats = {};
-            realPlanets.forEach(p => { majorStats[p.id] = { count: 0, tense: 0 }; });
-            for (let i = 0; i < realPlanets.length; i++) {
-                for (let j = i + 1; j < realPlanets.length; j++) {
-                    const p1 = realPlanets[i], p2 = realPlanets[j];
-                    const orb = getPairOrb(p1.id, p2.id);
-                    const asp = detectAspect(p1.longitude, p2.longitude, orb);
-                    if (asp && asp.type === 'major') {
-                        majorStats[p1.id].count++; majorStats[p2.id].count++;
-                        if (asp.name === 'Квадратура' || asp.name === 'Оппозиция') {
-                            majorStats[p1.id].tense++; majorStats[p2.id].tense++;
-                        }
-                    }
-                }
-            }
-
+            // Список 1 (по конспекту): диспозитор Асц/Солнца/Луны, диспозитор
+            // стеллиума, планета в 1 доме, планета в своей обители. Список 2:
+            // сигнификатор в доме, вершина конфигурации, соединение с Южным
+            // Узлом, элеватор (+ручка пращи/корзины и королева аспектов — не
+            // реализованы). Сильная планета — минимум 1 показатель из списка 1
+            // И минимум 2 показателя суммарно (по прямому уточнению Елены).
             const results = realPlanets.map(p => {
                 const flags = [];
-                const signIdx = getSignIndex(p.longitude);
+                let tier1Count = 0;
+                const addFlag = (label, tier) => { flags.push(label); if (tier === 1) tier1Count++; };
                 const houseNums = getHousesOfLongitude(p.longitude, houses);
-                const isPersonal = PERSONAL_PLANETS.includes(p.id);
-                const posInSign = ((p.longitude % 30) + 30) % 30;
 
-                const angularCusps = houses.filter(h => ANGULAR_HOUSES.includes(h.num));
-                if (angularCusps.some(h => {
-                    const delta = shortestArc(p.longitude, h.longitude);
-                    const sameSign = getSignIndex(p.longitude) === getSignIndex(h.longitude);
-                    return delta <= (sameSign ? 4 : 2);
-                })) flags.push('Ангуляр');
-
-                if (SIGN_MAJOR_RULER[signIdx] === p.id) flags.push('Мажорная обитель');
-                else if (SIGN_MINOR_RULER[signIdx] === p.id) flags.push('Минорная обитель');
-
-                if (!houses.some(h => getSignIndex(h.longitude) === signIdx)) flags.push('Включена в дом');
-
-                const stat = majorStats[p.id];
-                if (stat.count === 1 && stat.tense === 1) flags.push('На хвосте');
-                if (stat.count === 0) flags.push('В шахте');
-
-                if (isPersonal) {
-                    if (posInSign >= 28) flags.push('Критический градус');
-                    if (posInSign < 3) flags.push('Первый градус');
-                }
-
-                if (['Mercury', 'Venus', 'Mars'].includes(p.id)) {
-                    const sun = realPlanets.find(pl => pl.id === 'Sun');
-                    if (sun) {
-                        const delta = shortestArc(p.longitude, sun.longitude);
-                        const sameSign = getSignIndex(p.longitude) === getSignIndex(sun.longitude);
-                        if (delta <= (sameSign ? 5 : 2.5)) flags.push('Сожжение');
-                    }
-                }
-
-                if (isPersonal && p.retrograde) flags.push('Ретроградность');
-
-                if (isPersonal) {
-                    const besieged = realPlanets.some(pl => DESTROYER_PLANETS.includes(pl.id) && pl.id !== p.id
-                        && shortestArc(p.longitude, pl.longitude) <= getPairOrb(p.id, pl.id));
-                    if (besieged) flags.push('Осада');
-                }
+                if (SIGN_MAJOR_RULER[getSignIndex(p.longitude)] === p.id) addFlag('Планета в обители (мажорная)', 1);
+                else if (SIGN_MINOR_RULER[getSignIndex(p.longitude)] === p.id) addFlag('Планета в обители (минорная)', 1);
 
                 if (southNode && shortestArc(p.longitude, southNode.longitude) <= getPairOrb(p.id, 'South_Node')) {
-                    flags.push('С Южным Узлом');
+                    addFlag('Соединение с Южным Узлом', 2);
                 }
 
-                if (apexIds.has(p.id)) flags.push('Вершина конфигурации');
+                if (apexIds.has(p.id)) addFlag('Вершина конфигурации', 2);
 
                 dispositorTargets.forEach(([label, lon]) => {
                     if (lon == null) return;
                     const idx = getSignIndex(lon);
-                    if ([SIGN_MAJOR_RULER[idx], SIGN_MINOR_RULER[idx]].filter(Boolean).includes(p.id)) flags.push(label);
+                    if ([SIGN_MAJOR_RULER[idx], SIGN_MINOR_RULER[idx]].filter(Boolean).includes(p.id)) addFlag(label, 1);
                 });
 
-                if (stelliumRulers.includes(p.id)) flags.push('Диспозитор стеллиума');
+                if (stelliumRulers.includes(p.id)) addFlag('Диспозитор стеллиума', 1);
 
-                if (houseNums.includes(1)) flags.push('Планета в 1 доме');
+                if (houseNums.includes(1)) addFlag('Планета в 1 доме', 1);
 
-                if (houseNums.some(hn => SIGN_MAJOR_RULER[hn - 1] === p.id)) flags.push('Сигнификатор в доме');
+                if (houseNums.some(hn => SIGN_MAJOR_RULER[hn - 1] === p.id)) addFlag('Сигнификатор в доме', 2);
 
-                if (p.id === elevatedId) flags.push('Элевация (ближе всех к МЦ)');
+                if (p.id === elevatedId) addFlag('Элеватор карты (близко к МЦ)', 2);
 
-                return { id: p.id, name: p.name, symbol: p.symbol, score: flags.length, flags, houseNums };
+                const qualifies = tier1Count >= 1 && flags.length >= 2;
+                return { id: p.id, name: p.name, symbol: p.symbol, score: flags.length, flags, houseNums, qualifies };
             });
 
             return { results, configs };
@@ -1137,8 +1095,8 @@
         }
 
         // Точки полного резонанса = сильная планета, управляющая сильным домом
-        function computeFullResonancePoints(planetResults, houseResults, planetThreshold, houseThreshold) {
-            const strongPlanetIds = new Set(planetResults.filter(p => p.score >= planetThreshold).map(p => p.id));
+        function computeFullResonancePoints(planetResults, houseResults, houseThreshold) {
+            const strongPlanetIds = new Set(planetResults.filter(p => p.qualifies).map(p => p.id));
             const strongHouseNums = new Set(houseResults.filter(h => h.score >= houseThreshold).map(h => h.num));
             const points = [];
             houseResults.forEach(h => {
@@ -1258,19 +1216,19 @@
             </div>`;
         }
 
-        // Пороги "силы": для домов и планет Елена задала явно — 4 и более для
-        // домов (при весах 1 эшелон +2 / 2 эшелон +1), 3 и более для планет
-        // (все признаки по +1).
-        const PLANET_STRONG_THRESHOLD = 3;
+        // Порог "силы" для домов — 3 и более (по Елене, при весах 1 эшелон +2 /
+        // 2 эшелон +1). Для планет порог другой по форме: минимум 1 показатель
+        // из списка 1 (обители/диспозиторы/1 дом) И минимум 2 показателя
+        // суммарно — считается через planetResults[].qualifies.
         const HOUSE_STRONG_THRESHOLD = 3; // 3 и более
 
         function buildStrongObjectsHTML(data) {
             const { results: planetResults, configs } = computePlanetStrength(data);
             const houseResults = computeHouseStrength(data, planetResults, configs);
             const elements = computeElementsCore(data);
-            const resonancePoints = computeFullResonancePoints(planetResults, houseResults, PLANET_STRONG_THRESHOLD, HOUSE_STRONG_THRESHOLD);
+            const resonancePoints = computeFullResonancePoints(planetResults, houseResults, HOUSE_STRONG_THRESHOLD);
 
-            const strongPlanets = planetResults.filter(p => p.score >= PLANET_STRONG_THRESHOLD).sort((a, b) => b.score - a.score);
+            const strongPlanets = planetResults.filter(p => p.qualifies).sort((a, b) => b.score - a.score);
             const strongHouses = houseResults.filter(h => h.score >= HOUSE_STRONG_THRESHOLD).sort((a, b) => b.score - a.score);
 
             const planetSymbolById = {};
