@@ -1002,6 +1002,16 @@
                         }
                         if (has(i, j, 'Трин') && has(i, k, 'Секстиль') && has(j, k, 'Секстиль')) {
                             configs.push({ type: 'Бисекстиль', apexId: realPlanets[k].id, memberIds: [realPlanets[i].id, realPlanets[j].id, realPlanets[k].id] });
+                            // Парус: бисекстиль (i,j трин, k секстиль-апекс), лежащий на
+                            // большом трине — четвёртая точка m в оппозиции апексу k и
+                            // сама в трине к i и j (по книге Андреева "два косых паруса
+                            // или бисекстиль на большом трине")
+                            for (let m = 0; m < n; m++) {
+                                if (m === i || m === j || m === k) continue;
+                                if (has(k, m, 'Оппозиция') && has(i, m, 'Трин') && has(j, m, 'Трин')) {
+                                    configs.push({ type: 'Парус', apexId: realPlanets[k].id, memberIds: [realPlanets[i].id, realPlanets[j].id, realPlanets[k].id, realPlanets[m].id] });
+                                }
+                            }
                         }
                         if (has(i, j, 'Секстиль') && has(i, k, 'Квиконс') && has(j, k, 'Квиконс')) {
                             configs.push({ type: 'Перст судьбы', apexId: realPlanets[k].id, memberIds: [realPlanets[i].id, realPlanets[j].id, realPlanets[k].id] });
@@ -1585,8 +1595,15 @@
             const jones = computeJonesFigure(data);
             const modality = computeModalitySynthesis(data);
 
-            const configBadges = configs.length
-                ? configs.map(c => `<span class="strong-badge" title="${escapeHtml(c.memberIds.map(id => planetNameById[id]).join(', '))}">${escapeHtml(c.type)} ${c.memberIds.map(id => planetSymbolById[id]).join(' ')}</span>`).join('')
+            // Только конфигурации по мажорным аспектам — Перст судьбы (квиконс,
+            // минорный) сюда не выводим (по уточнению Елены), хотя для очков
+            // силы планет/домов он по-прежнему учитывается отдельно.
+            const majorConfigs = configs.filter(c => c.type !== 'Перст судьбы');
+            const configBadges = majorConfigs.length
+                ? majorConfigs.map(c => {
+                    const ids = JSON.stringify(c.memberIds).replace(/"/g, '&quot;');
+                    return `<span class="strong-badge" title="${escapeHtml(c.memberIds.map(id => planetNameById[id]).join(', '))}" onmouseenter="window.highlightWheelConfiguration(${ids})" onmouseleave="window.unhighlightWheelAspect()">${escapeHtml(c.type)} ${c.memberIds.map(id => planetSymbolById[id]).join(' ')}</span>`;
+                }).join('')
                 : '';
 
             const modalityBlock = Object.entries(modality).map(([label, planets]) => `
@@ -1669,6 +1686,28 @@
             document.querySelectorAll('.house-focus').forEach(hc => hc.classList.remove('house-focus'));
             const svg = document.querySelector('#canvasContainer svg');
             if (svg) svg.classList.remove('wheel-focus-mode');
+        };
+
+        // Подсветка целой конфигурации (3-4 тела) на колесе — все аспект-линии
+        // между её участниками и сами планеты, остальное бледнеет (как у таблицы
+        // аспектов). Снятие подсветки — тот же unhighlightWheelAspect.
+        window.highlightWheelConfiguration = function(memberIds) {
+            const svg = document.querySelector('#canvasContainer svg');
+            if (!svg) return;
+            for (let i = 0; i < memberIds.length; i++) {
+                for (let j = i + 1; j < memberIds.length; j++) {
+                    document.querySelectorAll('[data-a][data-b]').forEach(el => {
+                        const a = el.getAttribute('data-a'), b = el.getAttribute('data-b');
+                        if ((a === memberIds[i] && b === memberIds[j]) || (a === memberIds[j] && b === memberIds[i])) {
+                            el.classList.add('aspect-highlighted');
+                        }
+                    });
+                }
+            }
+            svg.querySelectorAll('.planet-body').forEach(pb => {
+                if (memberIds.includes(pb.getAttribute('data-id'))) pb.classList.add('planet-focus');
+            });
+            svg.classList.add('wheel-focus-mode');
         };
 
         const INFO_POPUP_TITLES = { aspects: '⊞ Таблица аспектов', coords: '⊘ Координаты планет и домов', strong: '⊛ Сильные объекты', formulas: '⌂ Формулы домов', analysis: 'ⓘ Анализ карты' };
