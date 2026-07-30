@@ -1421,6 +1421,13 @@
                     if (asp && asp.type === 'major') details.push({ a, b, aspect: asp });
                 }
             }
+            // Своя связь дома с самим собой: планета с двумя и более признаками
+            // одного дома (например управитель И стоит в доме) — тоже связь
+            if (houseA === houseB) {
+                bodiesA.forEach(b => {
+                    if (b.roles.length >= 2) details.push({ a: b, b, aspect: null, selfDignity: true });
+                });
+            }
             return { count: details.length, details };
         }
 
@@ -1448,7 +1455,10 @@
             const connections = computeAllHouseConnections(data, formulaRows);
             const describeBody = (b, houseNum) => `${b.name} (${b.roles.map(r => HOUSE_ROLE_LABEL[r]).join('+')}${b.role === 'cusp' ? '' : ' ' + ROMAN_NUMERALS[houseNum]})`;
             const connectionRows = connections.map(c => {
-                const list = c.details.map(d => `${describeBody(d.a, c.houseA)} ${d.aspect.symbol} ${describeBody(d.b, c.houseB)}`).join('<br>');
+                const list = c.details.map(d => d.selfDignity
+                    ? `${describeBody(d.a, c.houseA)} — двойное достоинство`
+                    : `${describeBody(d.a, c.houseA)} ${d.aspect.symbol} ${describeBody(d.b, c.houseB)}`
+                ).join('<br>');
                 return `<tr><td>${c.houseA}#${c.houseB}=${c.count}</td><td style="font-size:0.8rem; color:var(--text-muted);">${list}</td><td></td></tr>`;
             }).join('');
 
