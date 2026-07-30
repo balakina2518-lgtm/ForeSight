@@ -89,6 +89,11 @@
             box-sizing: border-box; padding: 20px 24px;
         }
         .info-popup:has(.elements-table) { width: 620px; }
+        #houseFormulasTable.hide-formula-link-col .formula-link-col { display: none; }
+        .formula-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+        .formula-toolbar input { width: 120px; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-app); color: var(--text-main); font-size: 0.82rem; }
+        .formula-toolbar button { padding: 5px 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-app); color: var(--text-main); font-size: 0.78rem; cursor: pointer; }
+        .formula-toolbar button:hover { border-color: var(--accent); }
         .info-popup-header { display: flex; align-items: center; justify-content: space-between; font-size: 1.05rem; color: var(--text-main); }
         .info-popup-close { background: none; border: none; font-size: 1rem; color: var(--text-muted); cursor: pointer; }
         .info-popup-close:hover { color: var(--accent); }
@@ -339,7 +344,14 @@
                 <button type="button" class="toolbar-btn" onclick="window.openInfoPopup('aspects')" title="Таблица аспектов">⊞</button>
                 <button type="button" class="toolbar-btn" onclick="window.openInfoPopup('coords')" title="Координаты планет и домов">⊘</button>
                 <button type="button" class="toolbar-btn" onclick="window.openInfoPopup('strong')" title="Сильные объекты">⊛</button>
-                <button type="button" class="toolbar-btn" onclick="window.openInfoPopup('formulas')" title="Формулы домов">⊞⊞</button>
+                <button type="button" class="toolbar-btn" onclick="window.openInfoPopup('formulas')" title="Формулы домов">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round">
+                        <path d="M2 8 L8 2.5 L14 8" stroke-linecap="round" />
+                        <path d="M3.5 6.8 V13.5 H12.5 V6.8" />
+                        <line x1="6.5" y1="13.5" x2="6.5" y2="9" />
+                        <line x1="9.5" y1="13.5" x2="9.5" y2="9" />
+                    </svg>
+                </button>
             </div>
         </div>
 
@@ -1459,14 +1471,52 @@
                     ? `${describeBody(d.a, c.houseA)} — двойное достоинство`
                     : `${describeBody(d.a, c.houseA)} ${d.aspect.symbol} ${describeBody(d.b, c.houseB)}`
                 ).join('<br>');
-                return `<tr><td>${c.houseA}#${c.houseB}=${c.count}</td><td style="font-size:0.8rem; color:var(--text-muted);">${list}</td><td></td></tr>`;
+                return `<tr data-house-a="${c.houseA}" data-house-b="${c.houseB}" data-count="${c.count}"><td>${c.houseA}#${c.houseB}=${c.count}</td><td class="formula-link-col" style="font-size:0.8rem; color:var(--text-muted);">${list}</td><td></td></tr>`;
             }).join('');
 
             return `<h4 style="margin:0 0 8px; font-size:0.95rem; font-weight:600; color:var(--text-main);">Формулы домов</h4>
-            <table class="coords-table elements-table" style="width:100%;"><thead><tr><th>Формула</th><th>Формула связи</th><th>Трактовка</th></tr></thead><tbody>${connectionRows}</tbody></table>
+            <div class="formula-toolbar">
+                <input type="number" min="1" max="12" placeholder="Фильтр по дому" oninput="window.filterHouseFormulas(this.value)">
+                <button type="button" onclick="window.sortHouseFormulas()">↕ По количеству</button>
+                <button type="button" onclick="window.toggleFormulaLinkColumn(this)">Скрыть формулу связи</button>
+            </div>
+            <table id="houseFormulasTable" class="coords-table elements-table" style="width:100%;"><thead><tr><th>Формула</th><th class="formula-link-col">Формула связи</th><th>Трактовка</th></tr></thead><tbody>${connectionRows}</tbody></table>
             <h4 style="margin:18px 0 8px; font-size:0.95rem; font-weight:600; color:var(--text-main);">Домарные свойства планет</h4>
             <table class="coords-table elements-table" style="width:100%;"><thead><tr><th>Планета</th><th>Управление</th><th>Дом</th><th>Сигнификация</th></tr></thead><tbody>${rows}</tbody></table>`;
         }
+
+        window.filterHouseFormulas = function(value) {
+            const table = document.getElementById('houseFormulasTable');
+            if (!table) return;
+            const num = value.trim();
+            table.querySelectorAll('tbody tr').forEach(tr => {
+                if (!num) { tr.style.display = ''; return; }
+                const a = tr.getAttribute('data-house-a'), b = tr.getAttribute('data-house-b');
+                tr.style.display = (a === num || b === num) ? '' : 'none';
+            });
+        };
+
+        let houseFormulasSortAsc = true;
+        window.sortHouseFormulas = function() {
+            const table = document.getElementById('houseFormulasTable');
+            if (!table) return;
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            houseFormulasSortAsc = !houseFormulasSortAsc;
+            rows.sort((r1, r2) => {
+                const c1 = parseInt(r1.getAttribute('data-count'), 10);
+                const c2 = parseInt(r2.getAttribute('data-count'), 10);
+                return houseFormulasSortAsc ? c1 - c2 : c2 - c1;
+            });
+            rows.forEach(r => tbody.appendChild(r));
+        };
+
+        window.toggleFormulaLinkColumn = function(btn) {
+            const table = document.getElementById('houseFormulasTable');
+            if (!table) return;
+            const hidden = table.classList.toggle('hide-formula-link-col');
+            if (btn) btn.textContent = hidden ? 'Показать формулу связи' : 'Скрыть формулу связи';
+        };
 
         window.highlightWheelAspect = function(idA, idB) {
             const svg = document.querySelector('#canvasContainer svg');
