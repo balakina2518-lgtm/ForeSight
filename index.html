@@ -108,7 +108,7 @@
         .dispositor-tab { background: none; border: none; border-bottom: 2px solid transparent; padding: 8px 12px; font-size: 0.85rem; color: var(--text-muted); cursor: pointer; }
         .dispositor-tab:hover { color: var(--text-main); }
         .dispositor-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-        .dispositor-groups { display: flex; flex-direction: column; gap: 18px; overflow-x: auto; }
+        .dispositor-groups { display: flex; flex-direction: column; gap: 6px; overflow-x: auto; }
         .dispositor-group { position: relative; }
         .dispositor-box { position: absolute; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 8px; background: var(--bg-app); border: 1px solid var(--border-color); color: var(--text-main); font-size: 1.3rem; cursor: help; box-sizing: border-box; }
         .dispositor-box.dispositor-retro { color: #e74c3c; border-color: rgba(231,76,60,0.4); }
@@ -362,7 +362,11 @@
                     </svg>
                 </button>
                 <button type="button" class="toolbar-btn" onclick="window.openInfoPopup('analysis')" title="Анализ карты">ⓘ</button>
-                <button type="button" class="toolbar-btn" onclick="window.openInfoPopup('dispositors')" title="Цепочка диспозиторов">⛓</button>
+                <button type="button" class="toolbar-btn" onclick="window.openInfoPopup('dispositors')" title="Цепочка диспозиторов">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+                        <rect x="3" y="5" width="10" height="6" rx="3" />
+                    </svg>
+                </button>
             </div>
         </div>
 
@@ -1463,10 +1467,24 @@
         // ниже, начинается заново с col0 и соединяется со своим узлом-целью
         // Г-образным коннектором (не повторяя текстом весь путь до корня).
         const DISPOSITOR_COL_W = 80;
-        const DISPOSITOR_ROW_H = 150;
         const DISPOSITOR_BOX = 40;
         const DISPOSITOR_MUTUAL_GAP = 26; // взаимный приём: box + зазор со стрелкой + box
         const DISPOSITOR_MUTUAL_H = DISPOSITOR_BOX * 2 + DISPOSITOR_MUTUAL_GAP;
+        // Высота строки зависит от того, что в ней — обычная планета (компактно)
+        // или пара взаимного приёма (нужно больше места). Раньше высота строки
+        // была одна фиксированная под самую высокую ячейку — отсюда лишние
+        // пустые промежутки между простыми цепочками
+        const DISPOSITOR_ROW_H_NORMAL = 64;
+        const DISPOSITOR_ROW_H_MUTUAL = DISPOSITOR_MUTUAL_H + 20;
+
+        function computeDispositorRowGeometry(cells, rowCount) {
+            const rowHeights = new Array(rowCount).fill(DISPOSITOR_ROW_H_NORMAL);
+            cells.forEach(c => { if (c.members.length === 2) rowHeights[c.row] = DISPOSITOR_ROW_H_MUTUAL; });
+            const rowTops = [];
+            let acc = 0;
+            for (let r = 0; r < rowCount; r++) { rowTops.push(acc); acc += rowHeights[r]; }
+            return { rowHeights, rowTops, totalHeight: acc };
+        }
 
         function layoutDispositorComponent(members, edges) {
             const memberSet = new Set(members);
@@ -1543,16 +1561,18 @@
             };
         }
 
-        function dispositorConnectorPath(c) {
+        function dispositorConnectorPath(c, geometry) {
             const half = DISPOSITOR_BOX / 2;
             const fromX = c.fromCol * DISPOSITOR_COL_W + DISPOSITOR_COL_W / 2;
-            const fromY = c.fromRow * DISPOSITOR_ROW_H + DISPOSITOR_ROW_H / 2;
+            const fromY = geometry.rowTops[c.fromRow] + geometry.rowHeights[c.fromRow] / 2;
             const toX = c.toCol * DISPOSITOR_COL_W + DISPOSITOR_COL_W / 2;
-            const toY = c.toRow * DISPOSITOR_ROW_H + DISPOSITOR_ROW_H / 2;
+            const toY = geometry.rowTops[c.toRow] + geometry.rowHeights[c.toRow] / 2;
             if (c.fromRow === c.toRow) {
                 return `M ${fromX - half} ${fromY} L ${toX + half} ${toY}`;
             }
-            const midY = toY + DISPOSITOR_ROW_H / 2;
+            // Точка перегиба — чуть ниже нижнего края строки-цели, независимо
+            // от того, сколько строк и какой высоты между ней и веткой
+            const midY = geometry.rowTops[c.toRow] + geometry.rowHeights[c.toRow] + 14;
             return `M ${fromX} ${fromY - half} L ${fromX} ${midY} L ${toX} ${midY} L ${toX} ${toY + half}`;
         }
 
@@ -1609,15 +1629,16 @@
 
             const groupsHTML = components.map(group => {
                 const layout = layoutDispositorComponent(group, edges);
+                const geometry = computeDispositorRowGeometry(layout.cells, layout.rowCount);
                 const width = layout.colCount * DISPOSITOR_COL_W;
-                const height = layout.rowCount * DISPOSITOR_ROW_H;
+                const height = geometry.totalHeight;
                 const boxesHTML = layout.cells.map(cell => {
                     const left = cell.col * DISPOSITOR_COL_W + (DISPOSITOR_COL_W - DISPOSITOR_BOX) / 2;
-                    const top = cell.row * DISPOSITOR_ROW_H + (DISPOSITOR_ROW_H - DISPOSITOR_BOX) / 2;
+                    const top = geometry.rowTops[cell.row] + (geometry.rowHeights[cell.row] - DISPOSITOR_BOX) / 2;
                     return cellBoxHTML(cell.members, left, top);
                 }).join('');
                 const arrowsHTML = layout.connectors.map(c =>
-                    `<path d="${dispositorConnectorPath(c)}" fill="none" stroke="var(--text-muted)" stroke-width="1.4" marker-end="url(#dispositorArrowHead)" />`
+                    `<path d="${dispositorConnectorPath(c, geometry)}" fill="none" stroke="var(--text-muted)" stroke-width="1.4" marker-end="url(#dispositorArrowHead)" />`
                 ).join('');
                 return `<div class="dispositor-group" style="width:${width}px; height:${height}px;">
                     <svg width="${width}" height="${height}" style="position:absolute; top:0; left:0; overflow:visible;">
@@ -2177,7 +2198,7 @@
             svg.classList.add('wheel-focus-mode');
         };
 
-        const INFO_POPUP_TITLES = { aspects: '⊞ Таблица аспектов', coords: '⊘ Координаты планет и домов', strong: '⊛ Сильные объекты', formulas: '⌂ Формулы домов', analysis: 'ⓘ Анализ карты', dispositors: '⛓ Цепочка диспозиторов' };
+        const INFO_POPUP_TITLES = { aspects: '⊞ Таблица аспектов', coords: '⊘ Координаты планет и домов', strong: '⊛ Сильные объекты', formulas: '⌂ Формулы домов', analysis: 'ⓘ Анализ карты', dispositors: '🔗 Цепочка диспозиторов' };
         const INFO_POPUP_BUILDERS = { aspects: buildAspectTableHTML, coords: buildCoordsTableHTML, strong: buildStrongObjectsHTML, formulas: buildHouseFormulasHTML, analysis: buildChartAnalysisHTML, dispositors: buildDispositorChainHTML };
 
         window.openInfoPopup = function(type) {
