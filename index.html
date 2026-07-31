@@ -1681,16 +1681,20 @@
             // нескольким планетам в другой половине"). Без этого — Брызги
             // (возможно со сгущением), даже если геометрически карта делится
             // на две неравные кучки разрывами
-            const countOppositions = (groupA, groupB) => {
-                let count = 0;
+            // Считаем не просто число оппозиций, а ДОЛЮ планет (из обеих групп
+            // вместе), у которых есть хотя бы одна реальная оппозиция в другую
+            // группу — Елена уточнила: "качели — там почти одни оппозиции", то
+            // есть должно быть охвачено почти всё, а не 2 совпадения на 10 тел
+            const oppositionCoverage = (groupA, groupB) => {
+                const touched = new Set();
                 for (const a of groupA) {
                     for (const b of groupB) {
                         const orb = getPairOrb(a.id, b.id);
                         const asp = detectAspect(a.longitude, b.longitude, orb);
-                        if (asp && asp.angle === 180) count++;
+                        if (asp && asp.angle === 180) { touched.add(a.id); touched.add(b.id); }
                     }
                 }
-                return count;
+                return touched.size / (groupA.length + groupB.length);
             };
 
             // Связка — все планеты в пределах ~120°
@@ -1712,9 +1716,7 @@
                 const groups = groupsByGaps([g0.afterIdx, g1.afterIdx]);
                 if (groups.length === 2) {
                     if (g1.size >= 35 && groups.every(gr => gr.length >= 3)) {
-                        const oppCount = countOppositions(groups[0], groups[1]);
-                        const needed = Math.max(2, Math.ceil(Math.min(groups[0].length, groups[1].length) / 2));
-                        if (oppCount >= needed) return { type: 'Качели' };
+                        if (oppositionCoverage(groups[0], groups[1]) >= 0.7) return { type: 'Качели' };
                     }
                     const handle = groups.find(gr => gr.length <= 2);
                     const main = groups.find(gr => gr !== handle);
@@ -1730,11 +1732,18 @@
             if (occupiedSpan <= 190) return { type: 'Чаша' };
 
             // Брызги / Брызги со сгущением — планеты распределены по кругу без
-            // одной выраженной массы; если среди них есть плотные кучки по 2-4
-            // планеты (соединения), это Брызги со сгущением, иначе просто
-            // Брызги — по умолчанию, как и советует сам источник ("если
-            // непонятно, что за фигура — скорее всего, это Брызги")
-            const hasConcentration = gaps.some(g => g.size <= 8);
+            // одной выраженной массы; если среди соседних (по долготе) планет
+            // есть настоящее соединение (по тем же орбисам, что и везде на
+            // сайте — getPairOrb/detectAspect, не произвольный градусный
+            // порог), это Брызги со сгущением, иначе просто Брызги — по
+            // умолчанию, как и советует сам источник ("если непонятно, что за
+            // фигура — скорее всего, это Брызги")
+            const hasConcentration = sorted.some((p, i) => {
+                const next = sorted[(i + 1) % n];
+                const orb = getPairOrb(p.id, next.id);
+                const asp = detectAspect(p.longitude, next.longitude, orb);
+                return !!asp && asp.angle === 0;
+            });
             return { type: hasConcentration ? 'Брызги со сгущением' : 'Брызги' };
         }
 
