@@ -105,7 +105,7 @@
         .coords-table td { padding: 5px 8px; color: var(--text-main); border-bottom: 1px solid var(--bg-app); }
 
         .strong-badges { display: flex; flex-wrap: wrap; gap: 8px; }
-        .strong-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 32px; height: 32px; padding: 0 6px; border-radius: 6px; background: var(--bg-app); border: 1px solid var(--border-color); color: var(--text-main); font-size: 1rem; cursor: help; }
+        .strong-badge { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 40px; height: 42px; padding: 0 10px; border-radius: 8px; background: var(--bg-app); border: 1px solid var(--border-color); color: var(--text-main); font-size: 1.25rem; cursor: help; }
 
         .aspect-grid { border-collapse: collapse; font-size: 0.82rem; }
         .aspect-grid th, .aspect-grid td { width: 26px; height: 26px; text-align: center; border: 1px solid var(--border-color); padding: 0; }
@@ -1589,10 +1589,32 @@
             const majorConfigs = mergeConjunctConfigs(configs.filter(c => c.type !== 'Перст судьбы'), planetsById);
             // Соединённые внутри фигуры планеты рисуем рядом друг с другом и
             // выделяем цветом (как на скрине от Елены) — а не вразнобой по
-            // порядку memberIds
+            // порядку memberIds. Проверяем ВСЕ пары внутри итоговой фигуры
+            // (не только те, что дал шаг объединения) — соединение может
+            // случиться и внутри одиночной, не дублированной конфигурации.
+            const findConjunctPairs = memberIds => {
+                const pairs = [];
+                const used = new Set();
+                for (let i = 0; i < memberIds.length; i++) {
+                    if (used.has(memberIds[i])) continue;
+                    for (let j = i + 1; j < memberIds.length; j++) {
+                        if (used.has(memberIds[j])) continue;
+                        const a = memberIds[i], b = memberIds[j];
+                        if (!planetsById[a] || !planetsById[b]) continue;
+                        const orb = getPairOrb(a, b);
+                        const asp = detectAspect(planetsById[a].longitude, planetsById[b].longitude, orb);
+                        if (asp && asp.angle === 0) {
+                            pairs.push([a, b]);
+                            used.add(a); used.add(b);
+                            break;
+                        }
+                    }
+                }
+                return pairs;
+            };
             const renderConfigMembers = c => {
                 const partnerOf = {};
-                (c.conjunctPairs || []).forEach(([a, b]) => { partnerOf[a] = b; partnerOf[b] = a; });
+                findConjunctPairs(c.memberIds).forEach(([a, b]) => { partnerOf[a] = b; partnerOf[b] = a; });
                 const placed = new Set();
                 const parts = [];
                 c.memberIds.forEach(id => {
