@@ -110,11 +110,8 @@
         .dispositor-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
         .dispositor-groups { display: flex; flex-direction: column; gap: 18px; overflow-x: auto; }
         .dispositor-group { position: relative; }
-        .dispositor-box { position: absolute; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; background: var(--bg-app); border: 1px solid var(--border-color); color: var(--text-main); font-size: 1.05rem; cursor: help; box-sizing: border-box; }
+        .dispositor-box { position: absolute; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 8px; background: var(--bg-app); border: 1px solid var(--border-color); color: var(--text-main); font-size: 1.3rem; cursor: help; box-sizing: border-box; }
         .dispositor-box.dispositor-retro { color: #e74c3c; border-color: rgba(231,76,60,0.4); }
-        .dispositor-mutual { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 8px; width: 32px; }
-        .dispositor-mutual .dispositor-box { position: static; }
-        .dispositor-mutual-arrow { color: var(--text-muted); font-size: 1rem; line-height: 1; }
 
         .strong-badges { display: flex; flex-wrap: wrap; gap: 8px; }
         .strong-badge { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 40px; height: 42px; padding: 0 10px; border-radius: 8px; background: var(--bg-app); border: 1px solid var(--border-color); color: var(--text-main); font-size: 1.25rem; cursor: help; }
@@ -1465,10 +1462,11 @@
         // ветка, вливающаяся в уже отрисованный узел, получает свою строку
         // ниже, начинается заново с col0 и соединяется со своим узлом-целью
         // Г-образным коннектором (не повторяя текстом весь путь до корня).
-        const DISPOSITOR_COL_W = 70;
-        const DISPOSITOR_ROW_H = 130;
-        const DISPOSITOR_BOX = 32;
-        const DISPOSITOR_MUTUAL_H = 96; // взаимный приём: box+gap+стрелка+gap+box (см. CSS .dispositor-mutual)
+        const DISPOSITOR_COL_W = 80;
+        const DISPOSITOR_ROW_H = 150;
+        const DISPOSITOR_BOX = 40;
+        const DISPOSITOR_MUTUAL_GAP = 26; // взаимный приём: box + зазор со стрелкой + box
+        const DISPOSITOR_MUTUAL_H = DISPOSITOR_BOX * 2 + DISPOSITOR_MUTUAL_GAP;
 
         function layoutDispositorComponent(members, edges) {
             const memberSet = new Set(members);
@@ -1582,6 +1580,15 @@
                 retroById[p.id] = !!p.retrograde;
             });
 
+            // Общий маркер стрелки — один на весь попап (не на каждую группу),
+            // иначе несколько групп на экране дают повторяющиеся id="..." в
+            // одном документе. auto-start-reverse разворачивает его на 180° на
+            // marker-start — тем же маркером рисуется и обычная стрелка "→", и
+            // оба конца двойной стрелки взаимного приёма.
+            const arrowDefsHTML = `<svg width="0" height="0" style="position:absolute;">
+                <defs><marker id="dispositorArrowHead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--text-muted)" /></marker></defs>
+            </svg>`;
+
             const cellBoxHTML = (cellIds, left, top) => {
                 if (cellIds.length === 1) {
                     const id = cellIds[0];
@@ -1589,11 +1596,15 @@
                 }
                 const [a, b] = cellIds;
                 const mutualTop = top - (DISPOSITOR_MUTUAL_H - DISPOSITOR_BOX) / 2;
-                return `<div class="dispositor-mutual" style="left:${left}px; top:${mutualTop}px;">
-                    <span class="dispositor-box${retroById[a] ? ' dispositor-retro' : ''}" title="${escapeHtml(planetNameById[a])}">${planetSymbolById[a]}</span>
-                    <span class="dispositor-mutual-arrow">↕</span>
-                    <span class="dispositor-box${retroById[b] ? ' dispositor-retro' : ''}" title="${escapeHtml(planetNameById[b])}">${planetSymbolById[b]}</span>
-                </div>`;
+                const lineX = left + DISPOSITOR_BOX / 2;
+                // Линия стрелки тянется от нижнего края верхней планеты до
+                // верхнего края нижней — не просто символ "↕" в воздухе между
+                // ними, а стрелка, которая реально дотягивается до обеих
+                return `<div class="dispositor-box${retroById[a] ? ' dispositor-retro' : ''}" style="left:${left}px; top:${mutualTop}px;" title="${escapeHtml(planetNameById[a])}">${planetSymbolById[a]}</div>
+                <svg width="${DISPOSITOR_BOX}" height="${DISPOSITOR_MUTUAL_GAP}" style="position:absolute; left:${left}px; top:${mutualTop + DISPOSITOR_BOX}px; overflow:visible;">
+                    <line x1="${DISPOSITOR_BOX / 2}" y1="0" x2="${DISPOSITOR_BOX / 2}" y2="${DISPOSITOR_MUTUAL_GAP}" stroke="var(--text-muted)" stroke-width="1.4" marker-start="url(#dispositorArrowHead)" marker-end="url(#dispositorArrowHead)" />
+                </svg>
+                <div class="dispositor-box${retroById[b] ? ' dispositor-retro' : ''}" style="left:${left}px; top:${mutualTop + DISPOSITOR_BOX + DISPOSITOR_MUTUAL_GAP}px;" title="${escapeHtml(planetNameById[b])}">${planetSymbolById[b]}</div>`;
             };
 
             const groupsHTML = components.map(group => {
@@ -1610,7 +1621,6 @@
                 ).join('');
                 return `<div class="dispositor-group" style="width:${width}px; height:${height}px;">
                     <svg width="${width}" height="${height}" style="position:absolute; top:0; left:0; overflow:visible;">
-                        <defs><marker id="dispositorArrowHead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--text-muted)" /></marker></defs>
                         ${arrowsHTML}
                     </svg>
                     ${boxesHTML}
@@ -1621,7 +1631,7 @@
                 `<button type="button" class="dispositor-tab${key === mode ? ' active' : ''}" onclick="window.switchDispositorTab('${key}')">${escapeHtml(label)}</button>`
             ).join('');
 
-            return `<div class="dispositor-tabs">${tabsHTML}</div>
+            return `${arrowDefsHTML}<div class="dispositor-tabs">${tabsHTML}</div>
             <div class="dispositor-groups">${groupsHTML || '<div style="color:var(--text-muted); font-size:0.85rem;">Нет данных</div>'}</div>`;
         }
 
