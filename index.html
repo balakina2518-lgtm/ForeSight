@@ -1617,6 +1617,106 @@
             ));
         }
 
+        // Фигуры Джонса — по уроку astro21.ru/urok-15-figury-dzhonsa/ (набор из
+        // 8 фигур: Связка, Брызги, Брызги со сгущением, Чаша, Корзина, Праща,
+        // Качели, Локомотив). Источник даёт только качественные "примерно"-
+        // формулировки без точных градусных порогов ("в пределах 120 градусов
+        // примерно", "1-2 планеты — напротив" и т.п.) — числа ниже это НАША
+        // операционализация под эти формулировки, сам источник прямо пишет, что
+        // методика "зачастую не очень надёжная", и советует по умолчанию считать
+        // непонятный случай Брызгами — это и есть fallback ниже.
+        // Трактовки (тексты подсказок при наведении) сейчас пустые — Елена
+        // загрузит их отдельно из базы знаний, здесь только сама классификация
+        // и готовое место для текста (JONES_TOOLTIPS).
+        const JONES_TOOLTIPS = {
+            'Связка': '',
+            'Брызги': '',
+            'Брызги со сгущением': '',
+            'Чаша': '',
+            'Корзина': '',
+            'Праща': '',
+            'Качели': '',
+            'Локомотив': '',
+        };
+
+        function computeJonesFigure(realPlanets) {
+            const n = realPlanets.length;
+            if (n < 2) return { type: 'Брызги' };
+            const sorted = [...realPlanets].sort((a, b) => a.longitude - b.longitude);
+
+            const gaps = sorted.map((p, i) => {
+                const next = sorted[(i + 1) % n];
+                const nextLon = (i === n - 1) ? next.longitude + 360 : next.longitude;
+                return { size: nextLon - p.longitude, afterIdx: i };
+            });
+            const bySize = [...gaps].sort((a, b) => b.size - a.size);
+            const g0 = bySize[0], g1 = bySize[1] || { size: 0, afterIdx: -1 };
+            const occupiedSpan = 360 - g0.size;
+
+            // Разворачивает круг в линию начиная сразу после самого большого
+            // разрыва — дальше долготы идут по возрастанию без скачка через 0/360
+            const startIdx = (g0.afterIdx + 1) % n;
+            const rotated = [];
+            for (let k = 0; k < n; k++) {
+                const idx = (startIdx + k) % n;
+                const wrapped = idx < startIdx;
+                rotated.push({ ...sorted[idx], longitude: sorted[idx].longitude + (wrapped ? 360 : 0) });
+            }
+            const groupsByGaps = cutAfterIdxList => {
+                const cutSet = new Set(cutAfterIdxList.map(idx => (idx - startIdx + n) % n));
+                const groups = [];
+                let current = [];
+                for (let k = 0; k < n; k++) {
+                    current.push(rotated[k]);
+                    if (cutSet.has(k)) { groups.push(current); current = []; }
+                }
+                if (current.length) groups.push(current);
+                return groups;
+            };
+            const spanOf = group => group[group.length - 1].longitude - group[0].longitude;
+
+            // Связка — все планеты в пределах ~120°
+            if (occupiedSpan <= 120) return { type: 'Связка' };
+
+            // Локомотив — заполнено всё, кроме одной пустой зоны ~120°, без
+            // других заметных разрывов (единая масса на ~240°)
+            if (g0.size >= 100 && g0.size <= 145 && g1.size < 30) {
+                return { type: 'Локомотив' };
+            }
+
+            // Два сопоставимых по размеру разрыва делят карту на 2 группы.
+            // Если в обеих группах по 3+ планеты — это Качели (два весомых
+            // "полюса"). Если же одна из групп — всего 1-2 планеты, это не
+            // Качели, а "ручка": Праща (если основная масса компактна, как
+            // Связка) или Корзина (если основная масса широкая, как Чаша)
+            if (g1.size >= 25) {
+                const groups = groupsByGaps([g0.afterIdx, g1.afterIdx]);
+                if (groups.length === 2) {
+                    if (g1.size >= 35 && groups.every(gr => gr.length >= 3)) {
+                        return { type: 'Качели' };
+                    }
+                    const handle = groups.find(gr => gr.length <= 2);
+                    const main = groups.find(gr => gr !== handle);
+                    if (handle && main) {
+                        const mainSpan = spanOf(main);
+                        if (mainSpan <= 120) return { type: 'Праща' };
+                        if (mainSpan <= 190) return { type: 'Корзина' };
+                    }
+                }
+            }
+
+            // Чаша — все планеты в одной половине карты (~180°), единой массой
+            if (occupiedSpan <= 190) return { type: 'Чаша' };
+
+            // Брызги / Брызги со сгущением — планеты распределены по кругу без
+            // одной выраженной массы; если среди них есть плотные кучки по 2-4
+            // планеты (соединения), это Брызги со сгущением, иначе просто
+            // Брызги — по умолчанию, как и советует сам источник ("если
+            // непонятно, что за фигура — скорее всего, это Брызги")
+            const hasConcentration = gaps.some(g => g.size <= 8);
+            return { type: hasConcentration ? 'Брызги со сгущением' : 'Брызги' };
+        }
+
         function buildChartAnalysisHTML(data) {
             const realPlanetsList = (data.planets || []).filter(p => !FICTITIOUS_POINTS.includes(p.id));
             const { configs } = findConfigurations(realPlanetsList.map(p => ({ id: p.id, longitude: p.longitude })));
@@ -1626,6 +1726,7 @@
             realPlanetsList.forEach(p => { planetsById[p.id] = p; });
             (data.planets || []).forEach(p => { planetSymbolById[p.id] = p.id === 'Pluto' ? plutoTableIcon() : p.symbol; planetNameById[p.id] = p.name; });
             const modality = computeModalitySynthesis(data);
+            const jones = computeJonesFigure(realPlanetsList);
 
             // Только конфигурации по мажорным аспектам — Перст судьбы (квиконс,
             // минорный) сюда не выводим (по уточнению Елены), хотя для очков
@@ -1688,7 +1789,10 @@
                     <div class="strong-badges">${planets.map(p => `<span class="strong-badge" title="${escapeHtml(p.name)}">${planetSymbolById[p.id]}</span>`).join('')}</div>
                 </div>`).join('');
 
-            return `<h4 style="margin:0 0 8px; font-size:0.95rem; font-weight:600; color:var(--text-main);">Конфигурации</h4>
+            return `<h4 style="margin:0 0 8px; font-size:0.95rem; font-weight:600; color:var(--text-main);">Фигура Джонса</h4>
+            <div class="strong-badge" style="display:inline-flex; padding:8px 14px;" title="${escapeHtml(JONES_TOOLTIPS[jones.type] || '')}">${escapeHtml(jones.type)}</div>
+
+            <h4 style="margin:18px 0 8px; font-size:0.95rem; font-weight:600; color:var(--text-main);">Конфигурации</h4>
             <div class="strong-badges">${configBadges || '<div style="color:var(--text-muted); font-size:0.85rem;">Не найдено</div>'}</div>
 
             <h4 style="margin:18px 0 8px; font-size:0.95rem; font-weight:600; color:var(--text-main);">Знак синтеза</h4>
