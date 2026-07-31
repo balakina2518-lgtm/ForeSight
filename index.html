@@ -108,13 +108,12 @@
         .dispositor-tab { background: none; border: none; border-bottom: 2px solid transparent; padding: 8px 12px; font-size: 0.85rem; color: var(--text-muted); cursor: pointer; }
         .dispositor-tab:hover { color: var(--text-main); }
         .dispositor-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-        .dispositor-groups { display: flex; flex-direction: column; gap: 18px; }
-        .dispositor-group { display: flex; flex-direction: column; gap: 8px; }
-        .dispositor-row { display: flex; align-items: center; gap: 6px; }
-        .dispositor-box { display: inline-flex; align-items: center; justify-content: center; min-width: 32px; height: 32px; padding: 0 6px; border-radius: 6px; background: var(--bg-app); border: 1px solid var(--border-color); color: var(--text-main); font-size: 1.05rem; cursor: help; }
+        .dispositor-groups { display: flex; flex-direction: column; gap: 18px; overflow-x: auto; }
+        .dispositor-group { position: relative; }
+        .dispositor-box { position: absolute; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; background: var(--bg-app); border: 1px solid var(--border-color); color: var(--text-main); font-size: 1.05rem; cursor: help; box-sizing: border-box; }
         .dispositor-box.dispositor-retro { color: #e74c3c; border-color: rgba(231,76,60,0.4); }
-        .dispositor-arrow { color: var(--text-muted); font-size: 0.9rem; }
-        .dispositor-mutual { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+        .dispositor-mutual { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 2px; width: 32px; }
+        .dispositor-mutual .dispositor-box { position: static; }
         .dispositor-mutual-arrow { color: var(--text-muted); font-size: 0.8rem; line-height: 1; }
 
         .strong-badges { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -1454,8 +1453,18 @@
         // не управляется ими дальше) до корня. Взаимный приём (A управляет B И
         // B управляет A) схлопывается в одну ячейку из двух планет — у неё нет
         // исходящей связи (пара сама себе замыкает цепочку), рисуется как
-        // вертикальная пара с двойной стрелкой на месте обычной ячейки
-        function buildDispositorPaths(members, edges) {
+        // вертикальная пара с двойной стрелкой на месте обычной ячейки.
+        //
+        // Раскладка — как в эталоне (Хронос): корень слева (col0), от корня
+        // самая длинная ветка идёт вправо основной строкой; каждая ДРУГАЯ
+        // ветка, вливающаяся в уже отрисованный узел, получает свою строку
+        // ниже, начинается заново с col0 и соединяется со своим узлом-целью
+        // Г-образным коннектором (не повторяя текстом весь путь до корня).
+        const DISPOSITOR_COL_W = 70;
+        const DISPOSITOR_ROW_H = 100;
+        const DISPOSITOR_BOX = 32;
+
+        function layoutDispositorComponent(members, edges) {
             const memberSet = new Set(members);
             const mutualPartner = {};
             members.forEach(id => {
@@ -1487,18 +1496,60 @@
             const childrenOf = {};
             supers.forEach(r => { childrenOf[r] = []; });
             supers.forEach(r => { const d = superEdge[r]; if (d) childrenOf[d].push(r); });
-            const leaves = supers.filter(r => childrenOf[r].length === 0);
-            return leaves.map(leaf => {
-                const path = [];
-                let cur = leaf;
-                const seen = new Set();
-                while (cur && !seen.has(cur)) {
-                    path.push(superMembersOf[cur]);
-                    seen.add(cur);
-                    cur = superEdge[cur];
+            const root = supers.find(r => !superEdge[r]) || supers[0];
+
+            const subtreeSize = {};
+            const computeSize = r => {
+                if (subtreeSize[r] !== undefined) return subtreeSize[r];
+                let size = 1;
+                childrenOf[r].forEach(c => { size += computeSize(c); });
+                subtreeSize[r] = size;
+                return size;
+            };
+            supers.forEach(computeSize);
+
+            const cells = [];
+            const connectors = [];
+            let nextRow = 1;
+
+            const placeChain = (startSuper, row) => {
+                let cur = startSuper;
+                let col = 0;
+                while (cur) {
+                    cells.push({ members: superMembersOf[cur], row, col });
+                    const kids = [...childrenOf[cur]].sort((a, b) => subtreeSize[b] - subtreeSize[a]);
+                    kids.slice(1).forEach(branchStart => {
+                        const branchRow = nextRow++;
+                        connectors.push({ fromRow: branchRow, fromCol: 0, toRow: row, toCol: col });
+                        placeChain(branchStart, branchRow);
+                    });
+                    const primary = kids[0];
+                    if (primary) connectors.push({ fromRow: row, fromCol: col + 1, toRow: row, toCol: col });
+                    cur = primary;
+                    col++;
                 }
-                return path;
-            });
+            };
+            placeChain(root, 0);
+
+            return {
+                cells,
+                connectors,
+                rowCount: nextRow,
+                colCount: cells.reduce((max, c) => Math.max(max, c.col + 1), 1),
+            };
+        }
+
+        function dispositorConnectorPath(c) {
+            const half = DISPOSITOR_BOX / 2;
+            const fromX = c.fromCol * DISPOSITOR_COL_W + DISPOSITOR_COL_W / 2;
+            const fromY = c.fromRow * DISPOSITOR_ROW_H + DISPOSITOR_ROW_H / 2;
+            const toX = c.toCol * DISPOSITOR_COL_W + DISPOSITOR_COL_W / 2;
+            const toY = c.toRow * DISPOSITOR_ROW_H + DISPOSITOR_ROW_H / 2;
+            if (c.fromRow === c.toRow) {
+                return `M ${fromX - half} ${fromY} L ${toX + half} ${toY}`;
+            }
+            const midY = toY + DISPOSITOR_ROW_H / 2;
+            return `M ${fromX} ${fromY - half} L ${fromX} ${midY} L ${toX} ${midY} L ${toX} ${toY + half}`;
         }
 
         function buildDispositorChainHTML(data) {
@@ -1525,25 +1576,39 @@
                 retroById[p.id] = !!p.retrograde;
             });
 
-            const cellHTML = cellIds => {
+            const cellBoxHTML = (cellIds, left, top) => {
                 if (cellIds.length === 1) {
                     const id = cellIds[0];
-                    return `<span class="dispositor-box${retroById[id] ? ' dispositor-retro' : ''}" title="${escapeHtml(planetNameById[id])}">${planetSymbolById[id]}</span>`;
+                    return `<div class="dispositor-box${retroById[id] ? ' dispositor-retro' : ''}" style="left:${left}px; top:${top}px;" title="${escapeHtml(planetNameById[id])}">${planetSymbolById[id]}</div>`;
                 }
                 const [a, b] = cellIds;
-                return `<span class="dispositor-mutual">
+                const mutualTop = top - (82 - DISPOSITOR_BOX) / 2;
+                return `<div class="dispositor-mutual" style="left:${left}px; top:${mutualTop}px;">
                     <span class="dispositor-box${retroById[a] ? ' dispositor-retro' : ''}" title="${escapeHtml(planetNameById[a])}">${planetSymbolById[a]}</span>
                     <span class="dispositor-mutual-arrow">↕</span>
                     <span class="dispositor-box${retroById[b] ? ' dispositor-retro' : ''}" title="${escapeHtml(planetNameById[b])}">${planetSymbolById[b]}</span>
-                </span>`;
+                </div>`;
             };
 
             const groupsHTML = components.map(group => {
-                const paths = buildDispositorPaths(group, edges);
-                const pathsHTML = paths.map(path =>
-                    `<div class="dispositor-row">${path.map(cellHTML).join('<span class="dispositor-arrow">←</span>')}</div>`
+                const layout = layoutDispositorComponent(group, edges);
+                const width = layout.colCount * DISPOSITOR_COL_W;
+                const height = layout.rowCount * DISPOSITOR_ROW_H;
+                const boxesHTML = layout.cells.map(cell => {
+                    const left = cell.col * DISPOSITOR_COL_W + (DISPOSITOR_COL_W - DISPOSITOR_BOX) / 2;
+                    const top = cell.row * DISPOSITOR_ROW_H + (DISPOSITOR_ROW_H - DISPOSITOR_BOX) / 2;
+                    return cellBoxHTML(cell.members, left, top);
+                }).join('');
+                const arrowsHTML = layout.connectors.map(c =>
+                    `<path d="${dispositorConnectorPath(c)}" fill="none" stroke="var(--text-muted)" stroke-width="1.4" marker-end="url(#dispositorArrowHead)" />`
                 ).join('');
-                return `<div class="dispositor-group">${pathsHTML}</div>`;
+                return `<div class="dispositor-group" style="width:${width}px; height:${height}px;">
+                    <svg width="${width}" height="${height}" style="position:absolute; top:0; left:0; overflow:visible;">
+                        <defs><marker id="dispositorArrowHead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--text-muted)" /></marker></defs>
+                        ${arrowsHTML}
+                    </svg>
+                    ${boxesHTML}
+                </div>`;
             }).join('');
 
             const tabsHTML = Object.entries(DISPOSITOR_MODES).map(([key, label]) =>
