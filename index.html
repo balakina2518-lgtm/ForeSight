@@ -1674,6 +1674,24 @@
                 return groups;
             };
             const spanOf = group => group[group.length - 1].longitude - group[0].longitude;
+            // Качели — это не просто "две группы по разные стороны от разрыва"
+            // (так на любой достаточно рассыпанной карте найдутся две крупные
+            // группы), а именно два полюса, СВЯЗАННЫХ между собой оппозициями
+            // (по формулировке источника: "несколько планет в оппозициях к
+            // нескольким планетам в другой половине"). Без этого — Брызги
+            // (возможно со сгущением), даже если геометрически карта делится
+            // на две неравные кучки разрывами
+            const countOppositions = (groupA, groupB) => {
+                let count = 0;
+                for (const a of groupA) {
+                    for (const b of groupB) {
+                        const orb = getPairOrb(a.id, b.id);
+                        const asp = detectAspect(a.longitude, b.longitude, orb);
+                        if (asp && asp.angle === 180) count++;
+                    }
+                }
+                return count;
+            };
 
             // Связка — все планеты в пределах ~120°
             if (occupiedSpan <= 120) return { type: 'Связка' };
@@ -1685,15 +1703,18 @@
             }
 
             // Два сопоставимых по размеру разрыва делят карту на 2 группы.
-            // Если в обеих группах по 3+ планеты — это Качели (два весомых
-            // "полюса"). Если же одна из групп — всего 1-2 планеты, это не
-            // Качели, а "ручка": Праща (если основная масса компактна, как
-            // Связка) или Корзина (если основная масса широкая, как Чаша)
+            // Если в обеих группах по 3+ планеты И между группами достаточно
+            // реальных оппозиций (не просто "по разные стороны") — Качели.
+            // Если же одна из групп — всего 1-2 планеты, это не Качели, а
+            // "ручка": Праща (если основная масса компактна, как Связка) или
+            // Корзина (если основная масса широкая, как Чаша)
             if (g1.size >= 25) {
                 const groups = groupsByGaps([g0.afterIdx, g1.afterIdx]);
                 if (groups.length === 2) {
                     if (g1.size >= 35 && groups.every(gr => gr.length >= 3)) {
-                        return { type: 'Качели' };
+                        const oppCount = countOppositions(groups[0], groups[1]);
+                        const needed = Math.max(2, Math.ceil(Math.min(groups[0].length, groups[1].length) / 2));
+                        if (oppCount >= needed) return { type: 'Качели' };
                     }
                     const handle = groups.find(gr => gr.length <= 2);
                     const main = groups.find(gr => gr !== handle);
