@@ -88,7 +88,7 @@
             max-height: 100%; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.25);
             box-sizing: border-box; padding: 20px 24px;
         }
-        .info-popup:has(.elements-table), .info-popup:has(.coords-columns) { width: 620px; }
+        .info-popup:has(.elements-table), .info-popup:has(.coords-columns), .info-popup:has(.dispositor-groups) { width: 620px; }
         #houseFormulasTable.hide-formula-link-col .formula-link-col { display: none; }
         .formula-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
         .formula-toolbar input { width: 120px; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-app); color: var(--text-main); font-size: 0.82rem; }
@@ -103,6 +103,19 @@
         .coords-table { border-collapse: collapse; font-size: 0.88rem; flex: 1; min-width: 220px; }
         .coords-table th { text-align: left; color: var(--text-muted); font-weight: 500; font-size: 0.78rem; padding: 5px 8px; border-bottom: 1px solid var(--border-color); }
         .coords-table td { padding: 5px 8px; color: var(--text-main); border-bottom: 1px solid var(--bg-app); }
+
+        .dispositor-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border-color); margin-bottom: 16px; flex-wrap: wrap; }
+        .dispositor-tab { background: none; border: none; border-bottom: 2px solid transparent; padding: 8px 12px; font-size: 0.85rem; color: var(--text-muted); cursor: pointer; }
+        .dispositor-tab:hover { color: var(--text-main); }
+        .dispositor-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+        .dispositor-groups { display: flex; flex-direction: column; gap: 18px; }
+        .dispositor-group { display: flex; flex-direction: column; gap: 8px; }
+        .dispositor-row { display: flex; align-items: center; gap: 6px; }
+        .dispositor-box { display: inline-flex; align-items: center; justify-content: center; min-width: 32px; height: 32px; padding: 0 6px; border-radius: 6px; background: var(--bg-app); border: 1px solid var(--border-color); color: var(--text-main); font-size: 1.05rem; cursor: help; }
+        .dispositor-box.dispositor-retro { color: #e74c3c; border-color: rgba(231,76,60,0.4); }
+        .dispositor-arrow { color: var(--text-muted); font-size: 0.9rem; }
+        .dispositor-mutual { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+        .dispositor-mutual-arrow { color: var(--text-muted); font-size: 0.8rem; line-height: 1; }
 
         .strong-badges { display: flex; flex-wrap: wrap; gap: 8px; }
         .strong-badge { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 40px; height: 42px; padding: 0 10px; border-radius: 8px; background: var(--bg-app); border: 1px solid var(--border-color); color: var(--text-main); font-size: 1.25rem; cursor: help; }
@@ -353,6 +366,7 @@
                     </svg>
                 </button>
                 <button type="button" class="toolbar-btn" onclick="window.openInfoPopup('analysis')" title="Анализ карты">ⓘ</button>
+                <button type="button" class="toolbar-btn" onclick="window.openInfoPopup('dispositors')" title="Цепочка диспозиторов">⛓</button>
             </div>
         </div>
 
@@ -920,6 +934,27 @@
         // традиционным управителем (Скорпион/Водолей/Рыбы). Индекс 0 = Овен.
         const SIGN_MAJOR_RULER = ['Mars', 'Venus', 'Mercury', 'Moon', 'Sun', 'Mercury', 'Venus', 'Pluto', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'];
         const SIGN_MINOR_RULER = { 7: 'Mars', 10: 'Saturn', 11: 'Jupiter' };
+
+        // Экзальтация — для классических 7 планет таблица общепринятая (Овен/
+        // Телец/Дева/Рыбы/Козерог/Рак/Весы), единого стандарта нет только для
+        // Урана/Нептуна/Плутона: у разных школ разные варианты. Взято по
+        // Хроносу (chronos.mg/blog/ekzaltatsiya-planet-v-astrologii/) — Уран в
+        // Скорпионе, Нептун в Водолее, Плутон во Льве — раз Елена ориентируется
+        // на этот сайт как на эталон Форсайта. Индекс знака: 0 = Овен.
+        const PLANET_EXALTATION_SIGN = {
+            Sun: 0, Moon: 1, Mercury: 5, Venus: 11, Mars: 9, Jupiter: 3, Saturn: 6,
+            Uranus: 7, Neptune: 10, Pluto: 4,
+        };
+        // Обратные таблицы "какая планета экзальтирует/падает в этом знаке" —
+        // считаются из таблицы выше, отдельно не задаются. Падение — знак,
+        // противоположный экзальтации той же планеты (общепринятое правило).
+        const SIGN_EXALTED_PLANET = {};
+        const SIGN_FALL_PLANET = {};
+        Object.entries(PLANET_EXALTATION_SIGN).forEach(([id, signIdx]) => {
+            SIGN_EXALTED_PLANET[signIdx] = id;
+            SIGN_FALL_PLANET[(signIdx + 6) % 12] = id;
+        });
+
         const ANGULAR_HOUSES = [1, 4, 7, 10];
         const SIGN_ELEMENT = ['Fire', 'Earth', 'Air', 'Water', 'Fire', 'Earth', 'Air', 'Water', 'Fire', 'Earth', 'Air', 'Water'];
         const ELEMENT_RU = { Fire: 'Огонь', Earth: 'Земля', Air: 'Воздух', Water: 'Вода' };
@@ -1379,6 +1414,150 @@
                 <table class="coords-table"><thead><tr><th>Дом</th><th>Положение</th><th>Знак</th></tr></thead><tbody>${houseRows}</tbody></table>
             </div>`;
         }
+
+        // Цепочка диспозиторов — для каждой из 10 настоящих планет ищем, кто ею
+        // управляет (в знаке, где она стоит) по одному из 4 видов достоинства.
+        // По владению — управитель знака (мажорный, как и везде на сайте).
+        // По изгнанию — управитель ЗНАКА НАПРОТИВ (в изгнании планета там, где
+        // управляет её "противоположный" сосед). По экзальтации/падению — см.
+        // SIGN_EXALTED_PLANET/SIGN_FALL_PLANET выше; для этих двух знаки
+        // Близнецы и Стрелец не дают диспозитора никому (в классике для них
+        // экзальтация не определена) — планета в них так и остаётся без связи.
+        const DISPOSITOR_MODES = {
+            domicile: 'По владению',
+            exaltation: 'По экзальтации',
+            fall: 'По падению',
+            exile: 'По изгнанию',
+        };
+        let currentDispositorMode = 'domicile';
+
+        function getDispositorPlanet(signIndex, mode) {
+            if (mode === 'domicile') return SIGN_MAJOR_RULER[signIndex];
+            if (mode === 'exile') return SIGN_MAJOR_RULER[(signIndex + 6) % 12];
+            if (mode === 'exaltation') return SIGN_EXALTED_PLANET[signIndex] || null;
+            if (mode === 'fall') return SIGN_FALL_PLANET[signIndex] || null;
+            return null;
+        }
+
+        function computeDispositorEdges(realPlanets, mode) {
+            const edges = {};
+            realPlanets.forEach(p => {
+                const signIdx = getSignIndex(p.longitude);
+                let d = getDispositorPlanet(signIdx, mode);
+                if (d === p.id) d = null; // управляет сама собой — конец цепочки
+                edges[p.id] = d;
+            });
+            return edges;
+        }
+
+        // Для одной связной группы планет строит все пути от "листьев" (никто
+        // не управляется ими дальше) до корня. Взаимный приём (A управляет B И
+        // B управляет A) схлопывается в одну ячейку из двух планет — у неё нет
+        // исходящей связи (пара сама себе замыкает цепочку), рисуется как
+        // вертикальная пара с двойной стрелкой на месте обычной ячейки
+        function buildDispositorPaths(members, edges) {
+            const memberSet = new Set(members);
+            const mutualPartner = {};
+            members.forEach(id => {
+                const d = edges[id];
+                if (d && memberSet.has(d) && edges[d] === id) mutualPartner[id] = d;
+            });
+            const reprOf = id => {
+                const p = mutualPartner[id];
+                if (!p) return id;
+                return id < p ? id : p;
+            };
+            const superMembersOf = {};
+            members.forEach(id => {
+                const r = reprOf(id);
+                superMembersOf[r] = superMembersOf[r] || [];
+                if (!superMembersOf[r].includes(id)) superMembersOf[r].push(id);
+            });
+            const supers = Object.keys(superMembersOf);
+            const superEdge = {};
+            supers.forEach(r => {
+                const membersHere = superMembersOf[r];
+                let out = null;
+                membersHere.forEach(id => {
+                    const d = edges[id];
+                    if (d && !membersHere.includes(d)) out = reprOf(d);
+                });
+                superEdge[r] = out;
+            });
+            const childrenOf = {};
+            supers.forEach(r => { childrenOf[r] = []; });
+            supers.forEach(r => { const d = superEdge[r]; if (d) childrenOf[d].push(r); });
+            const leaves = supers.filter(r => childrenOf[r].length === 0);
+            return leaves.map(leaf => {
+                const path = [];
+                let cur = leaf;
+                const seen = new Set();
+                while (cur && !seen.has(cur)) {
+                    path.push(superMembersOf[cur]);
+                    seen.add(cur);
+                    cur = superEdge[cur];
+                }
+                return path;
+            });
+        }
+
+        function buildDispositorChainHTML(data) {
+            const mode = currentDispositorMode;
+            const realPlanets = (data.planets || []).filter(p => !FICTITIOUS_POINTS.includes(p.id));
+            const edges = computeDispositorEdges(realPlanets, mode);
+            const ids = realPlanets.map(p => p.id);
+
+            const parent = {};
+            ids.forEach(id => { parent[id] = id; });
+            const find = x => (parent[x] === x ? x : (parent[x] = find(parent[x])));
+            const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; };
+            ids.forEach(id => { if (edges[id]) union(id, edges[id]); });
+            const groups = {};
+            ids.forEach(id => { const r = find(id); (groups[r] = groups[r] || []).push(id); });
+            const components = Object.values(groups).sort((a, b) => b.length - a.length);
+
+            const planetSymbolById = {};
+            const planetNameById = {};
+            const retroById = {};
+            (data.planets || []).forEach(p => {
+                planetSymbolById[p.id] = p.id === 'Pluto' ? plutoTableIcon() : p.symbol;
+                planetNameById[p.id] = p.name;
+                retroById[p.id] = !!p.retrograde;
+            });
+
+            const cellHTML = cellIds => {
+                if (cellIds.length === 1) {
+                    const id = cellIds[0];
+                    return `<span class="dispositor-box${retroById[id] ? ' dispositor-retro' : ''}" title="${escapeHtml(planetNameById[id])}">${planetSymbolById[id]}</span>`;
+                }
+                const [a, b] = cellIds;
+                return `<span class="dispositor-mutual">
+                    <span class="dispositor-box${retroById[a] ? ' dispositor-retro' : ''}" title="${escapeHtml(planetNameById[a])}">${planetSymbolById[a]}</span>
+                    <span class="dispositor-mutual-arrow">↕</span>
+                    <span class="dispositor-box${retroById[b] ? ' dispositor-retro' : ''}" title="${escapeHtml(planetNameById[b])}">${planetSymbolById[b]}</span>
+                </span>`;
+            };
+
+            const groupsHTML = components.map(group => {
+                const paths = buildDispositorPaths(group, edges);
+                const pathsHTML = paths.map(path =>
+                    `<div class="dispositor-row">${path.map(cellHTML).join('<span class="dispositor-arrow">←</span>')}</div>`
+                ).join('');
+                return `<div class="dispositor-group">${pathsHTML}</div>`;
+            }).join('');
+
+            const tabsHTML = Object.entries(DISPOSITOR_MODES).map(([key, label]) =>
+                `<button type="button" class="dispositor-tab${key === mode ? ' active' : ''}" onclick="window.switchDispositorTab('${key}')">${escapeHtml(label)}</button>`
+            ).join('');
+
+            return `<div class="dispositor-tabs">${tabsHTML}</div>
+            <div class="dispositor-groups">${groupsHTML || '<div style="color:var(--text-muted); font-size:0.85rem;">Нет данных</div>'}</div>`;
+        }
+
+        window.switchDispositorTab = function(mode) {
+            currentDispositorMode = mode;
+            document.getElementById('infoPopupBody').innerHTML = buildDispositorChainHTML(window.lastChartData);
+        };
 
         // Порог "силы" для домов — 3 и более (по Елене, при весах 1 эшелон +2 /
         // 2 эшелон +1). Для планет порог другой по форме: минимум 1 показатель
@@ -1917,11 +2096,12 @@
             svg.classList.add('wheel-focus-mode');
         };
 
-        const INFO_POPUP_TITLES = { aspects: '⊞ Таблица аспектов', coords: '⊘ Координаты планет и домов', strong: '⊛ Сильные объекты', formulas: '⌂ Формулы домов', analysis: 'ⓘ Анализ карты' };
-        const INFO_POPUP_BUILDERS = { aspects: buildAspectTableHTML, coords: buildCoordsTableHTML, strong: buildStrongObjectsHTML, formulas: buildHouseFormulasHTML, analysis: buildChartAnalysisHTML };
+        const INFO_POPUP_TITLES = { aspects: '⊞ Таблица аспектов', coords: '⊘ Координаты планет и домов', strong: '⊛ Сильные объекты', formulas: '⌂ Формулы домов', analysis: 'ⓘ Анализ карты', dispositors: '⛓ Цепочка диспозиторов' };
+        const INFO_POPUP_BUILDERS = { aspects: buildAspectTableHTML, coords: buildCoordsTableHTML, strong: buildStrongObjectsHTML, formulas: buildHouseFormulasHTML, analysis: buildChartAnalysisHTML, dispositors: buildDispositorChainHTML };
 
         window.openInfoPopup = function(type) {
             if (!window.lastChartData) { alert('Сначала постройте карту.'); return; }
+            if (type === 'dispositors') currentDispositorMode = 'domicile';
             document.getElementById('infoPopupTitle').textContent = INFO_POPUP_TITLES[type] || '';
             document.getElementById('infoPopupBody').innerHTML = INFO_POPUP_BUILDERS[type](window.lastChartData);
             document.getElementById('infoPopupOverlay').style.display = 'flex';
