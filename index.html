@@ -112,9 +112,9 @@
         .dispositor-group { position: relative; }
         .dispositor-box { position: absolute; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; background: var(--bg-app); border: 1px solid var(--border-color); color: var(--text-main); font-size: 1.05rem; cursor: help; box-sizing: border-box; }
         .dispositor-box.dispositor-retro { color: #e74c3c; border-color: rgba(231,76,60,0.4); }
-        .dispositor-mutual { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 2px; width: 32px; }
+        .dispositor-mutual { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 8px; width: 32px; }
         .dispositor-mutual .dispositor-box { position: static; }
-        .dispositor-mutual-arrow { color: var(--text-muted); font-size: 0.8rem; line-height: 1; }
+        .dispositor-mutual-arrow { color: var(--text-muted); font-size: 1rem; line-height: 1; }
 
         .strong-badges { display: flex; flex-wrap: wrap; gap: 8px; }
         .strong-badge { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 40px; height: 42px; padding: 0 10px; border-radius: 8px; background: var(--bg-app); border: 1px solid var(--border-color); color: var(--text-main); font-size: 1.25rem; cursor: help; }
@@ -1430,11 +1430,16 @@
         };
         let currentDispositorMode = 'domicile';
 
+        // Близнецы и Стрелец — единственные знаки без экзальтации/падения в
+        // классической таблице (собственные знаки Меркурия и Юпитера). Для них
+        // диспозитор по экзальтации/падению берётся по владению (управитель
+        // знака) — так и в эталоне (Хронос): планета в Близнецах ведёт к
+        // Меркурию, а не остаётся без цепочки.
         function getDispositorPlanet(signIndex, mode) {
             if (mode === 'domicile') return SIGN_MAJOR_RULER[signIndex];
             if (mode === 'exile') return SIGN_MAJOR_RULER[(signIndex + 6) % 12];
-            if (mode === 'exaltation') return SIGN_EXALTED_PLANET[signIndex] || null;
-            if (mode === 'fall') return SIGN_FALL_PLANET[signIndex] || null;
+            if (mode === 'exaltation') return SIGN_EXALTED_PLANET[signIndex] || SIGN_MAJOR_RULER[signIndex];
+            if (mode === 'fall') return SIGN_FALL_PLANET[signIndex] || SIGN_MAJOR_RULER[signIndex];
             return null;
         }
 
@@ -1461,8 +1466,9 @@
         // ниже, начинается заново с col0 и соединяется со своим узлом-целью
         // Г-образным коннектором (не повторяя текстом весь путь до корня).
         const DISPOSITOR_COL_W = 70;
-        const DISPOSITOR_ROW_H = 100;
+        const DISPOSITOR_ROW_H = 130;
         const DISPOSITOR_BOX = 32;
+        const DISPOSITOR_MUTUAL_H = 96; // взаимный приём: box+gap+стрелка+gap+box (см. CSS .dispositor-mutual)
 
         function layoutDispositorComponent(members, edges) {
             const memberSet = new Set(members);
@@ -1582,7 +1588,7 @@
                     return `<div class="dispositor-box${retroById[id] ? ' dispositor-retro' : ''}" style="left:${left}px; top:${top}px;" title="${escapeHtml(planetNameById[id])}">${planetSymbolById[id]}</div>`;
                 }
                 const [a, b] = cellIds;
-                const mutualTop = top - (82 - DISPOSITOR_BOX) / 2;
+                const mutualTop = top - (DISPOSITOR_MUTUAL_H - DISPOSITOR_BOX) / 2;
                 return `<div class="dispositor-mutual" style="left:${left}px; top:${mutualTop}px;">
                     <span class="dispositor-box${retroById[a] ? ' dispositor-retro' : ''}" title="${escapeHtml(planetNameById[a])}">${planetSymbolById[a]}</span>
                     <span class="dispositor-mutual-arrow">↕</span>
