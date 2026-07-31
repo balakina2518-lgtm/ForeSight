@@ -1539,17 +1539,52 @@
             return groups;
         }
 
+        // Объединяет конфигурации одного типа, которые отличаются ровно одним
+        // участником, если этот участник в соединении с тем, кого заменяет —
+        // не показываем отдельными фигурами "то же самое, но с Меркурием" и
+        // "то же самое, но с Солнцем", если Меркурий и Солнце сами в соединении
+        function mergeConjunctConfigs(configs, planetsById) {
+            const isConjunct = (a, b) => {
+                if (a === b || !planetsById[a] || !planetsById[b]) return false;
+                const orb = getPairOrb(a, b);
+                const asp = detectAspect(planetsById[a].longitude, planetsById[b].longitude, orb);
+                return !!asp && asp.angle === 0;
+            };
+            const used = new Array(configs.length).fill(false);
+            const merged = [];
+            for (let i = 0; i < configs.length; i++) {
+                if (used[i]) continue;
+                used[i] = true;
+                const group = new Set(configs[i].memberIds);
+                for (let j = i + 1; j < configs.length; j++) {
+                    if (used[j] || configs[j].type !== configs[i].type) continue;
+                    const onlyInGroup = [...group].filter(x => !configs[j].memberIds.includes(x));
+                    const onlyInOther = configs[j].memberIds.filter(x => !group.has(x));
+                    if (onlyInGroup.length === 1 && onlyInOther.length === 1 && isConjunct(onlyInGroup[0], onlyInOther[0])) {
+                        onlyInOther.forEach(id => group.add(id));
+                        used[j] = true;
+                    }
+                }
+                merged.push({ type: configs[i].type, apexId: configs[i].apexId, memberIds: [...group] });
+            }
+            return merged;
+        }
+
         function buildChartAnalysisHTML(data) {
-            const configs = findConfigurations((data.planets || []).filter(p => !FICTITIOUS_POINTS.includes(p.id)).map(p => ({ id: p.id, longitude: p.longitude })));
+            const realPlanetsList = (data.planets || []).filter(p => !FICTITIOUS_POINTS.includes(p.id));
+            const configs = findConfigurations(realPlanetsList.map(p => ({ id: p.id, longitude: p.longitude })));
             const planetSymbolById = {};
             const planetNameById = {};
+            const planetsById = {};
+            realPlanetsList.forEach(p => { planetsById[p.id] = p; });
             (data.planets || []).forEach(p => { planetSymbolById[p.id] = p.id === 'Pluto' ? plutoTableIcon() : p.symbol; planetNameById[p.id] = p.name; });
             const modality = computeModalitySynthesis(data);
 
             // Только конфигурации по мажорным аспектам — Перст судьбы (квиконс,
             // минорный) сюда не выводим (по уточнению Елены), хотя для очков
-            // силы планет/домов он по-прежнему учитывается отдельно.
-            const majorConfigs = configs.filter(c => c.type !== 'Перст судьбы');
+            // силы планет/домов он по-прежнему учитывается отдельно. Плюс
+            // объединяем "почти одинаковые" фигуры, отличающиеся конъюнкт-планетой.
+            const majorConfigs = mergeConjunctConfigs(configs.filter(c => c.type !== 'Перст судьбы'), planetsById);
             const configBadges = majorConfigs.length
                 ? majorConfigs.map(c => {
                     const ids = JSON.stringify(c.memberIds).replace(/"/g, '&quot;');
