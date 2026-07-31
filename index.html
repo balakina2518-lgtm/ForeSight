@@ -982,6 +982,12 @@
         // перст судьбы, косой парус) — геометрия по книге Андреева, стр.454-457.
         // Большой трин без вершины (все три угла равноправны) для очков силы не
         // используется — в книге вершина у него не указана.
+        // Орбис расширяется на 2°, но только для ОДНОЙ стороны фигуры и только
+        // если это завершает конфигурацию (остальные стороны уже сходятся по
+        // стандартному орбису) — по прямому уточнению Елены. Если фигура не
+        // складывается, расширение не применяется, орбис остаётся стандартным.
+        const CONFIG_ORB_BONUS = 2;
+
         function findConfigurations(realPlanets) {
             const n = realPlanets.length;
             const aspectAt = {};
@@ -993,15 +999,32 @@
                 }
             }
             const has = (i, j, name) => aspectAt[i < j ? `${i},${j}` : `${j},${i}`] === name;
+            const relaxed = (i, j, name) => {
+                if (has(i, j, name)) return 'standard';
+                const orb = getPairOrb(realPlanets[i].id, realPlanets[j].id) + CONFIG_ORB_BONUS;
+                const asp = detectAspect(realPlanets[i].longitude, realPlanets[j].longitude, orb);
+                return (asp && asp.name === name) ? 'extended' : null;
+            };
+            // Проверяет набор сторон фигуры, разрешая расширенный орбис максимум
+            // на ОДНОЙ стороне — иначе слишком много допущений на одну фигуру
+            const matches = legs => {
+                let extendedCount = 0;
+                for (const [i, j, name] of legs) {
+                    const m = relaxed(i, j, name);
+                    if (!m) return false;
+                    if (m === 'extended') extendedCount++;
+                }
+                return extendedCount <= 1;
+            };
             const configs = [];
             for (let i = 0; i < n; i++) {
                 for (let j = i + 1; j < n; j++) {
                     for (let k = 0; k < n; k++) {
                         if (k === i || k === j) continue;
-                        if (has(i, j, 'Оппозиция') && has(i, k, 'Квадратура') && has(j, k, 'Квадратура')) {
+                        if (matches([[i, j, 'Оппозиция'], [i, k, 'Квадратура'], [j, k, 'Квадратура']])) {
                             configs.push({ type: 'Тау-квадрат', apexId: realPlanets[k].id, memberIds: [realPlanets[i].id, realPlanets[j].id, realPlanets[k].id] });
                         }
-                        if (has(i, j, 'Трин') && has(i, k, 'Секстиль') && has(j, k, 'Секстиль')) {
+                        if (matches([[i, j, 'Трин'], [i, k, 'Секстиль'], [j, k, 'Секстиль']])) {
                             configs.push({ type: 'Бисекстиль', apexId: realPlanets[k].id, memberIds: [realPlanets[i].id, realPlanets[j].id, realPlanets[k].id] });
                             // Парус: бисекстиль (i,j трин, k секстиль-апекс), лежащий на
                             // большом трине — четвёртая точка m в оппозиции апексу k и
@@ -1009,15 +1032,15 @@
                             // или бисекстиль на большом трине")
                             for (let m = 0; m < n; m++) {
                                 if (m === i || m === j || m === k) continue;
-                                if (has(k, m, 'Оппозиция') && has(i, m, 'Трин') && has(j, m, 'Трин')) {
+                                if (matches([[k, m, 'Оппозиция'], [i, m, 'Трин'], [j, m, 'Трин']])) {
                                     configs.push({ type: 'Парус', apexId: realPlanets[k].id, memberIds: [realPlanets[i].id, realPlanets[j].id, realPlanets[k].id, realPlanets[m].id] });
                                 }
                             }
                         }
-                        if (has(i, j, 'Секстиль') && has(i, k, 'Квиконс') && has(j, k, 'Квиконс')) {
+                        if (matches([[i, j, 'Секстиль'], [i, k, 'Квиконс'], [j, k, 'Квиконс']])) {
                             configs.push({ type: 'Перст судьбы', apexId: realPlanets[k].id, memberIds: [realPlanets[i].id, realPlanets[j].id, realPlanets[k].id] });
                         }
-                        if (has(i, j, 'Оппозиция') && ((has(i, k, 'Трин') && has(j, k, 'Секстиль')) || (has(i, k, 'Секстиль') && has(j, k, 'Трин')))) {
+                        if (matches([[i, j, 'Оппозиция'], [i, k, 'Трин'], [j, k, 'Секстиль']]) || matches([[i, j, 'Оппозиция'], [i, k, 'Секстиль'], [j, k, 'Трин']])) {
                             configs.push({ type: 'Косой парус', apexId: realPlanets[k].id, memberIds: [realPlanets[i].id, realPlanets[j].id, realPlanets[k].id] });
                         }
                     }
