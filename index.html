@@ -1490,16 +1490,50 @@
         }
 
         // Центр конкретной планеты в ячейке по вертикали — если ячейка обычная
-        // (1 планета), это просто центр строки; если это пара взаимного приёма,
-        // берётся центр именно верхнего или нижнего бокса (не середина между ними)
-        function dispositorMemberCenterY(row, col, memberId, geometry) {
-            const rowTop = geometry.rowTops[row];
-            const rowH = geometry.rowHeights[row];
-            const members = geometry.cellsByPos[`${row},${col}`];
-            if (!members || members.length === 1 || !memberId) return rowTop + rowH / 2;
-            const mutualTop = rowTop + (rowH - DISPOSITOR_MUTUAL_H) / 2;
+        // (1 планета), берётся её выровненный центр (cellY, см. ниже — планета
+        // ставится вровень с той, к кому у неё стрелка, а не в геометрический
+        // центр строки); если это пара взаимного приёма — центр именно
+        // верхнего или нижнего бокса (не середина между ними)
+        function dispositorMemberCenterY(row, col, memberId, geometry, cellY) {
+            const key = `${row},${col}`;
+            const members = geometry.cellsByPos[key];
+            const centerY = cellY[key];
+            if (!members || members.length === 1 || !memberId) return centerY;
+            const mutualTop = centerY - DISPOSITOR_MUTUAL_H / 2;
             if (members[0] === memberId) return mutualTop + DISPOSITOR_BOX / 2;
             return mutualTop + DISPOSITOR_MUTUAL_H - DISPOSITOR_BOX / 2;
+        }
+
+        // Планеты в одной строке должны стоять на одной высоте со своей целью
+        // (а не в геометрическом центре строки, который "плавает" из-за пары
+        // взаимного приёма где-то в этой же строке) — иначе стрелка внутри
+        // строки идёт по диагонали вместо ровной горизонтали. Пары взаимного
+        // приёма — единственный фиксированный ориентир, обычные планеты
+        // выравниваются по цепочке слева направо от них
+        function computeDispositorCellY(cells, connectors, geometry) {
+            const cellY = {};
+            cells.forEach(c => {
+                if (c.members.length === 2) cellY[`${c.row},${c.col}`] = geometry.rowTops[c.row] + geometry.rowHeights[c.row] / 2;
+            });
+            const sameRowConnBySource = {};
+            connectors.forEach(c => { if (c.fromRow === c.toRow) sameRowConnBySource[`${c.fromRow},${c.fromCol}`] = c; });
+            const byRow = {};
+            cells.forEach(c => { (byRow[c.row] = byRow[c.row] || []).push(c); });
+            Object.values(byRow).forEach(rowCells => {
+                rowCells.sort((a, b) => a.col - b.col);
+                rowCells.forEach(cell => {
+                    if (cell.members.length === 2) return;
+                    const key = `${cell.row},${cell.col}`;
+                    const conn = sameRowConnBySource[key];
+                    if (!conn) { cellY[key] = geometry.rowTops[cell.row] + geometry.rowHeights[cell.row] / 2; return; }
+                    const targetKey = `${conn.toRow},${conn.toCol}`;
+                    const targetMembers = geometry.cellsByPos[targetKey];
+                    cellY[key] = (targetMembers && targetMembers.length === 2)
+                        ? dispositorMemberCenterY(conn.toRow, conn.toCol, conn.toMemberId, geometry, cellY)
+                        : cellY[targetKey];
+                });
+            });
+            return cellY;
         }
 
         function layoutDispositorComponent(members, edges) {
@@ -1595,12 +1629,12 @@
             };
         }
 
-        function dispositorConnectorPath(c, geometry) {
+        function dispositorConnectorPath(c, geometry, cellY) {
             const half = DISPOSITOR_BOX / 2;
             const fromX = c.fromCol * DISPOSITOR_COL_W + DISPOSITOR_COL_W / 2;
-            const fromY = dispositorMemberCenterY(c.fromRow, c.fromCol, c.fromMemberId, geometry);
+            const fromY = dispositorMemberCenterY(c.fromRow, c.fromCol, c.fromMemberId, geometry, cellY);
             const toX = c.toCol * DISPOSITOR_COL_W + DISPOSITOR_COL_W / 2;
-            const toY = dispositorMemberCenterY(c.toRow, c.toCol, c.toMemberId, geometry);
+            const toY = dispositorMemberCenterY(c.toRow, c.toCol, c.toMemberId, geometry, cellY);
             if (c.fromRow === c.toRow) {
                 return `M ${fromX - half} ${fromY} L ${toX + half} ${toY}`;
             }
@@ -1649,30 +1683,30 @@
                     return `<div class="dispositor-box${retroById[id] ? ' dispositor-retro' : ''}" style="left:${left}px; top:${top}px;" title="${escapeHtml(planetNameById[id])}">${planetSymbolById[id]}</div>`;
                 }
                 const [a, b] = cellIds;
-                const mutualTop = top - (DISPOSITOR_MUTUAL_H - DISPOSITOR_BOX) / 2;
-                const lineX = left + DISPOSITOR_BOX / 2;
                 // Линия стрелки тянется от нижнего края верхней планеты до
                 // верхнего края нижней — не просто символ "↕" в воздухе между
                 // ними, а стрелка, которая реально дотягивается до обеих
-                return `<div class="dispositor-box${retroById[a] ? ' dispositor-retro' : ''}" style="left:${left}px; top:${mutualTop}px;" title="${escapeHtml(planetNameById[a])}">${planetSymbolById[a]}</div>
-                <svg width="${DISPOSITOR_BOX}" height="${DISPOSITOR_MUTUAL_GAP}" style="position:absolute; left:${left}px; top:${mutualTop + DISPOSITOR_BOX}px; overflow:visible;">
+                return `<div class="dispositor-box${retroById[a] ? ' dispositor-retro' : ''}" style="left:${left}px; top:${top}px;" title="${escapeHtml(planetNameById[a])}">${planetSymbolById[a]}</div>
+                <svg width="${DISPOSITOR_BOX}" height="${DISPOSITOR_MUTUAL_GAP}" style="position:absolute; left:${left}px; top:${top + DISPOSITOR_BOX}px; overflow:visible;">
                     <line x1="${DISPOSITOR_BOX / 2}" y1="0" x2="${DISPOSITOR_BOX / 2}" y2="${DISPOSITOR_MUTUAL_GAP}" stroke="var(--text-muted)" stroke-width="1.4" marker-start="url(#dispositorArrowHead)" marker-end="url(#dispositorArrowHead)" />
                 </svg>
-                <div class="dispositor-box${retroById[b] ? ' dispositor-retro' : ''}" style="left:${left}px; top:${mutualTop + DISPOSITOR_BOX + DISPOSITOR_MUTUAL_GAP}px;" title="${escapeHtml(planetNameById[b])}">${planetSymbolById[b]}</div>`;
+                <div class="dispositor-box${retroById[b] ? ' dispositor-retro' : ''}" style="left:${left}px; top:${top + DISPOSITOR_BOX + DISPOSITOR_MUTUAL_GAP}px;" title="${escapeHtml(planetNameById[b])}">${planetSymbolById[b]}</div>`;
             };
 
             const groupsHTML = components.map(group => {
                 const layout = layoutDispositorComponent(group, edges);
                 const geometry = computeDispositorRowGeometry(layout.cells, layout.rowCount);
+                const cellY = computeDispositorCellY(layout.cells, layout.connectors, geometry);
                 const width = layout.colCount * DISPOSITOR_COL_W;
                 const height = geometry.totalHeight;
                 const boxesHTML = layout.cells.map(cell => {
                     const left = cell.col * DISPOSITOR_COL_W + (DISPOSITOR_COL_W - DISPOSITOR_BOX) / 2;
-                    const top = geometry.rowTops[cell.row] + (geometry.rowHeights[cell.row] - DISPOSITOR_BOX) / 2;
+                    const centerY = cellY[`${cell.row},${cell.col}`];
+                    const top = cell.members.length === 2 ? centerY - DISPOSITOR_MUTUAL_H / 2 : centerY - DISPOSITOR_BOX / 2;
                     return cellBoxHTML(cell.members, left, top);
                 }).join('');
                 const arrowsHTML = layout.connectors.map(c =>
-                    `<path d="${dispositorConnectorPath(c, geometry)}" fill="none" stroke="var(--text-muted)" stroke-width="1.4" marker-end="url(#dispositorArrowHead)" />`
+                    `<path d="${dispositorConnectorPath(c, geometry, cellY)}" fill="none" stroke="var(--text-muted)" stroke-width="1.4" marker-end="url(#dispositorArrowHead)" />`
                 ).join('');
                 return `<div class="dispositor-group" style="width:${width}px; height:${height}px;">
                     <svg width="${width}" height="${height}" style="position:absolute; top:0; left:0; overflow:visible;">
