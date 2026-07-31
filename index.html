@@ -1556,16 +1556,18 @@
                 if (used[i]) continue;
                 used[i] = true;
                 const group = new Set(configs[i].memberIds);
+                const conjunctPairs = [];
                 for (let j = i + 1; j < configs.length; j++) {
                     if (used[j] || configs[j].type !== configs[i].type) continue;
                     const onlyInGroup = [...group].filter(x => !configs[j].memberIds.includes(x));
                     const onlyInOther = configs[j].memberIds.filter(x => !group.has(x));
                     if (onlyInGroup.length === 1 && onlyInOther.length === 1 && isConjunct(onlyInGroup[0], onlyInOther[0])) {
+                        conjunctPairs.push([onlyInGroup[0], onlyInOther[0]]);
                         onlyInOther.forEach(id => group.add(id));
                         used[j] = true;
                     }
                 }
-                merged.push({ type: configs[i].type, apexId: configs[i].apexId, memberIds: [...group] });
+                merged.push({ type: configs[i].type, apexId: configs[i].apexId, memberIds: [...group], conjunctPairs });
             }
             return merged;
         }
@@ -1585,10 +1587,31 @@
             // силы планет/домов он по-прежнему учитывается отдельно. Плюс
             // объединяем "почти одинаковые" фигуры, отличающиеся конъюнкт-планетой.
             const majorConfigs = mergeConjunctConfigs(configs.filter(c => c.type !== 'Перст судьбы'), planetsById);
+            // Соединённые внутри фигуры планеты рисуем рядом друг с другом и
+            // выделяем цветом (как на скрине от Елены) — а не вразнобой по
+            // порядку memberIds
+            const renderConfigMembers = c => {
+                const partnerOf = {};
+                (c.conjunctPairs || []).forEach(([a, b]) => { partnerOf[a] = b; partnerOf[b] = a; });
+                const placed = new Set();
+                const parts = [];
+                c.memberIds.forEach(id => {
+                    if (placed.has(id)) return;
+                    const partner = partnerOf[id];
+                    if (partner && c.memberIds.includes(partner)) {
+                        placed.add(id); placed.add(partner);
+                        parts.push(`<span style="background: rgba(231,76,60,0.18); border-radius:4px; padding:0 3px;">${planetSymbolById[id]}${planetSymbolById[partner]}</span>`);
+                    } else {
+                        placed.add(id);
+                        parts.push(planetSymbolById[id]);
+                    }
+                });
+                return parts.join(' ');
+            };
             const configBadges = majorConfigs.length
                 ? majorConfigs.map(c => {
                     const ids = JSON.stringify(c.memberIds).replace(/"/g, '&quot;');
-                    return `<span class="strong-badge" title="${escapeHtml(c.memberIds.map(id => planetNameById[id]).join(', '))}" onmouseenter="window.highlightWheelConfiguration(${ids})" onmouseleave="window.unhighlightWheelAspect()">${escapeHtml(c.type)} ${c.memberIds.map(id => planetSymbolById[id]).join(' ')}</span>`;
+                    return `<span class="strong-badge" title="${escapeHtml(c.memberIds.map(id => planetNameById[id]).join(', '))}" onmouseenter="window.highlightWheelConfiguration(${ids})" onmouseleave="window.unhighlightWheelAspect()">${escapeHtml(c.type)} ${renderConfigMembers(c)}</span>`;
                 }).join('')
                 : '';
 
