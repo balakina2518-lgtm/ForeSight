@@ -1543,33 +1543,44 @@
         // участником, если этот участник в соединении с тем, кого заменяет —
         // не показываем отдельными фигурами "то же самое, но с Меркурием" и
         // "то же самое, но с Солнцем", если Меркурий и Солнце сами в соединении
-        function mergeConjunctConfigs(configs, planetsById) {
+        // Для каждой найденной фигуры: если у любого её участника есть планета
+        // в соединении, не входящая в фигуру — добавляем эту планету прямо в
+        // фигуру (не только когда сама эта планета отдельно образует
+        // дублирующую фигуру — просто по факту соединения). После этого
+        // убираем полные дубли и фигуры, целиком вложенные в более крупные
+        // того же типа (иначе "Солнце+Нептун+Уран" остаётся лишним рядом с
+        // "Солнце+Венера+Нептун+Уран").
+        function mergeConjunctConfigs(configs, planetsById, realPlanetIds) {
             const isConjunct = (a, b) => {
                 if (a === b || !planetsById[a] || !planetsById[b]) return false;
                 const orb = getPairOrb(a, b);
                 const asp = detectAspect(planetsById[a].longitude, planetsById[b].longitude, orb);
                 return !!asp && asp.angle === 0;
             };
-            const used = new Array(configs.length).fill(false);
-            const merged = [];
-            for (let i = 0; i < configs.length; i++) {
-                if (used[i]) continue;
-                used[i] = true;
-                const group = new Set(configs[i].memberIds);
-                const conjunctPairs = [];
-                for (let j = i + 1; j < configs.length; j++) {
-                    if (used[j] || configs[j].type !== configs[i].type) continue;
-                    const onlyInGroup = [...group].filter(x => !configs[j].memberIds.includes(x));
-                    const onlyInOther = configs[j].memberIds.filter(x => !group.has(x));
-                    if (onlyInGroup.length === 1 && onlyInOther.length === 1 && isConjunct(onlyInGroup[0], onlyInOther[0])) {
-                        conjunctPairs.push([onlyInGroup[0], onlyInOther[0]]);
-                        onlyInOther.forEach(id => group.add(id));
-                        used[j] = true;
-                    }
-                }
-                merged.push({ type: configs[i].type, apexId: configs[i].apexId, memberIds: [...group], conjunctPairs });
-            }
-            return merged;
+            const attached = configs.map(c => {
+                const memberIds = [...c.memberIds];
+                c.memberIds.forEach(memberId => {
+                    (realPlanetIds || []).forEach(otherId => {
+                        if (memberIds.includes(otherId)) return;
+                        if (isConjunct(memberId, otherId)) memberIds.push(otherId);
+                    });
+                });
+                return { type: c.type, apexId: c.apexId, memberIds };
+            });
+            // Убираем точные дубли (тот же тип и тот же набор участников)
+            const seen = new Set();
+            const deduped = attached.filter(c => {
+                const key = c.type + ':' + [...c.memberIds].sort().join(',');
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+            // Убираем фигуры, чей состав целиком входит в другую фигуру того
+            // же типа (оставляем только более полную версию)
+            return deduped.filter(c => !deduped.some(other =>
+                other !== c && other.type === c.type && other.memberIds.length > c.memberIds.length
+                && c.memberIds.every(id => other.memberIds.includes(id))
+            ));
         }
 
         function buildChartAnalysisHTML(data) {
@@ -1586,7 +1597,7 @@
             // минорный) сюда не выводим (по уточнению Елены), хотя для очков
             // силы планет/домов он по-прежнему учитывается отдельно. Плюс
             // объединяем "почти одинаковые" фигуры, отличающиеся конъюнкт-планетой.
-            const majorConfigs = mergeConjunctConfigs(configs.filter(c => c.type !== 'Перст судьбы'), planetsById);
+            const majorConfigs = mergeConjunctConfigs(configs.filter(c => c.type !== 'Перст судьбы'), planetsById, realPlanetsList.map(p => p.id));
             // Соединённые внутри фигуры планеты рисуем рядом друг с другом и
             // выделяем цветом (как на скрине от Елены) — а не вразнобой по
             // порядку memberIds. Проверяем ВСЕ пары внутри итоговой фигуры
