@@ -595,6 +595,7 @@
 
         window.resetForm = function() {
             document.getElementById('astroForm').reset();
+            document.getElementById('name').value = ''; // вне <form>, astroForm.reset() его не трогает
             document.getElementById('manualCoordsGroup').style.display = 'none';
             document.getElementById('city').disabled = false;
             timezoneManuallyEdited = false;
