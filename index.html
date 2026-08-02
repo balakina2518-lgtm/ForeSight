@@ -87,10 +87,13 @@
         }
         .datetime-icon { font-size: 1rem; color: var(--accent); padding: 0 2px; }
         .datetime-segment {
+            display: inline-flex; align-items: center; gap: 2px;
             background: var(--bg-app); border: 1px solid var(--border-color); border-radius: 16px;
-            padding: 6px 14px; font-size: 0.85rem; color: var(--text-main); cursor: pointer;
+            padding: 6px 14px; font-size: 0.85rem; color: var(--text-main);
         }
-        .datetime-segment:hover { border-color: var(--accent); }
+        .dt-part { cursor: pointer; border-radius: 4px; padding: 1px 2px; }
+        .dt-part:hover { color: var(--accent); background: rgba(0,0,0,0.05); }
+        .dt-part.dt-part-active { color: var(--accent); font-weight: 700; }
         .datetime-reset {
             background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 1.15rem;
             padding: 4px 6px; line-height: 1;
@@ -99,15 +102,31 @@
         .datetime-scale-overlay {
             position: absolute; top: 132px; left: 50%; transform: translateX(-50%); z-index: 15;
             background: var(--bg-sidebar); border: 1px solid var(--border-color); border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.15); padding: 8px; max-width: min(90vw, 560px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15); padding: 10px; max-width: min(90vw, 560px);
         }
-        .datetime-scale { display: flex; overflow-x: auto; gap: 2px; scroll-behavior: smooth; }
+        .datetime-scale-row { display: flex; align-items: center; gap: 4px; }
+        .datetime-scale-arrow {
+            flex: 0 0 auto; background: none; border: none; cursor: pointer; color: var(--text-muted);
+            font-size: 1.1rem; padding: 4px 6px; border-radius: 50%;
+        }
+        .datetime-scale-arrow:hover { color: var(--accent); background: var(--bg-app); }
+        .datetime-scale {
+            display: flex; overflow-x: auto; gap: 2px; scroll-behavior: smooth;
+            scrollbar-width: none; -ms-overflow-style: none;
+        }
+        .datetime-scale::-webkit-scrollbar { display: none; }
         .datetime-scale-item {
             flex: 0 0 auto; padding: 8px 14px; border-radius: 8px; cursor: pointer;
             font-size: 0.95rem; color: var(--text-main); background: none; border: none; white-space: nowrap;
         }
         .datetime-scale-item.active { color: #fff; background: var(--accent); font-weight: 600; }
         .datetime-scale-item:hover:not(.active) { background: var(--bg-app); }
+        .datetime-scale-track-bg {
+            position: relative; height: 4px; background: var(--bg-app); border-radius: 2px; margin: 8px 30px 2px;
+        }
+        .datetime-scale-track-thumb {
+            position: absolute; top: 0; height: 4px; background: var(--accent); border-radius: 2px; min-width: 24px;
+        }
 
         .info-popup-overlay {
             position: fixed; top: 0; right: 0; bottom: 0; z-index: 300;
@@ -356,8 +375,8 @@
             </div>
             <div class="datetime-badge" id="datetimeBadge" style="display:none;">
                 <span class="datetime-icon">◎</span>
-                <button type="button" class="datetime-segment" id="datetimeDateBtn" onclick="window.toggleDateScale()"></button>
-                <button type="button" class="datetime-segment" id="datetimeTimeBtn" onclick="window.toggleTimeScale()"></button>
+                <span class="datetime-segment" id="datetimeDateBtn"></span>
+                <span class="datetime-segment" id="datetimeTimeBtn"></span>
                 <button type="button" class="datetime-reset" onclick="window.resetDatetimeToNow()" title="Сбросить на сегодня">↻</button>
             </div>
             <div class="datetime-scale-overlay" id="datetimeScaleOverlay" style="display:none;"></div>
@@ -652,20 +671,30 @@
         };
 
         // Бейдж даты/времени над колесом — показывает дату/время, по которым
-        // построена карта, и позволяет их менять "на лету" через шкалу цифр
-        // (клик по дате — шкала лет, по времени — шкала часов), не открывая
-        // форму редактирования. Пересчитывает весь натал на новую дату/время
-        // (то же место рождения), а не строит транзиты — просто другой ввод
-        // в тот же /api/calculate. Стрелка ↻ сбрасывает на сегодняшний день.
-        let datetimeScaleMode = null;
+        // построена карта. Каждая часть (день/месяц/год, часы/минуты/секунды)
+        // кликабельна отдельно и открывает свою горизонтальную шкалу цифр —
+        // не открывая форму редактирования. Выбор пересчитывает весь натал на
+        // новую дату/время (то же место рождения), а не строит транзиты —
+        // просто другой ввод в тот же /api/calculate. Стрелка ↻ сбрасывает на
+        // сегодняшний реальный день. Секунды нигде в системе не хранятся
+        // (форма даёт только часы:минуты) — держим их отдельной переменной
+        // только для этого бейджа/шкалы, на расчёт карты они не влияют.
+        let scrubScaleMode = null;
+        let currentSeconds = 0;
+
+        function daysInMonth(year, month) { return new Date(year, month, 0).getDate(); }
 
         window.formatDatetimeBadge = function() {
             const dateVal = document.getElementById('date').value;
-            const timeVal = document.getElementById('time').value;
+            const timeVal = document.getElementById('time').value || '00:00';
             if (!dateVal) return;
             const [y, m, d] = dateVal.split('-');
-            document.getElementById('datetimeDateBtn').textContent = `${d} · ${m} · ${y}`;
-            document.getElementById('datetimeTimeBtn').textContent = `${timeVal || '00:00'}:00`;
+            const [h, min] = timeVal.split(':');
+            const part = (kind, text) => `<span class="dt-part${scrubScaleMode === kind ? ' dt-part-active' : ''}" onclick="event.stopPropagation(); window.openScrub('${kind}')">${text}</span>`;
+            document.getElementById('datetimeDateBtn').innerHTML =
+                `${part('day', d)} · ${part('month', m)} · ${part('year', y)}`;
+            document.getElementById('datetimeTimeBtn').innerHTML =
+                `${part('hour', h)}:${part('minute', min)}:${part('second', String(currentSeconds).padStart(2, '0'))}`;
             document.getElementById('datetimeBadge').style.display = 'flex';
         };
 
@@ -703,48 +732,100 @@
             }
         };
 
-        function buildDatetimeScale(items, activeValue, onPick) {
-            const scaleEl = document.getElementById('datetimeScaleOverlay');
-            scaleEl.innerHTML = `<div class="datetime-scale" id="datetimeScaleTrack">${items.map(it =>
-                `<button type="button" class="datetime-scale-item${it.value === activeValue ? ' active' : ''}" data-value="${it.value}">${escapeHtml(it.label)}</button>`
-            ).join('')}</div>`;
-            scaleEl.style.display = 'block';
-            scaleEl.querySelectorAll('.datetime-scale-item').forEach(btn => {
-                btn.addEventListener('click', () => onPick(btn.dataset.value));
-            });
-            const activeEl = scaleEl.querySelector('.active');
-            if (activeEl) activeEl.scrollIntoView({ inline: 'center', block: 'nearest' });
+        function applyScrubDate(year, month, day) {
+            window.closeDatetimeScale();
+            const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            window.recalculateChartDateTime(iso, document.getElementById('time').value);
+        }
+        function applyScrubTime(hour, minute) {
+            window.closeDatetimeScale();
+            const hm = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+            window.recalculateChartDateTime(document.getElementById('date').value, hm);
         }
 
-        window.toggleDateScale = function() {
-            if (datetimeScaleMode === 'date') { window.closeDatetimeScale(); return; }
-            datetimeScaleMode = 'date';
-            const dateVal = document.getElementById('date').value;
-            const [y, m, d] = dateVal.split('-');
-            const currentYear = parseInt(y, 10);
-            const years = [];
-            for (let year = currentYear - 60; year <= currentYear + 60; year++) years.push({ value: String(year), label: String(year) });
-            buildDatetimeScale(years, String(currentYear), newYear => {
-                window.closeDatetimeScale();
-                window.recalculateChartDateTime(`${newYear}-${m}-${d}`, document.getElementById('time').value);
+        function buildScrubScale(items, activeValue, onPick) {
+            const scaleEl = document.getElementById('datetimeScaleOverlay');
+            scaleEl.innerHTML = `
+                <div class="datetime-scale-row">
+                    <button type="button" class="datetime-scale-arrow" id="datetimeScaleLeft">‹</button>
+                    <div class="datetime-scale" id="datetimeScaleTrack">${items.map(it =>
+                        `<button type="button" class="datetime-scale-item${it.value === activeValue ? ' active' : ''}" data-value="${it.value}">${escapeHtml(it.label)}</button>`
+                    ).join('')}</div>
+                    <button type="button" class="datetime-scale-arrow" id="datetimeScaleRight">›</button>
+                </div>
+                <div class="datetime-scale-track-bg"><div class="datetime-scale-track-thumb" id="datetimeScaleThumb"></div></div>
+            `;
+            scaleEl.style.display = 'block';
+            const track = document.getElementById('datetimeScaleTrack');
+            track.querySelectorAll('.datetime-scale-item').forEach(btn => {
+                btn.addEventListener('click', () => onPick(btn.dataset.value));
             });
-        };
+            const updateThumb = () => {
+                const thumb = document.getElementById('datetimeScaleThumb');
+                if (!thumb) return;
+                const overflow = track.scrollWidth - track.clientWidth;
+                const widthPct = Math.max(10, overflow <= 0 ? 100 : (track.clientWidth / track.scrollWidth) * 100);
+                const posPct = overflow <= 0 ? 0 : (track.scrollLeft / overflow) * (100 - widthPct);
+                thumb.style.width = `${widthPct}%`;
+                thumb.style.left = `${posPct}%`;
+            };
+            track.addEventListener('scroll', updateThumb);
+            document.getElementById('datetimeScaleLeft').addEventListener('click', () => track.scrollBy({ left: -160, behavior: 'smooth' }));
+            document.getElementById('datetimeScaleRight').addEventListener('click', () => track.scrollBy({ left: 160, behavior: 'smooth' }));
+            const activeEl = track.querySelector('.active');
+            if (activeEl) activeEl.scrollIntoView({ inline: 'center', block: 'nearest' });
+            setTimeout(updateThumb, 60);
+        }
 
-        window.toggleTimeScale = function() {
-            if (datetimeScaleMode === 'time') { window.closeDatetimeScale(); return; }
-            datetimeScaleMode = 'time';
-            const timeVal = document.getElementById('time').value || '00:00';
-            const [h, min] = timeVal.split(':');
-            const hours = [];
-            for (let hour = 0; hour < 24; hour++) hours.push({ value: String(hour).padStart(2, '0'), label: String(hour).padStart(2, '0') + ':00' });
-            buildDatetimeScale(hours, h, newHour => {
-                window.closeDatetimeScale();
-                window.recalculateChartDateTime(document.getElementById('date').value, `${newHour}:${min}`);
-            });
+        // Числовая шкала (0-59, 0-23 и т.п.) с ведущим нулём для всего, кроме года
+        function numberItems(from, to, pad) {
+            const items = [];
+            for (let v = from; v <= to; v++) items.push({ value: String(v), label: pad ? String(v).padStart(2, '0') : String(v) });
+            return items;
+        }
+
+        window.openScrub = function(kind) {
+            if (scrubScaleMode === kind) { window.closeDatetimeScale(); return; }
+            scrubScaleMode = kind;
+            window.formatDatetimeBadge();
+            const dateVal = document.getElementById('date').value;
+            const [y, m, d] = dateVal.split('-').map(Number);
+            const timeVal = (document.getElementById('time').value || '00:00');
+            const [h, min] = timeVal.split(':').map(Number);
+
+            if (kind === 'year') {
+                buildScrubScale(numberItems(y - 60, y + 60, false), String(y), val => {
+                    const newYear = parseInt(val, 10);
+                    applyScrubDate(newYear, m, Math.min(d, daysInMonth(newYear, m)));
+                });
+            } else if (kind === 'month') {
+                buildScrubScale(numberItems(1, 12, true), String(m).padStart(2, '0'), val => {
+                    const newMonth = parseInt(val, 10);
+                    applyScrubDate(y, newMonth, Math.min(d, daysInMonth(y, newMonth)));
+                });
+            } else if (kind === 'day') {
+                buildScrubScale(numberItems(1, daysInMonth(y, m), true), String(d).padStart(2, '0'), val => {
+                    applyScrubDate(y, m, parseInt(val, 10));
+                });
+            } else if (kind === 'hour') {
+                buildScrubScale(numberItems(0, 23, true), String(h).padStart(2, '0'), val => {
+                    applyScrubTime(parseInt(val, 10), min);
+                });
+            } else if (kind === 'minute') {
+                buildScrubScale(numberItems(0, 59, true), String(min).padStart(2, '0'), val => {
+                    applyScrubTime(h, parseInt(val, 10));
+                });
+            } else if (kind === 'second') {
+                buildScrubScale(numberItems(0, 59, true), String(currentSeconds).padStart(2, '0'), val => {
+                    currentSeconds = parseInt(val, 10);
+                    window.closeDatetimeScale();
+                    window.formatDatetimeBadge();
+                });
+            }
         };
 
         window.closeDatetimeScale = function() {
-            datetimeScaleMode = null;
+            scrubScaleMode = null;
             const scaleEl = document.getElementById('datetimeScaleOverlay');
             if (scaleEl) scaleEl.style.display = 'none';
         };
@@ -754,6 +835,7 @@
             const pad = n => String(n).padStart(2, '0');
             const newDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
             const newTime = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+            currentSeconds = now.getSeconds();
             window.closeDatetimeScale();
             window.recalculateChartDateTime(newDate, newTime);
         };
