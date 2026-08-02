@@ -1501,10 +1501,10 @@
         // Объезд по отдельной полосе нужен ТОЛЬКО когда ветка реально
         // проходит через строку, где на той же колонке уже есть другая
         // планета — иначе (соседние строки, никого между ними) рисуем прямой
-        // короткий уголок без объезда. Полоса — узкая и рядом с колонкой 0
-        // (не через весь попап): нужно только чуть-чуть сдвинуться в сторону
-        // от планеты на пути, а не огибать всю диаграмму
-        const DISPOSITOR_LEFT_PAD = 36;
+        // короткий уголок без объезда. Полоса — в промежутке СПРАВА от
+        // собственной коробки ветки (между колонкой 0 и колонкой 1, там
+        // всегда пусто), не через весь попап — не требует ни отступа слева,
+        // ни лишней ширины, прокрутка не нужна
         const DISPOSITOR_LANE_GAP = 8;
         const DISPOSITOR_MUTUAL_H = DISPOSITOR_BOX * 2 + DISPOSITOR_MUTUAL_GAP;
         // Высота строки зависит от того, что в ней — обычная планета (компактно)
@@ -1679,9 +1679,9 @@
 
         function dispositorConnectorPath(c, geometry, cellY, laneX) {
             const half = DISPOSITOR_BOX / 2;
-            const fromX = c.fromCol * DISPOSITOR_COL_W + DISPOSITOR_COL_W / 2 + DISPOSITOR_LEFT_PAD;
+            const fromX = c.fromCol * DISPOSITOR_COL_W + DISPOSITOR_COL_W / 2;
             const fromY = dispositorMemberCenterY(c.fromRow, c.fromCol, c.fromMemberId, geometry, cellY);
-            const toX = c.toCol * DISPOSITOR_COL_W + DISPOSITOR_COL_W / 2 + DISPOSITOR_LEFT_PAD;
+            const toX = c.toCol * DISPOSITOR_COL_W + DISPOSITOR_COL_W / 2;
             const toY = dispositorMemberCenterY(c.toRow, c.toCol, c.toMemberId, geometry, cellY);
             if (c.fromRow === c.toRow) {
                 return `M ${fromX - half} ${fromY} L ${toX + half} ${toY}`;
@@ -1691,10 +1691,10 @@
             if (laneX == null) {
                 return `M ${fromX} ${fromY - half} L ${fromX} ${midY} L ${toX} ${midY} L ${toX} ${toY + half}`;
             }
-            // Объезд — узкая полоса СЛЕВА от колонки 0 (там всегда пусто, это
-            // самая левая колонка), только чтобы обойти планету на пути, а не
-            // огибать всю диаграмму
-            return `M ${fromX - half} ${fromY} L ${laneX} ${fromY} L ${laneX} ${midY} L ${toX} ${midY} L ${toX} ${toY + half}`;
+            // Объезд — узкая полоса СПРАВА от собственной коробки ветки (в
+            // промежутке между её колонкой и следующей, там всегда пусто) —
+            // только чтобы обойти планету на пути, а не огибать всю диаграмму
+            return `M ${fromX + half} ${fromY} L ${laneX} ${fromY} L ${laneX} ${midY} L ${toX} ${midY} L ${toX} ${toY + half}`;
         }
 
         function buildDispositorChainHTML(data) {
@@ -1751,17 +1751,20 @@
                 const geometry = computeDispositorRowGeometry(layout.cells, layout.rowCount);
                 const cellY = computeDispositorCellY(layout.cells, layout.connectors, geometry);
                 // Полосы объезда — только для веток, которым он реально нужен,
-                // узкие, у самой колонки 0 (слева, там всегда пусто)
+                // в промежутке справа от собственной коробки ветки (между её
+                // колонкой и следующей — там всегда пусто, не нужно ни
+                // отступа, ни лишней ширины попапа)
                 let laneCount = 0;
                 const laneXById = layout.connectors.map(c => {
                     if (!dispositorConnectorNeedsDetour(c, geometry)) return null;
                     laneCount += 1;
-                    return DISPOSITOR_LEFT_PAD - 4 - laneCount * DISPOSITOR_LANE_GAP;
+                    const fromX = c.fromCol * DISPOSITOR_COL_W + DISPOSITOR_COL_W / 2;
+                    return fromX + DISPOSITOR_BOX / 2 + 10 + laneCount * DISPOSITOR_LANE_GAP;
                 });
-                const width = layout.colCount * DISPOSITOR_COL_W + DISPOSITOR_LEFT_PAD;
+                const width = layout.colCount * DISPOSITOR_COL_W;
                 const height = geometry.totalHeight;
                 const boxesHTML = layout.cells.map(cell => {
-                    const left = cell.col * DISPOSITOR_COL_W + (DISPOSITOR_COL_W - DISPOSITOR_BOX) / 2 + DISPOSITOR_LEFT_PAD;
+                    const left = cell.col * DISPOSITOR_COL_W + (DISPOSITOR_COL_W - DISPOSITOR_BOX) / 2;
                     const centerY = cellY[`${cell.row},${cell.col}`];
                     const top = cell.members.length === 2 ? centerY - DISPOSITOR_MUTUAL_H / 2 : centerY - DISPOSITOR_BOX / 2;
                     return cellBoxHTML(cell.members, left, top);
