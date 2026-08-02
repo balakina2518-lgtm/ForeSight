@@ -127,6 +127,21 @@
         .datetime-scale-track-thumb {
             position: absolute; top: 0; height: 4px; background: var(--accent); border-radius: 2px; min-width: 24px;
         }
+        .confirm-overlay {
+            position: fixed; inset: 0; background: rgba(62, 50, 41, 0.35); z-index: 400;
+            display: flex; align-items: center; justify-content: center; padding: 20px;
+        }
+        .confirm-card {
+            background: var(--bg-sidebar); border-radius: 12px; max-width: 400px; width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.25); padding: 24px; box-sizing: border-box;
+        }
+        .confirm-card p { margin: 0 0 20px; color: var(--text-main); font-size: 0.95rem; line-height: 1.4; }
+        .confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
+        .confirm-actions button {
+            border-radius: 8px; padding: 10px 18px; font-size: 0.9rem; cursor: pointer; border: 1px solid var(--border-color);
+            background: var(--bg-app); color: var(--text-main);
+        }
+        .confirm-actions .confirm-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
 
         .info-popup-overlay {
             position: fixed; top: 0; right: 0; bottom: 0; z-index: 300;
@@ -375,9 +390,19 @@
             </div>
             <div class="datetime-badge" id="datetimeBadge" style="display:none;">
                 <span class="datetime-icon">◎</span>
+                <button type="button" class="datetime-reset" onclick="window.resetDatetimeToOriginal()" title="Сбросить на первоначальные значения">←</button>
                 <span class="datetime-segment" id="datetimeDateBtn"></span>
                 <span class="datetime-segment" id="datetimeTimeBtn"></span>
                 <button type="button" class="datetime-reset" onclick="window.resetDatetimeToNow()" title="Сбросить на сегодня">↻</button>
+            </div>
+            <div class="confirm-overlay" id="datetimeConfirmOverlay" style="display:none;">
+                <div class="confirm-card">
+                    <p>Внесены изменения в первоначальные данные карты, сохранить?</p>
+                    <div class="confirm-actions">
+                        <button type="button" onclick="window.resolveDatetimeConfirm(false)">Не сохранять</button>
+                        <button type="button" class="confirm-primary" onclick="window.resolveDatetimeConfirm(true)">Сохранить</button>
+                    </div>
+                </div>
             </div>
             <div class="datetime-scale-overlay" id="datetimeScaleOverlay" style="display:none;"></div>
             <main class="main-content">
@@ -667,6 +692,8 @@
             document.getElementById('chartTopDetails').textContent = "";
             document.getElementById('chartTopDivider').style.display = 'none';
             document.getElementById('datetimeBadge').style.display = 'none';
+            originalDate = null;
+            originalTime = null;
             window.closeDatetimeScale();
         };
 
@@ -681,6 +708,22 @@
         // только для этого бейджа/шкалы, на расчёт карты они не влияют.
         let scrubScaleMode = null;
         let currentSeconds = 0;
+        // Дата/время, с которыми карта была построена/загружена в ЭТОМ
+        // просмотре — фиксируется один раз при успешном расчёте, не трогается
+        // при последующей прокрутке шкалой. По ним определяем, есть ли
+        // несохранённые изменения (для стрелки "назад" и подтверждения при выходе)
+        let originalDate = null;
+        let originalTime = null;
+
+        function captureOriginalDatetime() {
+            originalDate = document.getElementById('date').value;
+            originalTime = document.getElementById('time').value;
+        }
+        function isDatetimeDirty() {
+            if (originalDate === null) return false;
+            return document.getElementById('date').value !== originalDate
+                || document.getElementById('time').value !== originalTime;
+        }
 
         function daysInMonth(year, month) { return new Date(year, month, 0).getDate(); }
 
@@ -840,6 +883,13 @@
             window.recalculateChartDateTime(newDate, newTime);
         };
 
+        window.resetDatetimeToOriginal = function() {
+            if (originalDate === null) return;
+            currentSeconds = 0;
+            window.closeDatetimeScale();
+            window.recalculateChartDateTime(originalDate, originalTime);
+        };
+
         window.updateChartTopBar = function() {
             const name = document.getElementById('name').value.trim() || '(без названия)';
             const dateVal = document.getElementById('date').value;
@@ -875,11 +925,53 @@
 
         // Переключение между домашним экраном (список карт), видом колеса и всплывающей формой
         window.showChartsHome = function() {
+            if (isDatetimeDirty()) {
+                document.getElementById('datetimeConfirmOverlay').style.display = 'flex';
+                return;
+            }
+            window.proceedToChartsHome();
+        };
+
+        window.proceedToChartsHome = function() {
             document.getElementById('formModal').style.display = 'none';
             document.getElementById('chartViewContainer').style.display = 'none';
             document.getElementById('chartsHomeView').style.display = 'block';
             window.refreshChartsList();
         };
+
+        // Дата/время в бейдже отличаются от тех, с которыми карта была
+        // построена/загружена, — при выходе спрашиваем, сохранить ли эти
+        // изменения поверх исходной записи в библиотеке карт (перезапись по
+        // имени — тот же /api/charts, что и обычное сохранение) или уйти без сохранения
+        window.resolveDatetimeConfirm = async function(shouldSave) {
+            document.getElementById('datetimeConfirmOverlay').style.display = 'none';
+            if (shouldSave) {
+                await saveCurrentChartToLibrary();
+            }
+            window.proceedToChartsHome();
+        };
+
+        async function saveCurrentChartToLibrary() {
+            if (selectedLocation.lat === null) return;
+            try {
+                await fetch('/api/charts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: document.getElementById('name').value,
+                        date: document.getElementById('date').value,
+                        time: document.getElementById('time').value,
+                        lat: selectedLocation.lat,
+                        lon: selectedLocation.lon,
+                        place_name: selectedLocation.name,
+                        timezone: document.getElementById('timezone').value,
+                        gender: document.getElementById('gender').value
+                    })
+                });
+            } catch (err) {
+                console.error('Не удалось сохранить изменённые дату/время в библиотеку:', err);
+            }
+        }
 
         window.showChartView = function() {
             document.getElementById('chartsHomeView').style.display = 'none';
@@ -2628,6 +2720,8 @@
                     window.lastChartData = data;
                     window.drawZodiacChart(data);
                     window.updateChartTopBar();
+                    currentSeconds = 0;
+                    captureOriginalDatetime();
                     window.formatDatetimeBadge();
                     document.getElementById('formModal').style.display = 'none';
                     document.getElementById('infoPanel').innerHTML = "Карта успешно построена.<br><span style='color:var(--accent); font-size:0.9rem;'>Кликая на планеты, можно изучать их бизнес-трактовку.</span>";
