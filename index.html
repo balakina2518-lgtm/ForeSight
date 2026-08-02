@@ -80,6 +80,35 @@
         .toolbar-btn-edit { background: var(--accent); color: #fff; border-color: var(--accent); }
         .top-toolbar .chart-type-nav { min-width: 190px; }
 
+        .datetime-badge {
+            position: absolute; top: 76px; left: 50%; transform: translateX(-50%); z-index: 10;
+            display: flex; align-items: center; gap: 6px; background: var(--bg-sidebar); border: 1px solid var(--border-color);
+            border-radius: 30px; padding: 6px 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+        }
+        .datetime-icon { font-size: 1rem; color: var(--accent); padding: 0 2px; }
+        .datetime-segment {
+            background: var(--bg-app); border: 1px solid var(--border-color); border-radius: 16px;
+            padding: 6px 14px; font-size: 0.85rem; color: var(--text-main); cursor: pointer;
+        }
+        .datetime-segment:hover { border-color: var(--accent); }
+        .datetime-reset {
+            background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 1.15rem;
+            padding: 4px 6px; line-height: 1;
+        }
+        .datetime-reset:hover { color: var(--accent); }
+        .datetime-scale-overlay {
+            position: absolute; top: 132px; left: 50%; transform: translateX(-50%); z-index: 15;
+            background: var(--bg-sidebar); border: 1px solid var(--border-color); border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15); padding: 8px; max-width: min(90vw, 560px);
+        }
+        .datetime-scale { display: flex; overflow-x: auto; gap: 2px; scroll-behavior: smooth; }
+        .datetime-scale-item {
+            flex: 0 0 auto; padding: 8px 14px; border-radius: 8px; cursor: pointer;
+            font-size: 0.95rem; color: var(--text-main); background: none; border: none; white-space: nowrap;
+        }
+        .datetime-scale-item.active { color: #fff; background: var(--accent); font-weight: 600; }
+        .datetime-scale-item:hover:not(.active) { background: var(--bg-app); }
+
         .info-popup-overlay {
             position: fixed; top: 0; right: 0; bottom: 0; z-index: 300;
             display: flex; align-items: stretch; padding: 90px 20px 20px 20px; pointer-events: none;
@@ -325,6 +354,13 @@
                 <span class="chart-top-divider" id="chartTopDivider" style="display:none;">|</span>
                 <span class="chart-top-details" id="chartTopDetails"></span>
             </div>
+            <div class="datetime-badge" id="datetimeBadge" style="display:none;">
+                <span class="datetime-icon">◎</span>
+                <button type="button" class="datetime-segment" id="datetimeDateBtn" onclick="window.toggleDateScale()"></button>
+                <button type="button" class="datetime-segment" id="datetimeTimeBtn" onclick="window.toggleTimeScale()"></button>
+                <button type="button" class="datetime-reset" onclick="window.resetDatetimeToNow()" title="Сбросить на сегодня">↻</button>
+            </div>
+            <div class="datetime-scale-overlay" id="datetimeScaleOverlay" style="display:none;"></div>
             <main class="main-content">
                 <div class="canvas-container" id="canvasContainer">
                     <div style="color: var(--text-muted); text-align: center;" id="placeholderText">
@@ -611,6 +647,115 @@
             document.getElementById('chartTopName').textContent = "Карты";
             document.getElementById('chartTopDetails').textContent = "";
             document.getElementById('chartTopDivider').style.display = 'none';
+            document.getElementById('datetimeBadge').style.display = 'none';
+            window.closeDatetimeScale();
+        };
+
+        // Бейдж даты/времени над колесом — показывает дату/время, по которым
+        // построена карта, и позволяет их менять "на лету" через шкалу цифр
+        // (клик по дате — шкала лет, по времени — шкала часов), не открывая
+        // форму редактирования. Пересчитывает весь натал на новую дату/время
+        // (то же место рождения), а не строит транзиты — просто другой ввод
+        // в тот же /api/calculate. Стрелка ↻ сбрасывает на сегодняшний день.
+        let datetimeScaleMode = null;
+
+        window.formatDatetimeBadge = function() {
+            const dateVal = document.getElementById('date').value;
+            const timeVal = document.getElementById('time').value;
+            if (!dateVal) return;
+            const [y, m, d] = dateVal.split('-');
+            document.getElementById('datetimeDateBtn').textContent = `${d} · ${m} · ${y}`;
+            document.getElementById('datetimeTimeBtn').textContent = `${timeVal || '00:00'}:00`;
+            document.getElementById('datetimeBadge').style.display = 'flex';
+        };
+
+        window.recalculateChartDateTime = async function(newDate, newTime) {
+            if (!window.lastChartData || selectedLocation.lat === null) return;
+            document.getElementById('date').value = newDate;
+            document.getElementById('time').value = newTime;
+            const timezoneValue = document.getElementById('timezone').value;
+            const payload = {
+                name: document.getElementById('name').value,
+                date: newDate,
+                time: newTime,
+                lat: selectedLocation.lat,
+                lon: selectedLocation.lon,
+                gender: document.getElementById('gender').value
+            };
+            if (timezoneValue !== '') payload.timezone = timezoneValue;
+            try {
+                const response = await fetch('/api/calculate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                if (data.status === 'success') {
+                    window.lastChartData = data;
+                    window.drawZodiacChart(data);
+                    window.updateChartTopBar();
+                    window.formatDatetimeBadge();
+                } else {
+                    document.getElementById('infoPanel').innerText = "Ошибка: " + data.message;
+                }
+            } catch (err) {
+                console.error('Не удалось пересчитать карту на новую дату:', err);
+            }
+        };
+
+        function buildDatetimeScale(items, activeValue, onPick) {
+            const scaleEl = document.getElementById('datetimeScaleOverlay');
+            scaleEl.innerHTML = `<div class="datetime-scale" id="datetimeScaleTrack">${items.map(it =>
+                `<button type="button" class="datetime-scale-item${it.value === activeValue ? ' active' : ''}" data-value="${it.value}">${escapeHtml(it.label)}</button>`
+            ).join('')}</div>`;
+            scaleEl.style.display = 'block';
+            scaleEl.querySelectorAll('.datetime-scale-item').forEach(btn => {
+                btn.addEventListener('click', () => onPick(btn.dataset.value));
+            });
+            const activeEl = scaleEl.querySelector('.active');
+            if (activeEl) activeEl.scrollIntoView({ inline: 'center', block: 'nearest' });
+        }
+
+        window.toggleDateScale = function() {
+            if (datetimeScaleMode === 'date') { window.closeDatetimeScale(); return; }
+            datetimeScaleMode = 'date';
+            const dateVal = document.getElementById('date').value;
+            const [y, m, d] = dateVal.split('-');
+            const currentYear = parseInt(y, 10);
+            const years = [];
+            for (let year = currentYear - 60; year <= currentYear + 60; year++) years.push({ value: String(year), label: String(year) });
+            buildDatetimeScale(years, String(currentYear), newYear => {
+                window.closeDatetimeScale();
+                window.recalculateChartDateTime(`${newYear}-${m}-${d}`, document.getElementById('time').value);
+            });
+        };
+
+        window.toggleTimeScale = function() {
+            if (datetimeScaleMode === 'time') { window.closeDatetimeScale(); return; }
+            datetimeScaleMode = 'time';
+            const timeVal = document.getElementById('time').value || '00:00';
+            const [h, min] = timeVal.split(':');
+            const hours = [];
+            for (let hour = 0; hour < 24; hour++) hours.push({ value: String(hour).padStart(2, '0'), label: String(hour).padStart(2, '0') + ':00' });
+            buildDatetimeScale(hours, h, newHour => {
+                window.closeDatetimeScale();
+                window.recalculateChartDateTime(document.getElementById('date').value, `${newHour}:${min}`);
+            });
+        };
+
+        window.closeDatetimeScale = function() {
+            datetimeScaleMode = null;
+            const scaleEl = document.getElementById('datetimeScaleOverlay');
+            if (scaleEl) scaleEl.style.display = 'none';
+        };
+
+        window.resetDatetimeToNow = function() {
+            const now = new Date();
+            const pad = n => String(n).padStart(2, '0');
+            const newDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+            const newTime = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+            window.closeDatetimeScale();
+            window.recalculateChartDateTime(newDate, newTime);
         };
 
         window.updateChartTopBar = function() {
@@ -815,6 +960,12 @@
             const dropdownEl = document.querySelector('.chart-type-dropdown');
             if (menuEl && dropdownEl && !dropdownEl.contains(e.target)) {
                 menuEl.style.display = 'none';
+            }
+
+            const scaleEl = document.getElementById('datetimeScaleOverlay');
+            const badgeEl = document.getElementById('datetimeBadge');
+            if (scaleEl && badgeEl && !scaleEl.contains(e.target) && !badgeEl.contains(e.target)) {
+                window.closeDatetimeScale();
             }
         });
 
@@ -2395,6 +2546,7 @@
                     window.lastChartData = data;
                     window.drawZodiacChart(data);
                     window.updateChartTopBar();
+                    window.formatDatetimeBadge();
                     document.getElementById('formModal').style.display = 'none';
                     document.getElementById('infoPanel').innerHTML = "Карта успешно построена.<br><span style='color:var(--accent); font-size:0.9rem;'>Кликая на планеты, можно изучать их бизнес-трактовку.</span>";
 
