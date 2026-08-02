@@ -1498,14 +1498,12 @@
         const DISPOSITOR_COL_W = 80;
         const DISPOSITOR_BOX = 40;
         const DISPOSITOR_MUTUAL_GAP = 26; // взаимный приём: box + зазор со стрелкой + box
-        // Каждая ветка, уходящая вверх через несколько строк, идёт по своей
-        // отдельной вертикальной "полосе" слева от колонки 0 — иначе стояки
-        // разных веток накладываются друг на друга и на планеты в строках,
-        // которые они проходят по пути (отсюда раньше казалось, что линия
-        // идёт "не туда")
-        const DISPOSITOR_LANE_GAP = 12;
-        const DISPOSITOR_LANE_COUNT = 8;
-        const DISPOSITOR_LEFT_MARGIN = DISPOSITOR_LANE_GAP * DISPOSITOR_LANE_COUNT + 10;
+        // Объезд по отдельной полосе нужен ТОЛЬКО когда ветка реально
+        // проходит через строку, где на той же колонке уже есть другая
+        // планета — иначе (соседние строки, никого между ними) рисуем прямой
+        // короткий уголок без объезда. Полоса — справа от всей диаграммы (не
+        // слева), чтобы не вылезать за левый край попапа
+        const DISPOSITOR_LANE_GAP = 14;
         const DISPOSITOR_MUTUAL_H = DISPOSITOR_BOX * 2 + DISPOSITOR_MUTUAL_GAP;
         // Высота строки зависит от того, что в ней — обычная планета (компактно)
         // или пара взаимного приёма (нужно больше места). Раньше высота строки
@@ -1665,22 +1663,34 @@
             };
         }
 
-        function dispositorConnectorPath(c, geometry, cellY) {
+        // Объезд нужен только если ветка физически проходит ЧЕРЕЗ строку, где
+        // на той же колонке уже стоит другая планета — для соседних строк
+        // (никого между ними) не нужен, рисуем короткий прямой уголок
+        function dispositorConnectorNeedsDetour(c, geometry) {
+            if (c.fromRow === c.toRow) return false;
+            const lo = Math.min(c.fromRow, c.toRow), hi = Math.max(c.fromRow, c.toRow);
+            for (let r = lo + 1; r < hi; r++) {
+                if (geometry.cellsByPos[`${r},${c.fromCol}`]) return true;
+            }
+            return false;
+        }
+
+        function dispositorConnectorPath(c, geometry, cellY, laneX) {
             const half = DISPOSITOR_BOX / 2;
-            const fromX = c.fromCol * DISPOSITOR_COL_W + DISPOSITOR_COL_W / 2 + DISPOSITOR_LEFT_MARGIN;
+            const fromX = c.fromCol * DISPOSITOR_COL_W + DISPOSITOR_COL_W / 2;
             const fromY = dispositorMemberCenterY(c.fromRow, c.fromCol, c.fromMemberId, geometry, cellY);
-            const toX = c.toCol * DISPOSITOR_COL_W + DISPOSITOR_COL_W / 2 + DISPOSITOR_LEFT_MARGIN;
+            const toX = c.toCol * DISPOSITOR_COL_W + DISPOSITOR_COL_W / 2;
             const toY = dispositorMemberCenterY(c.toRow, c.toCol, c.toMemberId, geometry, cellY);
             if (c.fromRow === c.toRow) {
                 return `M ${fromX - half} ${fromY} L ${toX + half} ${toY}`;
             }
-            // Точка перегиба — чуть ниже нижнего края строки-цели, независимо
-            // от того, сколько строк и какой высоты между ней и веткой.
-            // Стояк идёт не через колонку 0 (там сидят планеты промежуточных
-            // строк), а по своей полосе слева от всего блока — своя полоса на
-            // каждую исходную строку, так что стояки разных веток не совпадают
+            // Точка перегиба — чуть ниже нижнего края строки-цели
             const midY = geometry.rowTops[c.toRow] + geometry.rowHeights[c.toRow] + 14;
-            const laneX = DISPOSITOR_LEFT_MARGIN - DISPOSITOR_LANE_GAP - (c.fromRow % DISPOSITOR_LANE_COUNT) * DISPOSITOR_LANE_GAP;
+            if (laneX == null) {
+                return `M ${fromX} ${fromY - half} L ${fromX} ${midY} L ${toX} ${midY} L ${toX} ${toY + half}`;
+            }
+            // Объезд — своя полоса СПРАВА от всей диаграммы (не слева, чтобы
+            // не вылезать за край попапа), у каждой такой ветки своя полоса
             return `M ${fromX - half} ${fromY} L ${laneX} ${fromY} L ${laneX} ${midY} L ${toX} ${midY} L ${toX} ${toY + half}`;
         }
 
@@ -1737,16 +1747,24 @@
                 const layout = layoutDispositorComponent(group, edges);
                 const geometry = computeDispositorRowGeometry(layout.cells, layout.rowCount);
                 const cellY = computeDispositorCellY(layout.cells, layout.connectors, geometry);
-                const width = layout.colCount * DISPOSITOR_COL_W + DISPOSITOR_LEFT_MARGIN;
+                // Полосы объезда — только для веток, которым он реально нужен,
+                // справа от диаграммы, у каждой такой ветки своя полоса
+                let laneCount = 0;
+                const laneXById = layout.connectors.map(c => {
+                    if (!dispositorConnectorNeedsDetour(c, geometry)) return null;
+                    laneCount += 1;
+                    return layout.colCount * DISPOSITOR_COL_W + laneCount * DISPOSITOR_LANE_GAP;
+                });
+                const width = layout.colCount * DISPOSITOR_COL_W + (laneCount ? laneCount * DISPOSITOR_LANE_GAP + 10 : 0);
                 const height = geometry.totalHeight;
                 const boxesHTML = layout.cells.map(cell => {
-                    const left = cell.col * DISPOSITOR_COL_W + (DISPOSITOR_COL_W - DISPOSITOR_BOX) / 2 + DISPOSITOR_LEFT_MARGIN;
+                    const left = cell.col * DISPOSITOR_COL_W + (DISPOSITOR_COL_W - DISPOSITOR_BOX) / 2;
                     const centerY = cellY[`${cell.row},${cell.col}`];
                     const top = cell.members.length === 2 ? centerY - DISPOSITOR_MUTUAL_H / 2 : centerY - DISPOSITOR_BOX / 2;
                     return cellBoxHTML(cell.members, left, top);
                 }).join('');
-                const arrowsHTML = layout.connectors.map(c =>
-                    `<path d="${dispositorConnectorPath(c, geometry, cellY)}" fill="none" stroke="var(--text-muted)" stroke-width="1.4" marker-end="url(#dispositorArrowHead)" />`
+                const arrowsHTML = layout.connectors.map((c, i) =>
+                    `<path d="${dispositorConnectorPath(c, geometry, cellY, laneXById[i])}" fill="none" stroke="var(--text-muted)" stroke-width="1.4" marker-end="url(#dispositorArrowHead)" />`
                 ).join('');
                 return `<div class="dispositor-group" style="width:${width}px; height:${height}px;">
                     <svg width="${width}" height="${height}" style="position:absolute; top:0; left:0; overflow:visible;">
