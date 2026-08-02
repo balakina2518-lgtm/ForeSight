@@ -1433,15 +1433,17 @@
         let currentDispositorMode = 'domicile';
 
         // Близнецы и Стрелец — единственные знаки без экзальтации/падения в
-        // классической таблице (собственные знаки Меркурия и Юпитера). Для них
-        // диспозитор по экзальтации/падению берётся по владению (управитель
-        // знака) — так и в эталоне (Хронос): планета в Близнецах ведёт к
-        // Меркурию, а не остаётся без цепочки.
+        // классической таблице (собственные знаки Меркурия и Юпитера). Для
+        // экзальтации в этом случае диспозитор берётся по владению (управитель
+        // знака) — подтверждено Еленой: планета в Близнецах по экзальтации
+        // ведёт к Меркурию. Для ПАДЕНИЯ такого отката НЕТ (тоже подтверждено
+        // отдельно) — планета в Близнецах/Стрельце просто остаётся без цепочки
+        // по падению, а не условно "падает" к управителю знака.
         function getDispositorPlanet(signIndex, mode) {
             if (mode === 'domicile') return SIGN_MAJOR_RULER[signIndex];
             if (mode === 'exile') return SIGN_MAJOR_RULER[(signIndex + 6) % 12];
             if (mode === 'exaltation') return SIGN_EXALTED_PLANET[signIndex] || SIGN_MAJOR_RULER[signIndex];
-            if (mode === 'fall') return SIGN_FALL_PLANET[signIndex] || SIGN_MAJOR_RULER[signIndex];
+            if (mode === 'fall') return SIGN_FALL_PLANET[signIndex] || null;
             return null;
         }
 
