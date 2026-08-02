@@ -2339,16 +2339,27 @@
         const INFO_POPUP_TITLES = { aspects: '⊞ Таблица аспектов', coords: '⊘ Координаты планет и домов', strong: '⊛ Сильные объекты', formulas: '⌂ Формулы домов', analysis: 'ⓘ Анализ карты', dispositors: '🔗 Цепочка диспозиторов' };
         const INFO_POPUP_BUILDERS = { aspects: buildAspectTableHTML, coords: buildCoordsTableHTML, strong: buildStrongObjectsHTML, formulas: buildHouseFormulasHTML, analysis: buildChartAnalysisHTML, dispositors: buildDispositorChainHTML };
 
+        let currentInfoPopupType = null;
+
         window.openInfoPopup = function(type) {
             if (!window.lastChartData) { alert('Сначала постройте карту.'); return; }
+            const overlayEl = document.getElementById('infoPopupOverlay');
+            // Повторный клик по той же кнопке при открытом попапе — закрыть,
+            // как крестиком, а не перерисовать заново
+            if (overlayEl.style.display === 'flex' && currentInfoPopupType === type) {
+                window.closeInfoPopup();
+                return;
+            }
             if (type === 'dispositors') currentDispositorMode = 'domicile';
             document.getElementById('infoPopupTitle').textContent = INFO_POPUP_TITLES[type] || '';
             document.getElementById('infoPopupBody').innerHTML = INFO_POPUP_BUILDERS[type](window.lastChartData);
-            document.getElementById('infoPopupOverlay').style.display = 'flex';
+            overlayEl.style.display = 'flex';
+            currentInfoPopupType = type;
         };
 
         window.closeInfoPopup = function() {
             document.getElementById('infoPopupOverlay').style.display = 'none';
+            currentInfoPopupType = null;
         };
 
         window.calculateChart = async function(event) {
