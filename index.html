@@ -64,12 +64,12 @@
         .chart-top-divider { color: var(--border-color); }
         .chart-top-details { color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-        .bottom-toolbar {
-            position: absolute; bottom: 26px; left: 26px;
+        .top-toolbar {
+            position: absolute; top: 76px; left: 26px;
             display: flex; gap: 8px; background: var(--bg-sidebar); border: 1px solid var(--border-color);
             border-radius: 30px; padding: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.12); z-index: 10;
         }
-        .bottom-toolbar-right { left: auto; right: 26px; }
+        .top-toolbar-right { left: auto; right: 26px; }
         .toolbar-btn {
             min-width: 38px; height: 38px; border-radius: 19px; border: 1px solid var(--border-color);
             background: var(--bg-app); display: flex; align-items: center; justify-content: center; gap: 3px;
@@ -77,7 +77,7 @@
         }
         .toolbar-btn:hover { border-color: var(--accent); }
         .toolbar-btn-edit { background: var(--accent); color: #fff; border-color: var(--accent); }
-        .bottom-toolbar .chart-type-nav { top: auto; bottom: calc(100% + 8px); min-width: 190px; }
+        .top-toolbar .chart-type-nav { min-width: 190px; }
 
         .info-popup-overlay {
             position: fixed; top: 0; right: 0; bottom: 0; z-index: 300;
@@ -252,7 +252,7 @@
         
         .main-content {
             height: 100%; width: 100%; box-sizing: border-box; display: flex; flex-direction: column; align-items: center;
-            justify-content: center; padding: 90px 30px 30px; background: #ffffff; overflow: hidden;
+            justify-content: center; padding: 140px 30px 30px; background: #ffffff; overflow: hidden;
         }
         
         .canvas-container {
@@ -334,7 +334,7 @@
                 </div>
                 <div class="info-panel" id="infoPanel">Заполните данные для старта вычислений</div>
             </main>
-            <div class="bottom-toolbar">
+            <div class="top-toolbar">
                 <div class="chart-type-dropdown">
                     <button type="button" class="toolbar-btn" onclick="window.toggleChartTypeMenu()">▾</button>
                     <nav class="chart-type-nav" id="chartTypeMenu" style="display:none;">
@@ -349,7 +349,7 @@
                     <span class="nav-icon">◎</span>✏️
                 </button>
             </div>
-            <div class="bottom-toolbar bottom-toolbar-right">
+            <div class="top-toolbar top-toolbar-right">
                 <button type="button" class="toolbar-btn" onclick="window.openInfoPopup('aspects')" title="Таблица аспектов">⊞</button>
                 <button type="button" class="toolbar-btn" onclick="window.openInfoPopup('coords')" title="Координаты планет и домов">⊘</button>
                 <button type="button" class="toolbar-btn" onclick="window.openInfoPopup('strong')" title="Сильные объекты">⊛</button>
