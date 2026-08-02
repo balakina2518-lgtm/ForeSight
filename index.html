@@ -1447,6 +1447,10 @@
             return null;
         }
 
+        // Классический порядок "от личных к дальним" — используется только для
+        // разрешения взаимных связей по изгнанию (см. ниже)
+        const DISPOSITOR_PLANET_ORDER = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'];
+
         function computeDispositorEdges(realPlanets, mode) {
             const edges = {};
             realPlanets.forEach(p => {
@@ -1455,6 +1459,22 @@
                 if (d === p.id) d = null; // управляет сама собой — конец цепочки
                 edges[p.id] = d;
             });
+            // Взаимный приём (двойная стрелка) — принятое понятие для владения/
+            // экзальтации/падения, но не для изгнания (по уточнению Елены —
+            // это не признанная астрологическая связь). Если по изгнанию две
+            // планеты случайно указывают друг на друга, оставляем только одно
+            // направление: от более дальней планеты к более личной (дальняя
+            // "уходит" в более личную, а не наоборот) — это и убирает двойную
+            // стрелку, и не рвёт цепочку (личная планета остаётся доступным
+            // диспозитором для дальней)
+            if (mode === 'exile') {
+                realPlanets.forEach(p => {
+                    const d = edges[p.id];
+                    if (d && edges[d] === p.id && DISPOSITOR_PLANET_ORDER.indexOf(p.id) < DISPOSITOR_PLANET_ORDER.indexOf(d)) {
+                        edges[p.id] = null;
+                    }
+                });
+            }
             return edges;
         }
 
