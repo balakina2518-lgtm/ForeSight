@@ -1686,15 +1686,19 @@
             if (c.fromRow === c.toRow) {
                 return `M ${fromX - half} ${fromY} L ${toX + half} ${toY}`;
             }
-            // Точка перегиба — чуть ниже нижнего края строки-цели
-            const midY = geometry.rowTops[c.toRow] + geometry.rowHeights[c.toRow] + 14;
             if (laneX == null) {
+                // Точка перегиба — чуть ниже нижнего края строки-цели (без
+                // объезда веток вообще нет между ними, коллизий не бывает)
+                const midY = geometry.rowTops[c.toRow] + geometry.rowHeights[c.toRow] + 14;
                 return `M ${fromX} ${fromY - half} L ${fromX} ${midY} L ${toX} ${midY} L ${toX} ${toY + half}`;
             }
-            // Объезд — узкая полоса СПРАВА от собственной коробки ветки (в
-            // промежутке между её колонкой и следующей, там всегда пусто) —
-            // только чтобы обойти планету на пути, а не огибать всю диаграмму
-            return `M ${fromX + half} ${fromY} L ${laneX} ${fromY} L ${laneX} ${midY} L ${toX} ${midY} L ${toX} ${toY + half}`;
+            // Объезд — узкая полоса СПРАВА от собственной коробки ветки. Изгиб
+            // делаем сразу НАД своей же строкой-источником (а не у строки-
+            // цели) — своя уникальная высота на каждую ветку, иначе горизонтали
+            // двух веток, идущих в одну и ту же строку, совпадают по Y и
+            // визуально сливаются в одну линию
+            const bendY = geometry.rowTops[c.fromRow] - 14;
+            return `M ${fromX + half} ${fromY} L ${laneX} ${fromY} L ${laneX} ${bendY} L ${toX} ${bendY} L ${toX} ${toY + half}`;
         }
 
         function buildDispositorChainHTML(data) {
