@@ -1441,7 +1441,13 @@
         // по падению, а не условно "падает" к управителю знака.
         function getDispositorPlanet(signIndex, mode) {
             if (mode === 'domicile') return SIGN_MAJOR_RULER[signIndex];
-            if (mode === 'exile') return SIGN_MAJOR_RULER[(signIndex + 6) % 12];
+            // По изгнанию, в отличие от владения, минорный управитель
+            // противоположного знака (Скорпион/Водолей/Рыбы) в приоритете над
+            // основным — подтверждено Еленой отдельно для этой цепочки
+            if (mode === 'exile') {
+                const oppositeSign = (signIndex + 6) % 12;
+                return SIGN_MINOR_RULER[oppositeSign] || SIGN_MAJOR_RULER[oppositeSign];
+            }
             if (mode === 'exaltation') return SIGN_EXALTED_PLANET[signIndex] || SIGN_MAJOR_RULER[signIndex];
             if (mode === 'fall') return SIGN_FALL_PLANET[signIndex] || null;
             return null;
