@@ -1049,17 +1049,38 @@
             }
         };
 
+        // <input type="time"> принимает СТРОГО "ЧЧ:ММ" — любое отклонение
+        // (секунды на конце, час без ведущего нуля, дата впереди и т.п.)
+        // браузер молча превращает в пустую строку без всякой ошибки. Раньше
+        // .slice(0, 5) предполагал ровно формат "ЧЧ:ММ:СС" — если из базы
+        // время пришло в другом виде, поле школы тихо становилось "--:--",
+        // а расчёт карты падал с невнятной ошибкой на бэкенде. Достаём
+        // "ЧЧ:ММ" откуда угодно внутри строки, а не жёстко по позиции.
+        function extractHHMM(raw) {
+            if (!raw) return '';
+            const m = String(raw).match(/(\d{1,2}):(\d{2})/);
+            if (!m) return '';
+            return `${m[1].padStart(2, '0')}:${m[2]}`;
+        }
+
         window.loadChart = function(index) {
             const c = chartsCache[index];
             window.showChartView();
             document.getElementById('name').value = c.name;
             document.getElementById('date').value = c.birth_date;
-            document.getElementById('time').value = c.birth_time.slice(0, 5);
+            const timeValue = extractHHMM(c.birth_time);
+            document.getElementById('time').value = timeValue;
             document.getElementById('timezone').value = c.timezone_offset;
             timezoneManuallyEdited = true;
             document.getElementById('city').value = c.place_name;
             document.getElementById('gender').value = c.gender || '';
             selectedLocation = { lat: c.lat, lon: c.lon, name: c.place_name };
+            if (!c.birth_date || !timeValue) {
+                document.getElementById('infoPanel').innerHTML =
+                    "<span style='color:#e74c3c;'>У этой карты повреждена сохранённая дата/время рождения — исправьте и сохраните заново.</span>";
+                window.openFormModal();
+                return;
+            }
             window.calculateChart({ preventDefault: () => {} });
         };
 
@@ -2692,6 +2713,10 @@
             event.preventDefault();
             if (selectedLocation.lat === null) {
                 document.getElementById('infoPanel').innerText = "Укажите место рождения — выберите город из списка подсказок или введите координаты вручную.";
+                return;
+            }
+            if (!document.getElementById('date').value || !document.getElementById('time').value) {
+                document.getElementById('infoPanel').innerText = "Укажите дату и время рождения.";
                 return;
             }
 
