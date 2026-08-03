@@ -2920,7 +2920,7 @@
             // соответствующую ячейку в таблице — тогда режим фокуса их проявит.
             // Видимый набор аспектов выше от этого прохода никак не меняется.
             {
-                const { bodies: allAspBodies, pairs: allAspPairs } = computeAspectPairs(data.planets || [], wheelExtendedPairs);
+                const { bodies: allAspBodies, pairs: allAspPairs } = computeAspectPairs(data.planets || []);
                 allAspPairs.forEach(({ i, j, aspect }) => {
                     const p1 = allAspBodies[i], p2 = allAspBodies[j];
                     const bothReal = !FICTITIOUS_POINTS.includes(p1.id) && !FICTITIOUS_POINTS.includes(p2.id);
@@ -2950,7 +2950,7 @@
                     return h ? { id: `house${num}`, name: `Дом ${num}`, longitude: h.longitude, isAxis: true } : null;
                 }).filter(Boolean);
                 const combined = [...(data.planets || []), ...houseAxisBodies];
-                const { bodies: hxBodies, pairs: hxPairs } = computeAspectPairs(combined, wheelExtendedPairs);
+                const { bodies: hxBodies, pairs: hxPairs } = computeAspectPairs(combined);
                 hxPairs.forEach(({ i, j, aspect }) => {
                     const b1 = hxBodies[i], b2 = hxBodies[j];
                     if (!!b1.isAxis === !!b2.isAxis) return; // нужна ровно одна ось дома в паре
