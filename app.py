@@ -88,10 +88,18 @@ def calculate():
         
     data = request.json
     try:
+        # Явные проверки перед парсингом — иначе int('') на пустой дате/времени
+        # даёт малопонятную ошибку "invalid literal for int() with base 10: ''"
+        # без указания, какое именно поле пустое
+        if not data.get('date'):
+            return jsonify({"status": "error", "message": "Не указана дата рождения"}), 400
+        if not data.get('time'):
+            return jsonify({"status": "error", "message": "Не указано время рождения"}), 400
+
         # Парсим дату и время
         year, month, day = map(int, data['date'].split('-'))
         hour, minute = map(int, data['time'].split(':'))
-        
+
         lat = float(data['lat'])
         lon = float(data['lon'])
 
@@ -100,7 +108,7 @@ def calculate():
         # летнее/декретное время). Если пользователь задал смещение вручную —
         # оно в приоритете (фиксированное смещение, без исторической поправки).
         manual_tz = data.get('timezone')
-        if manual_tz not in (None, ''):
+        if manual_tz not in (None, '') and str(manual_tz).strip() != '':
             tz_offset = int(manual_tz)
             tz_str = f"Etc/GMT{-tz_offset:+d}".replace("+", "")
         else:

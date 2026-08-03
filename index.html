@@ -743,6 +743,7 @@
 
         window.recalculateChartDateTime = async function(newDate, newTime) {
             if (!window.lastChartData || selectedLocation.lat === null) return;
+            if (!newDate || !newTime) return;
             document.getElementById('date').value = newDate;
             document.getElementById('time').value = newTime;
             const timezoneValue = document.getElementById('timezone').value;
