@@ -608,7 +608,12 @@
         // таблица значений не даёт — старая логика: один орбис на тело
         // (BASE_ORB/DEFAULT_ORB ниже).
         const MAJOR_ASPECT_ORB_ROW = { Sun: 11, Moon: 9, Mercury: 5, Venus: 5, Mars: 5, Jupiter: 7, Saturn: 5, Uranus: 5, Neptune: 5, Pluto: 5, Mean_Node: 5, South_Node: 5, Lilith: 5 };
-        const MAJOR_ASPECT_ORB_TABLE = { 0: MAJOR_ASPECT_ORB_ROW, 60: MAJOR_ASPECT_ORB_ROW, 90: MAJOR_ASPECT_ORB_ROW, 120: MAJOR_ASPECT_ORB_ROW, 180: MAJOR_ASPECT_ORB_ROW };
+        // Оппозиция — отдельная строка: Солнце/Луна с ЛЮБОЙ ДРУГОЙ планетой (не
+        // друг с другом) идут по 10°, а не по общим 11°/9°. Друг с другом
+        // (Солнце-Луна) — особый случай на 11°, обрабатывается отдельно ниже в
+        // getPairOrb (не через эту строку, т.к. max(10,10) дал бы 10, а не 11).
+        const OPPOSITION_ORB_ROW = { ...MAJOR_ASPECT_ORB_ROW, Sun: 10, Moon: 10 };
+        const MAJOR_ASPECT_ORB_TABLE = { 0: MAJOR_ASPECT_ORB_ROW, 60: MAJOR_ASPECT_ORB_ROW, 90: MAJOR_ASPECT_ORB_ROW, 120: MAJOR_ASPECT_ORB_ROW, 180: OPPOSITION_ORB_ROW };
         const BASE_ORB = { Sun: 10, Moon: 9, Jupiter: 7 }; // только для минорных аспектов
         const DEFAULT_ORB = 7;
         const isCuspId = id => typeof id === 'string' && id.startsWith('house');
@@ -616,6 +621,12 @@
         // либо контексты, где конкретный аспект ещё не известен)
         function getPairOrb(idA, idB, aspectAngle) {
             if (isCuspId(idA) || isCuspId(idB)) return 4;
+            // Солнце-Луна в оппозиции друг с другом — особо, 11° (не 10°, как у
+            // них же в оппозиции с любой другой планетой)
+            if (aspectAngle === 180) {
+                const pair = [idA, idB].sort().join('|');
+                if (pair === 'Moon|Sun') return 11;
+            }
             const majorRow = aspectAngle !== undefined ? MAJOR_ASPECT_ORB_TABLE[aspectAngle] : null;
             if (majorRow) {
                 const orbA = majorRow[idA] ?? DEFAULT_ORB;
