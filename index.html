@@ -598,22 +598,36 @@
         // (и в скрытых наведениях на фиктивные точки/оси домов), на круге не видны
         const WHEEL_HIDDEN_MINOR_ASPECTS = ['Полусекстиль', 'Полуквадрат'];
 
-        // Орбис по таблице Елены: базовый орбис зависит от тела, орбис пары —
-        // БОЛЬШИЙ из орбисов двух тел (не среднее — так было раньше, но потом
-        // поправлено: Солнце-Меркурий 9.73° должно проходить по 10° Солнца, а
-        // не по среднему 8.5°), кроме узлов и Лилит (всегда 5° с любой планетой,
-        // фиксированно) и куспидов домов (всегда 4° с планетой/узлом).
-        // "Прочие планеты" на практике (сверено с эталоном по тестовой карте:
-        // секстили Меркурий-Венера/Венера-Юпитер/Венера-Сатурн пропадали при
-        // орбисе 5° и вернулись при 7°) — тот же орбис, что у Юпитера, не 5°.
-        const BASE_ORB = { Sun: 10, Moon: 9, Jupiter: 7 };
+        // Орбис по новой таблице Елены (2026-08, набор орбисов "которым уже
+        // много лет пользуюсь"): зависит и от тела, И от конкретного мажорного
+        // аспекта (0/60/90/120/180) — не один орбис на тело на все аспекты,
+        // как было раньше. Пара — БОЛЬШИЙ из орбисов двух тел для ЭТОГО
+        // аспекта; узлы и Лилит подтверждены явно — тоже по максимуму, больше
+        // не фиксированное значение вне зависимости от партнёра. Куспиды —
+        // отдельно, фиксированно 4° (эта таблица их не касается).
+        // Для МИНОРНЫХ аспектов (30/45/135/150) таблица значений не даёт —
+        // для них осталась старая логика: один орбис на тело, без разбивки
+        // по типу аспекта (BASE_ORB/DEFAULT_ORB ниже).
+        const MAJOR_ASPECT_ORB_TABLE = {
+            0: { Sun: 12, Moon: 11, Mercury: 9, Venus: 9, Mars: 9, Jupiter: 8, Saturn: 8, Uranus: 7, Neptune: 7, Pluto: 7, Mean_Node: 3, South_Node: 3, Lilith: 5 },
+            180: { Sun: 11, Moon: 11, Mercury: 9, Venus: 9, Mars: 9, Jupiter: 8, Saturn: 8, Uranus: 7, Neptune: 7, Pluto: 7, Mean_Node: 3, South_Node: 3, Lilith: 5 },
+            120: { Sun: 11, Moon: 11, Mercury: 9, Venus: 9, Mars: 9, Jupiter: 8, Saturn: 8, Uranus: 7, Neptune: 7, Pluto: 7, Mean_Node: 3, South_Node: 3, Lilith: 5 },
+            90: { Sun: 11, Moon: 11, Mercury: 9, Venus: 9, Mars: 9, Jupiter: 8, Saturn: 8, Uranus: 7, Neptune: 7, Pluto: 7, Mean_Node: 3, South_Node: 3, Lilith: 5 },
+            60: { Sun: 10, Moon: 10, Mercury: 9, Venus: 9, Mars: 9, Jupiter: 8, Saturn: 8, Uranus: 7, Neptune: 7, Pluto: 7, Mean_Node: 3, South_Node: 3, Lilith: 5 },
+        };
+        const BASE_ORB = { Sun: 10, Moon: 9, Jupiter: 7 }; // только для минорных аспектов
         const DEFAULT_ORB = 7;
-        const FIXED_5_IDS = ['Mean_Node', 'South_Node', 'Lilith'];
         const isCuspId = id => typeof id === 'string' && id.startsWith('house');
-        const isFixed5Id = id => FIXED_5_IDS.includes(id);
-        function getPairOrb(idA, idB) {
+        // aspectAngle не передан — старая логика по телу (минорные аспекты,
+        // либо контексты, где конкретный аспект ещё не известен)
+        function getPairOrb(idA, idB, aspectAngle) {
             if (isCuspId(idA) || isCuspId(idB)) return 4;
-            if (isFixed5Id(idA) || isFixed5Id(idB)) return 5;
+            const majorRow = aspectAngle !== undefined ? MAJOR_ASPECT_ORB_TABLE[aspectAngle] : null;
+            if (majorRow) {
+                const orbA = majorRow[idA] ?? DEFAULT_ORB;
+                const orbB = majorRow[idB] ?? DEFAULT_ORB;
+                return Math.max(orbA, orbB);
+            }
             const orbA = BASE_ORB[idA] ?? DEFAULT_ORB;
             const orbB = BASE_ORB[idB] ?? DEFAULT_ORB;
             return Math.max(orbA, orbB);
@@ -1202,10 +1216,17 @@
         // одинаков для всех типов аспектов. Возвращает ближайший по delta аспект,
         // укладывающийся в орбис (может уложиться несколько кандидатов сразу при
         // широком орбисе — берём точнейший).
-        function detectAspect(angle1, angle2, orb) {
+        // id1/id2 нужны, чтобы для КАЖДОГО кандидата-аспекта достать именно
+        // его орбис по MAJOR_ASPECT_ORB_TABLE (для мажорных — орбис теперь
+        // зависит от типа аспекта, не только от тела). orbBonus — временное
+        // расширение орбиса (например, +1° на завершение конфигурации), тем же
+        // способом, что и раньше, просто прибавляется к орбису для ВСЕХ
+        // кандидатов внутри одного вызова.
+        function detectAspect(id1, angle1, id2, angle2, orbBonus) {
             const diff = shortestArc(angle1, angle2);
             let best = null;
             for (const asp of ASPECTS) {
+                const orb = getPairOrb(id1, id2, asp.angle) + (orbBonus || 0);
                 const delta = Math.abs(diff - asp.angle);
                 if (delta > orb) continue;
                 // Правило "через знак" (числа рядом, но точки в разных знаках —
@@ -1240,14 +1261,14 @@
         // подтверждён только расширенным орбисом конфигурации (extendedPairs
         // из findConfigurations) — чтобы такой аспект рисовался на колесе и
         // в таблице так же, как он уже учитывается внутри фигуры
-        function detectAspectConfigAware(id1, lon1, id2, lon2, orb, extendedPairs) {
-            const standard = detectAspect(lon1, lon2, orb);
+        function detectAspectConfigAware(id1, lon1, id2, lon2, extendedPairs) {
+            const standard = detectAspect(id1, lon1, id2, lon2);
             if (standard) return standard;
             if (!extendedPairs) return null;
             const key = [id1, id2].sort().join('|');
             const name = extendedPairs[key];
             if (!name) return null;
-            const extended = detectAspect(lon1, lon2, orb + CONFIG_ORB_BONUS);
+            const extended = detectAspect(id1, lon1, id2, lon2, CONFIG_ORB_BONUS);
             return (extended && extended.name === name) ? extended : null;
         }
 
@@ -1261,8 +1282,7 @@
             const pairs = [];
             for (let i = 0; i < bodies.length; i++) {
                 for (let j = i + 1; j < bodies.length; j++) {
-                    const orb = getPairOrb(bodies[i].id, bodies[j].id);
-                    const asp = detectAspectConfigAware(bodies[i].id, bodies[i].longitude, bodies[j].id, bodies[j].longitude, orb, extendedPairs);
+                    const asp = detectAspectConfigAware(bodies[i].id, bodies[i].longitude, bodies[j].id, bodies[j].longitude, extendedPairs);
                     if (asp) pairs.push({ i, j, aspect: asp });
                 }
             }
@@ -1398,16 +1418,14 @@
             const aspectAt = {};
             for (let i = 0; i < n; i++) {
                 for (let j = i + 1; j < n; j++) {
-                    const orb = getPairOrb(realPlanets[i].id, realPlanets[j].id);
-                    const asp = detectAspect(realPlanets[i].longitude, realPlanets[j].longitude, orb);
+                    const asp = detectAspect(realPlanets[i].id, realPlanets[i].longitude, realPlanets[j].id, realPlanets[j].longitude);
                     if (asp) aspectAt[`${i},${j}`] = asp.name;
                 }
             }
             const has = (i, j, name) => aspectAt[i < j ? `${i},${j}` : `${j},${i}`] === name;
             const relaxed = (i, j, name) => {
                 if (has(i, j, name)) return 'standard';
-                const orb = getPairOrb(realPlanets[i].id, realPlanets[j].id) + CONFIG_ORB_BONUS;
-                const asp = detectAspect(realPlanets[i].longitude, realPlanets[j].longitude, orb);
+                const asp = detectAspect(realPlanets[i].id, realPlanets[i].longitude, realPlanets[j].id, realPlanets[j].longitude, CONFIG_ORB_BONUS);
                 return (asp && asp.name === name) ? 'extended' : null;
             };
             // Пары, чей аспект подтверждён ТОЛЬКО расширенным орбисом внутри
@@ -1512,7 +1530,9 @@
             // "направленной дистанции")
             const isElevated = p => {
                 if (!mc) return false;
-                const asp = detectAspect(p.longitude, mc.longitude, 4);
+                // 'house10' — синтетический id, только чтобы getPairOrb узнал
+                // в этом куспид (isCuspId) и дал фиксированные 4°, как раньше
+                const asp = detectAspect(p.id, p.longitude, 'house10', mc.longitude);
                 return !!asp && asp.angle === 0;
             };
 
@@ -1531,7 +1551,7 @@
                 if (SIGN_MAJOR_RULER[getSignIndex(p.longitude)] === p.id) addFlag('Планета в обители (мажорная)', 1);
                 else if (SIGN_MINOR_RULER[getSignIndex(p.longitude)] === p.id) addFlag('Планета в обители (минорная)', 1);
 
-                if (southNode && shortestArc(p.longitude, southNode.longitude) <= getPairOrb(p.id, 'South_Node')) {
+                if (southNode && shortestArc(p.longitude, southNode.longitude) <= getPairOrb(p.id, 'South_Node', 0)) {
                     addFlag('Соединение с Южным Узлом', 2);
                 }
 
@@ -1645,7 +1665,7 @@
                 anchors.forEach(([label, target]) => {
                     if (target === p) return;
                     const sameSign = getSignIndex(p.longitude) === getSignIndex(target.longitude);
-                    const orb = target.id ? getPairOrb(p.id, target.id) : (sameSign ? 4 : 2);
+                    const orb = target.id ? getPairOrb(p.id, target.id, 0) : (sameSign ? 4 : 2);
                     if (shortestArc(p.longitude, target.longitude) <= orb) {
                         rows.push(dignityRow(`${p.name} (соед. с ${label})`, p.id));
                     }
@@ -2273,8 +2293,7 @@
                     const a = bodiesA[i], b = bodiesB[j];
                     if (a.id === b.id) continue;
                     if (a.role === 'cusp' && b.role === 'cusp') continue; // куспид с куспидом не считаем, только с планетами
-                    const orb = getPairOrb(a.id, b.id);
-                    const asp = detectAspect(a.longitude, b.longitude, orb);
+                    const asp = detectAspect(a.id, a.longitude, b.id, b.longitude);
                     if (asp && asp.type === 'major') details.push({ a, b, aspect: asp });
                 }
             }
@@ -2353,8 +2372,7 @@
         function mergeConjunctConfigs(configs, planetsById, realPlanetIds) {
             const isConjunct = (a, b) => {
                 if (a === b || !planetsById[a] || !planetsById[b]) return false;
-                const orb = getPairOrb(a, b);
-                const asp = detectAspect(planetsById[a].longitude, planetsById[b].longitude, orb);
+                const asp = detectAspect(a, planetsById[a].longitude, b, planetsById[b].longitude);
                 return !!asp && asp.angle === 0;
             };
             const attached = configs.map(c => {
@@ -2455,8 +2473,7 @@
                 const touched = new Set();
                 for (const a of groupA) {
                     for (const b of groupB) {
-                        const orb = getPairOrb(a.id, b.id);
-                        const asp = detectAspect(a.longitude, b.longitude, orb);
+                        const asp = detectAspect(a.id, a.longitude, b.id, b.longitude);
                         if (asp && asp.angle === 180) { touched.add(a.id); touched.add(b.id); }
                     }
                 }
@@ -2506,8 +2523,7 @@
             // фигура — скорее всего, это Брызги")
             const hasConcentration = sorted.some((p, i) => {
                 const next = sorted[(i + 1) % n];
-                const orb = getPairOrb(p.id, next.id);
-                const asp = detectAspect(p.longitude, next.longitude, orb);
+                const asp = detectAspect(p.id, p.longitude, next.id, next.longitude);
                 return !!asp && asp.angle === 0;
             });
             return { type: hasConcentration ? 'Брызги со сгущением' : 'Брызги' };
@@ -2543,8 +2559,7 @@
                         if (used.has(memberIds[j])) continue;
                         const a = memberIds[i], b = memberIds[j];
                         if (!planetsById[a] || !planetsById[b]) continue;
-                        const orb = getPairOrb(a, b);
-                        const asp = detectAspect(planetsById[a].longitude, planetsById[b].longitude, orb);
+                        const asp = detectAspect(a, planetsById[a].longitude, b, planetsById[b].longitude);
                         if (asp && asp.angle === 0) {
                             pairs.push([a, b]);
                             used.add(a); used.add(b);
@@ -2864,8 +2879,7 @@
                     for (let j = i + 1; j < aspectPlanets.length; j++) {
                         const p1 = aspectPlanets[i], p2 = aspectPlanets[j];
                         if (typeof p1.longitude !== 'number' || typeof p2.longitude !== 'number') continue;
-                        const orb = getPairOrb(p1.id, p2.id);
-                        const asp = detectAspectConfigAware(p1.id, p1.longitude, p2.id, p2.longitude, orb, wheelExtendedPairs);
+                        const asp = detectAspectConfigAware(p1.id, p1.longitude, p2.id, p2.longitude, wheelExtendedPairs);
                         if (asp) pairAspects[`${i},${j}`] = asp;
                     }
                 }
