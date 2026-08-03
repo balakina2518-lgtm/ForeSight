@@ -598,22 +598,21 @@
         // (и в скрытых наведениях на фиктивные точки/оси домов), на круге не видны
         const WHEEL_HIDDEN_MINOR_ASPECTS = ['Полуквадрат'];
 
-        // Орбис по новой таблице Елены (2026-08, набор орбисов "которым уже
-        // много лет пользуюсь"): зависит и от тела, И от конкретного мажорного
-        // аспекта (0/60/90/120/180) — не один орбис на тело на все аспекты,
-        // как было раньше. Пара — БОЛЬШИЙ из орбисов двух тел для ЭТОГО
-        // аспекта; узлы и Лилит подтверждены явно — тоже по максимуму, больше
-        // не фиксированное значение вне зависимости от партнёра. Куспиды —
-        // отдельно, фиксированно 4° (эта таблица их не касается).
-        // Для МИНОРНЫХ аспектов (30/45/135/150) таблица значений не даёт —
-        // для них осталась старая логика: один орбис на тело, без разбивки
-        // по типу аспекта (BASE_ORB/DEFAULT_ORB ниже).
+        // Орбис по таблице Константина Дарагана (пробуем взамен таблицы Елены):
+        // зависит и от тела, И от конкретного мажорного аспекта (0/60/90/120/180).
+        // Пара — БОЛЬШИЙ из орбисов двух тел для ЭТОГО аспекта; узлы и Лилит —
+        // по прямому уточнению Елены — оставлены как в предыдущей таблице (3° и
+        // 5° соответственно), тоже по максимуму, у Дарагана своих значений для
+        // них нет. Куспиды — отдельно, фиксированно 4° (эта таблица их не касается).
+        // Для МИНОРНЫХ аспектов (30/45/135/150 — на сайте сейчас только 45/150)
+        // таблица значений не даёт — для них старая логика: один орбис на тело,
+        // без разбивки по типу аспекта (BASE_ORB/DEFAULT_ORB ниже).
         const MAJOR_ASPECT_ORB_TABLE = {
-            0: { Sun: 12, Moon: 11, Mercury: 9, Venus: 9, Mars: 9, Jupiter: 8, Saturn: 8, Uranus: 7, Neptune: 7, Pluto: 7, Mean_Node: 3, South_Node: 3, Lilith: 5 },
-            180: { Sun: 11, Moon: 11, Mercury: 9, Venus: 9, Mars: 9, Jupiter: 8, Saturn: 8, Uranus: 7, Neptune: 7, Pluto: 7, Mean_Node: 3, South_Node: 3, Lilith: 5 },
-            120: { Sun: 11, Moon: 11, Mercury: 9, Venus: 9, Mars: 9, Jupiter: 8, Saturn: 8, Uranus: 7, Neptune: 7, Pluto: 7, Mean_Node: 3, South_Node: 3, Lilith: 5 },
-            90: { Sun: 11, Moon: 11, Mercury: 9, Venus: 9, Mars: 9, Jupiter: 8, Saturn: 8, Uranus: 7, Neptune: 7, Pluto: 7, Mean_Node: 3, South_Node: 3, Lilith: 5 },
-            60: { Sun: 10, Moon: 10, Mercury: 9, Venus: 9, Mars: 9, Jupiter: 8, Saturn: 8, Uranus: 7, Neptune: 7, Pluto: 7, Mean_Node: 3, South_Node: 3, Lilith: 5 },
+            0: { Sun: 10, Moon: 10, Mercury: 8, Venus: 8, Mars: 8, Jupiter: 6, Saturn: 6, Uranus: 5, Neptune: 5, Pluto: 5, Mean_Node: 3, South_Node: 3, Lilith: 5 },
+            180: { Sun: 8, Moon: 8, Mercury: 6, Venus: 6, Mars: 6, Jupiter: 5, Saturn: 5, Uranus: 4, Neptune: 4, Pluto: 4, Mean_Node: 3, South_Node: 3, Lilith: 5 },
+            120: { Sun: 8, Moon: 8, Mercury: 6, Venus: 6, Mars: 6, Jupiter: 5, Saturn: 5, Uranus: 4, Neptune: 4, Pluto: 4, Mean_Node: 3, South_Node: 3, Lilith: 5 },
+            90: { Sun: 6, Moon: 6, Mercury: 5, Venus: 5, Mars: 5, Jupiter: 4, Saturn: 4, Uranus: 4, Neptune: 4, Pluto: 4, Mean_Node: 3, South_Node: 3, Lilith: 5 },
+            60: { Sun: 6, Moon: 6, Mercury: 5, Venus: 5, Mars: 5, Jupiter: 4, Saturn: 4, Uranus: 4, Neptune: 4, Pluto: 4, Mean_Node: 3, South_Node: 3, Lilith: 5 },
         };
         const BASE_ORB = { Sun: 10, Moon: 9, Jupiter: 7 }; // только для минорных аспектов
         const DEFAULT_ORB = 7;
