@@ -1280,32 +1280,15 @@
             return `${d}°${String(m).padStart(2, '0')}'${String(s).padStart(2, '0')}"`;
         }
 
-        // Как detectAspect, но дополнительно проверяет пары, чей аспект
-        // подтверждён только расширенным орбисом конфигурации (extendedPairs
-        // из findConfigurations) — чтобы такой аспект рисовался на колесе и
-        // в таблице так же, как он уже учитывается внутри фигуры
-        function detectAspectConfigAware(id1, lon1, id2, lon2, extendedPairs) {
-            const standard = detectAspect(id1, lon1, id2, lon2);
-            if (standard) return standard;
-            if (!extendedPairs) return null;
-            const key = [id1, id2].sort().join('|');
-            const name = extendedPairs[key];
-            if (!name) return null;
-            const extended = detectAspect(id1, lon1, id2, lon2, CONFIG_ORB_BONUS);
-            return (extended && extended.name === name) ? extended : null;
-        }
-
         // Орбис для каждой пары берётся по таблице (getPairOrb), по id тел.
         // В таблице (в отличие от колеса) фиктивные точки (Хирон/Лилит/Узел) и
         // оси домов ПОЛНОПРАВНО участвуют — сюда просто передаётся готовый список
-        // тел, без фильтрации на колёсной стороне. extendedPairs (опционально) —
-        // пары, чей аспект также подтверждён по расширенному орбису конфигурации
-        // (см. findConfigurations/detectAspectConfigAware)
-        function computeAspectPairs(bodies, extendedPairs) {
+        // тел, без фильтрации на колёсной стороне.
+        function computeAspectPairs(bodies) {
             const pairs = [];
             for (let i = 0; i < bodies.length; i++) {
                 for (let j = i + 1; j < bodies.length; j++) {
-                    const asp = detectAspectConfigAware(bodies[i].id, bodies[i].longitude, bodies[j].id, bodies[j].longitude, extendedPairs);
+                    const asp = detectAspect(bodies[i].id, bodies[i].longitude, bodies[j].id, bodies[j].longitude);
                     if (asp) pairs.push({ i, j, aspect: asp });
                 }
             }
@@ -1428,14 +1411,10 @@
         // перст судьбы, косой парус) — геометрия по книге Андреева, стр.454-457.
         // Большой трин без вершины (все три угла равноправны) для очков силы не
         // используется — в книге вершина у него не указана.
-        // Орбис расширяется на 1°, но только для ОДНОЙ стороны фигуры и только
-        // если это завершает конфигурацию (остальные стороны уже сходятся по
-        // стандартному орбису) — по прямому уточнению Елены (сначала было +2°,
-        // сузили до +1°, т.к. секстиль на 8.71° при базовых 7° показался
-        // слишком растянутым). Если фигура не складывается, расширение не
-        // применяется, орбис остаётся стандартным.
-        const CONFIG_ORB_BONUS = 1;
-
+        // Каждая сторона фигуры должна сходиться по обычному, нерасширенному
+        // орбису (по прямому уточнению Елены — бонус на завершение конфигурации
+        // убран полностью, конфигурации теперь строятся строго на тех же
+        // аспектах, что видны в таблице и на колесе).
         function findConfigurations(realPlanets) {
             const n = realPlanets.length;
             const aspectAt = {};
@@ -1446,34 +1425,7 @@
                 }
             }
             const has = (i, j, name) => aspectAt[i < j ? `${i},${j}` : `${j},${i}`] === name;
-            const relaxed = (i, j, name) => {
-                if (has(i, j, name)) return 'standard';
-                const asp = detectAspect(realPlanets[i].id, realPlanets[i].longitude, realPlanets[j].id, realPlanets[j].longitude, CONFIG_ORB_BONUS);
-                return (asp && asp.name === name) ? 'extended' : null;
-            };
-            // Пары, чей аспект подтверждён ТОЛЬКО расширенным орбисом внутри
-            // успешно распознанной фигуры — используется дальше, чтобы та же
-            // самая пара рисовалась как аспект и на колесе, и в таблице, а не
-            // только подразумевалась внутри конфигурации
-            const extendedPairs = {};
-            // Проверяет набор сторон фигуры, разрешая расширенный орбис максимум
-            // на ОДНОЙ стороне — иначе слишком много допущений на одну фигуру
-            const matches = legs => {
-                let extendedCount = 0;
-                let extendedLeg = null;
-                for (const [i, j, name] of legs) {
-                    const m = relaxed(i, j, name);
-                    if (!m) return false;
-                    if (m === 'extended') { extendedCount++; extendedLeg = [i, j, name]; }
-                }
-                if (extendedCount > 1) return false;
-                if (extendedLeg) {
-                    const [ei, ej, ename] = extendedLeg;
-                    const key = [realPlanets[ei].id, realPlanets[ej].id].sort().join('|');
-                    extendedPairs[key] = ename;
-                }
-                return true;
-            };
+            const matches = legs => legs.every(([i, j, name]) => has(i, j, name));
             const configs = [];
             for (let i = 0; i < n; i++) {
                 for (let j = i + 1; j < n; j++) {
@@ -1515,7 +1467,7 @@
                     }
                 }
             }
-            return { configs, extendedPairs };
+            return { configs };
         }
 
         // Сила планеты — 9 применимых флагов из конспекта курса "Нептун" (без
@@ -1731,9 +1683,7 @@
                 return { id: `house${num}`, name: `Дом ${num}`, symbol: String(num), longitude: h.longitude };
             });
             const allBodies = [...planetBodies, ...axisBodies];
-            const realForConfig = data.planets.filter(p => !FICTITIOUS_POINTS.includes(p.id));
-            const { extendedPairs } = findConfigurations(realForConfig.map(p => ({ id: p.id, longitude: p.longitude })));
-            const { bodies, pairs } = computeAspectPairs(allBodies, extendedPairs);
+            const { bodies, pairs } = computeAspectPairs(allBodies);
             const pairMap = {};
             pairs.forEach(p => { pairMap[`${p.i},${p.j}`] = p.aspect; });
 
@@ -2891,18 +2841,13 @@
             // типов аспектов внутри пары.
             const aspectPlanets = (data.planets || []).filter(p => !FICTITIOUS_POINTS.includes(p.id));
 
-            // Пары, чей аспект подтверждён расширенным (конфигурационным) орбисом —
-            // такой аспект рисуется на круге наравне со стандартными, иначе
-            // конфигурация есть, а линии аспекта на круге нет (см. findConfigurations)
-            const { extendedPairs: wheelExtendedPairs } = findConfigurations(aspectPlanets.map(p => ({ id: p.id, longitude: p.longitude })));
-
             const pairAspects = {};
             if (aspectPlanets.length > 1) {
                 for (let i = 0; i < aspectPlanets.length; i++) {
                     for (let j = i + 1; j < aspectPlanets.length; j++) {
                         const p1 = aspectPlanets[i], p2 = aspectPlanets[j];
                         if (typeof p1.longitude !== 'number' || typeof p2.longitude !== 'number') continue;
-                        const asp = detectAspectConfigAware(p1.id, p1.longitude, p2.id, p2.longitude, wheelExtendedPairs);
+                        const asp = detectAspect(p1.id, p1.longitude, p2.id, p2.longitude);
                         if (asp) pairAspects[`${i},${j}`] = asp;
                     }
                 }
