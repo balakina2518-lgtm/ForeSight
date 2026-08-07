@@ -3515,8 +3515,12 @@
             }
 
             // Углы планет считаем заранее (а не только в секции 4), чтобы куспиды домов
-            // (секция 3) знали, где физически проходит разрыв под символом планеты
-            const baseRadius = isHorary ? radius + 70 : radius - 75;
+            // (секция 3) знали, где физически проходит разрыв под символом планеты.
+            // Планеты в хораре — ВНУТРИ кольца, как и в натале (по прямому
+            // уточнению Елены после первой попытки вынести их наружу — тот
+            // вариант ещё и ломал разрыв куспида под символом планеты, потому
+            // что baseRadius оказывался далеко за пределами отрезка куспида).
+            const baseRadius = radius - 75;
             let planets = JSON.parse(JSON.stringify(data.planets || []));
             planets.sort((a, b) => b.longitude - a.longitude);
             const angleStep = 10; // градусов смещения символа на каждую коллизию
@@ -3867,10 +3871,10 @@
                 const trueAngle = body.trueAngle;
                 const symbolAngle = body.displayAngle;
 
-                // В хораре планеты вынесены за кольцо — метка истинной позиции
-                // ставится у внешнего края кольца, а не на внутреннем круге,
-                // иначе поводок-леска тянулся бы через всё кольцо целиком
-                const dotRadius = isHorary ? radius : innerRadius;
+                // Метка истинной позиции — рядом с символом планеты (тот же
+                // относительный отступ, что и раньше в натале), не привязана
+                // к innerRadius напрямую — в хораре он теперь намного меньше
+                const dotRadius = baseRadius - 35;
                 const dotX = center + dotRadius * dCos(trueAngle);
                 const dotY = center + dotRadius * dSin(trueAngle);
                 svgContent += `<circle cx="${dotX}" cy="${dotY}" r="3.5" fill="var(--accent)" />`;
