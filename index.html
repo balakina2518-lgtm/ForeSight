@@ -3499,7 +3499,10 @@
             const size = isHorary ? 900 : 800;
             const center = size / 2;
             const radius = 340;
-            const innerRadius = radius - 110;
+            // В хораре внутренний круг (где линии аспектов и номера домов)
+            // заметно уже, чем в натале — освобождает больше места кольцу
+            // знаков и вынесенным наружу планетам (по прямому уточнению Елены)
+            const innerRadius = isHorary ? 120 : radius - 110;
 
             let svgContent = `<svg viewBox="0 0 ${size} ${size}">`;
 
