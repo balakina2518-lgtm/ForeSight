@@ -1248,17 +1248,6 @@
             const sign2 = Math.floor(((angle2 % 360) + 360) % 360 / 30);
             const signGap = Math.min(Math.abs(sign1 - sign2), 12 - Math.abs(sign1 - sign2));
             for (const asp of ASPECTS) {
-                // Квадрат/секстиль/оппозиция — помимо орбиса, знаки должны
-                // сходиться "по смыслу" (по уточнению Елены): квадрат — ровно 2
-                // знака между планетами (промежуток в знаках = 3), секстиль —
-                // ровно 1 знак между планетами (промежуток = 2), оппозиция —
-                // знаки строго противоположные (промежуток = 6). Не совпадает —
-                // аспекта нет, независимо от орбиса. Трин — см. ниже, там при
-                // несовпадении стихий аспект не отменяется, а орбис уменьшается.
-                if (asp.angle === 90 && signGap !== 3) continue;
-                if (asp.angle === 60 && signGap !== 2) continue;
-                if (asp.angle === 180 && signGap !== 6) continue;
-
                 const orb = getPairOrb(id1, id2, asp.angle) + (orbBonus || 0);
                 const delta = Math.abs(diff - asp.angle);
                 // При сравнении с орбисом минуты/секунды не учитываем целиком —
@@ -1268,25 +1257,30 @@
                 // проверки "укладывается ли в орбис".
                 const deltaWhole = roundOrbDegree(delta);
                 if (deltaWhole > orb) continue;
-                // Правило "через знак" (числа рядом, но точки в разных знаках —
-                // аспект не отменяется, а действует по уменьшенному орбису):
-                // для соединения — если знаки разные; для трина — если планеты
-                // не в одной стихии (по прямому уточнению Елены). Для квадрата/
-                // секстиля/оппозиции знаковое условие остаётся жёстким гейтом
-                // выше — тут не проверяем.
+
+                // "Чистая" знаковая связь для мажорных аспектов (по смыслу, по
+                // уточнению Елены): квадрат — ровно 2 знака между планетами
+                // (промежуток = 3), секстиль — ровно 1 знак (промежуток = 2),
+                // оппозиция — знаки строго противоположные (промежуток = 6),
+                // трин — планеты в одной стихии. Минорные аспекты знак не
+                // проверяют вообще — чистый градусный орбис.
+                let signMatch = true;
+                if (asp.angle === 90) signMatch = signGap === 3;
+                else if (asp.angle === 60) signMatch = signGap === 2;
+                else if (asp.angle === 180) signMatch = signGap === 6;
+                else if (asp.angle === 120) signMatch = SIGN_ELEMENT[sign1] === SIGN_ELEMENT[sign2];
+                else if (asp.angle === 0) signMatch = sign1 === sign2;
+
+                // Орб "через знак" (числа рядом по орбису, но знаковая связь не
+                // "чистая" — аспект не отменяется, а идёт по уменьшенному
+                // орбису): соединение — орбис ÷ 2, все остальные мажорные —
+                // орбис × 0.7 (по таблице Елены). Минорные не затрагиваются.
                 let effectiveOrb = orb;
-                if (asp.angle === 0) {
-                    if (sign1 !== sign2) {
-                        effectiveOrb = orb / 2;
-                        if (deltaWhole > effectiveOrb) continue;
-                    }
+                if (!signMatch) {
+                    effectiveOrb = asp.angle === 0 ? orb / 2 : orb * 0.7;
+                    if (deltaWhole > effectiveOrb) continue;
                 }
-                if (asp.angle === 120) {
-                    if (SIGN_ELEMENT[sign1] !== SIGN_ELEMENT[sign2]) {
-                        effectiveOrb = orb / 2;
-                        if (deltaWhole > effectiveOrb) continue;
-                    }
-                }
+
                 if (!best || delta < best.delta) {
                     best = { ...asp, diff, delta, exact: delta <= 1, orb: effectiveOrb };
                 }
