@@ -256,9 +256,19 @@
         .user-badge .user-badge-logout:hover { color: var(--accent); }
 
         .auth-view {
-            width: 100%; max-width: 420px; margin: 60px auto; padding: 0 24px; box-sizing: border-box;
+            position: fixed; inset: 0; z-index: 500; display: none; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.45); padding: 24px; box-sizing: border-box;
+        }
+        .auth-view.open { display: flex; }
+        .auth-modal-card {
+            width: 100%; max-width: 400px; position: relative;
             display: flex; flex-direction: column; align-items: center;
         }
+        .auth-modal-close {
+            position: absolute; top: -6px; right: -6px; background: var(--bg-app); border: 1px solid var(--border-color);
+            border-radius: 50%; width: 28px; height: 28px; cursor: pointer; color: var(--text-muted); font-size: 0.9rem;
+        }
+        .auth-modal-close:hover { color: var(--accent); }
         .auth-form {
             width: 100%; display: flex; flex-direction: column; gap: 14px;
             background: var(--bg-card, var(--bg-app)); border: 1px solid var(--border-color); border-radius: 10px;
@@ -270,6 +280,8 @@
         .auth-error { color: #e74c3c; font-size: 0.85rem; }
         .auth-switch { text-align: center; font-size: 0.85rem; color: var(--text-muted); margin: 4px 0 0; }
         .auth-switch-btn { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 0.85rem; text-decoration: underline; padding: 0; margin-left: 4px; }
+        .anon-badge { display: none; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-muted); margin-left: auto; }
+        .anon-badge .anon-login-btn { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 0.8rem; text-decoration: underline; padding: 0; }
         .charts-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
         .charts-table th { text-align: left; color: var(--text-muted); font-weight: 500; font-size: 0.82rem; padding: 8px 10px; border-bottom: 1px solid var(--border-color); }
         .charts-table td { padding: 10px; border-bottom: 1px solid var(--border-color); color: var(--text-main); }
@@ -383,26 +395,21 @@
 </head>
 <body class="notranslate">
     <div id="root">
-        <div id="authView" class="auth-view" style="display:none;">
-            <div class="brand-hero">
-                <svg width="66" height="84" viewBox="0 0 100 100" class="brand-emblem">
-                    <path d="M50,15 C46,32 46,42 46,50 C46,58 46,68 50,85 C54,68 54,58 54,50 C54,42 54,32 50,15 Z" fill="var(--accent)"/>
-                    <ellipse cx="48" cy="48" rx="32" ry="9" fill="none" stroke="var(--accent)" stroke-width="2.6" transform="rotate(-14 48 48)"/>
-                    <circle cx="76" cy="40" r="3.4" fill="var(--accent)"/>
-                </svg>
-                <h1 class="brand-hero-title">Астропроцессор Форсайт</h1>
+        <div id="authView" class="auth-view">
+            <div class="auth-modal-card">
+                <button type="button" class="auth-modal-close" id="authModalClose" onclick="window.closeAuthModal()" title="Закрыть">✕</button>
+                <form class="auth-form" id="authForm" onsubmit="window.submitAuthForm(event)">
+                    <h2 id="authFormTitle">Вход</h2>
+                    <label>Email<input type="email" id="authEmail" required autocomplete="email"></label>
+                    <label>Пароль<input type="password" id="authPassword" required minlength="6" autocomplete="current-password"></label>
+                    <div class="auth-error" id="authError" style="display:none;"></div>
+                    <button type="submit" class="btn-add-chart" id="authSubmitBtn">Войти</button>
+                    <p class="auth-switch">
+                        <span id="authSwitchText">Нет аккаунта?</span>
+                        <button type="button" class="auth-switch-btn" onclick="window.toggleAuthMode()" id="authSwitchBtn">Зарегистрироваться</button>
+                    </p>
+                </form>
             </div>
-            <form class="auth-form" id="authForm" onsubmit="window.submitAuthForm(event)">
-                <h2 id="authFormTitle">Вход</h2>
-                <label>Email<input type="email" id="authEmail" required autocomplete="email"></label>
-                <label>Пароль<input type="password" id="authPassword" required minlength="6" autocomplete="current-password"></label>
-                <div class="auth-error" id="authError" style="display:none;"></div>
-                <button type="submit" class="btn-add-chart" id="authSubmitBtn">Войти</button>
-                <p class="auth-switch">
-                    <span id="authSwitchText">Нет аккаунта?</span>
-                    <button type="button" class="auth-switch-btn" onclick="window.toggleAuthMode()" id="authSwitchBtn">Зарегистрироваться</button>
-                </p>
-            </form>
         </div>
         <div id="chartsHomeView" class="charts-home" style="display:none;">
             <div class="brand-hero">
@@ -434,6 +441,7 @@
                 <span class="chart-top-name" id="chartTopName">Карты</span>
                 <span class="chart-top-divider" id="chartTopDivider" style="display:none;">|</span>
                 <span class="chart-top-details" id="chartTopDetails"></span>
+                <span class="anon-badge" id="anonBadge"></span>
             </div>
             <div class="datetime-badge" id="datetimeBadge" style="display:none;">
                 <span class="datetime-icon">◎</span>
@@ -991,9 +999,10 @@
 
         let chartsCache = [];
         window.currentUser = null;
+        window.anonInfo = null;
         let authMode = 'login';
 
-        const PLAN_LABELS = { free: 'Бесплатный', astrolog: 'Сам себе астролог' };
+        const PLAN_LABELS = { free: 'Бесплатный', astrolog: 'Сам себе астролог', admin: 'Администратор' };
 
         function renderUserBadge() {
             const el = document.getElementById('userBadge');
@@ -1010,24 +1019,53 @@
             `;
         }
 
-        // Проверка сессии при загрузке страницы — показывает либо форму
-        // входа/регистрации, либо обычный интерфейс с картами
+        // Бейдж в шапке карты для незалогиненных — показывает, сколько ещё
+        // осталось бесплатных карт без регистрации, и ссылку на вход
+        function renderAnonBadge() {
+            const el = document.getElementById('anonBadge');
+            if (window.currentUser || !window.anonInfo) { el.style.display = 'none'; el.innerHTML = ''; return; }
+            const { calculations_used, calculations_limit } = window.anonInfo;
+            el.style.display = 'flex';
+            el.innerHTML = `
+                <span>Без регистрации: ${calculations_used}/${calculations_limit} карт</span>
+                <button type="button" class="anon-login-btn" onclick="window.openAuthModal()">Войти / Зарегистрироваться</button>
+            `;
+        }
+
+        window.openAuthModal = function() {
+            document.getElementById('authView').classList.add('open');
+        };
+        window.closeAuthModal = function() {
+            document.getElementById('authView').classList.remove('open');
+        };
+
+        // Проверка сессии при загрузке страницы. Залогиненным — обычная
+        // библиотека карт. Незалогиненным — НЕ блокируем сайт формой входа
+        // (по прямому уточнению Елены: 1 карту можно построить без
+        // регистрации) — сразу открываем форму построения карты, вход нужен
+        // только чтобы построить больше одной или сохранить карту.
         window.checkAuth = async function() {
             try {
                 const response = await fetch('/api/me');
                 const data = await response.json();
                 window.currentUser = (data.status === 'success') ? data.user : null;
+                window.anonInfo = (data.status === 'success') ? (data.anon || null) : null;
             } catch (err) {
                 window.currentUser = null;
+                window.anonInfo = null;
             }
+            window.closeAuthModal();
             if (window.currentUser) {
-                document.getElementById('authView').style.display = 'none';
                 document.getElementById('chartsHomeView').style.display = 'block';
+                document.getElementById('chartViewContainer').style.display = 'none';
                 renderUserBadge();
                 window.refreshChartsList();
             } else {
-                document.getElementById('authView').style.display = 'flex';
                 document.getElementById('chartsHomeView').style.display = 'none';
+                renderAnonBadge();
+                if (!window.lastChartData) {
+                    window.showChartForm();
+                }
             }
         };
 
@@ -1070,6 +1108,7 @@
                 await fetch('/api/logout', { method: 'POST' });
             } catch (err) { /* всё равно сбрасываем локальное состояние */ }
             window.currentUser = null;
+            window.lastChartData = null;
             document.getElementById('formModal').style.display = 'none';
             document.getElementById('chartViewContainer').style.display = 'none';
             document.getElementById('chartsHomeView').style.display = 'none';
@@ -1078,6 +1117,11 @@
 
         // Переключение между домашним экраном (список карт), видом колеса и всплывающей формой
         window.showChartsHome = function() {
+            // Без аккаунта библиотеки карт нет вообще — вместо неё предлагаем войти/зарегистрироваться
+            if (!window.currentUser) {
+                window.openAuthModal();
+                return;
+            }
             if (isDatetimeDirty()) {
                 document.getElementById('datetimeConfirmOverlay').style.display = 'flex';
                 return;
@@ -2937,21 +2981,25 @@
                     window.formatDatetimeBadge();
                     document.getElementById('formModal').style.display = 'none';
 
-                    // На бесплатном тарифе карты не хранятся — не дёргаем API
-                    // сохранения зря, сразу честно предупреждаем прямо в сообщении
-                    const isFree = window.currentUser && window.currentUser.plan === 'free';
-                    document.getElementById('infoPanel').innerHTML = isFree
+                    // На бесплатном тарифе и без регистрации карты не хранятся —
+                    // не дёргаем API сохранения зря, сразу честно предупреждаем
+                    const isPaid = window.currentUser && window.currentUser.plan !== 'free';
+                    document.getElementById('infoPanel').innerHTML = !window.currentUser
+                        ? "Карта успешно построена.<br><span style='color:var(--accent); font-size:0.9rem;'>Без регистрации карта не сохраняется — зарегистрируйтесь, чтобы построить ещё и хранить карты.</span>"
+                        : !isPaid
                         ? "Карта успешно построена.<br><span style='color:var(--accent); font-size:0.9rem;'>Бесплатный тариф не сохраняет карты в библиотеку — оформите «Сам себе астролог», чтобы хранить карты.</span>"
                         : "Карта успешно построена.<br><span style='color:var(--accent); font-size:0.9rem;'>Кликая на планеты, можно изучать их бизнес-трактовку.</span>";
 
-                    if (isFree) {
-                        // Обновляем счётчик "использовано X/1" в бейдже пользователя
+                    if (!isPaid) {
+                        // Обновляем счётчик "использовано X/N" в соответствующем бейдже
                         try {
                             const meResp = await fetch('/api/me');
                             const meData = await meResp.json();
                             if (meData.status === 'success') {
                                 window.currentUser = meData.user;
+                                window.anonInfo = meData.anon || null;
                                 renderUserBadge();
+                                renderAnonBadge();
                             }
                         } catch (meErr) { /* бейдж просто не обновится, не критично */ }
                     } else {
@@ -2978,6 +3026,11 @@
                     }
                 } else {
                     document.getElementById('infoPanel').innerText = "Ошибка: " + data.message;
+                    // Упёрлись в лимит бесплатных карт (без аккаунта или на бесплатном
+                    // тарифе) — сразу предлагаем войти/зарегистрироваться
+                    if (response.status === 401 || response.status === 403) {
+                        window.openAuthModal();
+                    }
                 }
             } catch (err) {
                 document.getElementById('infoPanel').innerHTML = "<span style='color:#e74c3c;'>Не удалось связаться с сервером.</span>";

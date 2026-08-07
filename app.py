@@ -150,7 +150,10 @@ def me():
         finally:
             conn.close()
         if not user:
-            return jsonify({"status": "success", "user": None})
+            return jsonify({"status": "success", "user": None, "anon": {
+                "calculations_used": session.get('anon_calculations_used', 0),
+                "calculations_limit": FREE_CALCULATIONS_LIMIT
+            }})
         return jsonify({"status": "success", "user": {
             "email": user['email'],
             "plan": user['plan'],
@@ -193,10 +196,14 @@ def calculate():
                 current_user = get_current_user(cur)
         finally:
             conn.close()
-        if not current_user:
-            return jsonify({"status": "error", "message": "Войдите, чтобы построить карту"}), 401
-        if current_user['plan'] == FREE_PLAN and current_user['calculations_used'] >= FREE_CALCULATIONS_LIMIT:
-            return jsonify({"status": "error", "message": "Бесплатный тариф позволяет построить только 1 карту. Оформите тариф «Сам себе астролог» для неограниченного доступа."}), 403
+        if current_user:
+            if current_user['plan'] == FREE_PLAN and current_user['calculations_used'] >= FREE_CALCULATIONS_LIMIT:
+                return jsonify({"status": "error", "message": "Бесплатный тариф позволяет построить только 1 карту. Оформите тариф «Сам себе астролог» для неограниченного доступа."}), 403
+        else:
+            # Без регистрации — тоже 1 бесплатная карта, счётчик живёт в сессии
+            # (без привязки к аккаунту, карта нигде не сохраняется)
+            if session.get('anon_calculations_used', 0) >= FREE_CALCULATIONS_LIMIT:
+                return jsonify({"status": "error", "message": "Бесплатная карта без регистрации уже использована. Зарегистрируйтесь, чтобы построить ещё одну."}), 403
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -277,14 +284,17 @@ def calculate():
                     "longitude": float(h.abs_pos)
                 })
 
-        if current_user['plan'] == FREE_PLAN:
-            conn = get_db_connection()
-            try:
-                with conn.cursor() as cur:
-                    cur.execute("UPDATE users SET calculations_used = calculations_used + 1 WHERE id=%s", (current_user['id'],))
-                conn.commit()
-            finally:
-                conn.close()
+        if current_user:
+            if current_user['plan'] == FREE_PLAN:
+                conn = get_db_connection()
+                try:
+                    with conn.cursor() as cur:
+                        cur.execute("UPDATE users SET calculations_used = calculations_used + 1 WHERE id=%s", (current_user['id'],))
+                    conn.commit()
+                finally:
+                    conn.close()
+        else:
+            session['anon_calculations_used'] = session.get('anon_calculations_used', 0) + 1
 
         return jsonify({
             "status": "success",
