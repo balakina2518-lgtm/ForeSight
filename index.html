@@ -270,6 +270,9 @@
         .auth-error { color: #e74c3c; font-size: 0.85rem; }
         .auth-switch { text-align: center; font-size: 0.85rem; color: var(--text-muted); margin: 4px 0 0; }
         .auth-switch-btn { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 0.85rem; text-decoration: underline; padding: 0; margin-left: 4px; }
+        .auth-consent-label { flex-direction: row !important; align-items: flex-start; gap: 8px !important; font-size: 0.82rem !important; color: var(--text-muted) !important; }
+        .auth-consent-label input { width: auto; margin-top: 2px; flex-shrink: 0; }
+        .auth-consent-label a { color: var(--accent); }
         .auth-view-divider { display: flex; align-items: center; gap: 10px; width: 100%; color: var(--text-muted); font-size: 0.8rem; }
         .auth-view-divider::before, .auth-view-divider::after { content: ''; flex: 1; height: 1px; background: var(--border-color); }
         .btn-anon-chart {
@@ -397,6 +400,10 @@
                 <h2 id="authFormTitle">Вход</h2>
                 <label>Email<input type="email" id="authEmail" required autocomplete="email"></label>
                 <label>Пароль<input type="password" id="authPassword" required minlength="6" autocomplete="current-password"></label>
+                <label class="auth-consent-label" id="authConsentLabel" style="display:none;">
+                    <input type="checkbox" id="authConsent">
+                    Согласен(на) с <a href="/policy" target="_blank" rel="noopener">политикой обработки персональных данных</a>
+                </label>
                 <div class="auth-error" id="authError" style="display:none;"></div>
                 <button type="submit" class="btn-add-chart" id="authSubmitBtn">Войти</button>
                 <p class="auth-switch">
@@ -1100,19 +1107,30 @@
             document.getElementById('authSwitchText').textContent = authMode === 'login' ? 'Нет аккаунта?' : 'Уже есть аккаунт?';
             document.getElementById('authSwitchBtn').textContent = authMode === 'login' ? 'Зарегистрироваться' : 'Войти';
             document.getElementById('authError').style.display = 'none';
+            // Согласие на обработку персональных данных — обязательно только
+            // при регистрации, при входе такого поля нет вообще
+            const isRegister = authMode === 'register';
+            document.getElementById('authConsentLabel').style.display = isRegister ? 'flex' : 'none';
+            document.getElementById('authConsent').required = isRegister;
         };
 
         window.submitAuthForm = async function(event) {
             event.preventDefault();
             const email = document.getElementById('authEmail').value.trim();
             const password = document.getElementById('authPassword').value;
+            const consent = document.getElementById('authConsent').checked;
             const errorEl = document.getElementById('authError');
             errorEl.style.display = 'none';
+            if (authMode === 'register' && !consent) {
+                errorEl.textContent = 'Нужно согласие на обработку персональных данных';
+                errorEl.style.display = 'block';
+                return;
+            }
             try {
                 const response = await fetch(authMode === 'login' ? '/api/login' : '/api/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
+                    body: JSON.stringify({ email, password, consent })
                 });
                 const data = await response.json();
                 if (data.status !== 'success') {

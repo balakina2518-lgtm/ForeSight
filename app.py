@@ -102,6 +102,8 @@ def register():
         return jsonify({"status": "error", "message": "Некорректный email"}), 400
     if len(password) < 6:
         return jsonify({"status": "error", "message": "Пароль должен быть не короче 6 символов"}), 400
+    if not data.get('consent'):
+        return jsonify({"status": "error", "message": "Нужно согласие на обработку персональных данных"}), 400
     try:
         conn = get_db_connection()
         try:
@@ -473,6 +475,13 @@ def index():
             
     except Exception as e:
         print(f"Критическая ошибка при загрузке: {e}")
+        return f"Ошибка сервера: {e}", 500
+
+@app.route('/policy', methods=['GET'])
+def policy():
+    try:
+        return send_file('policy.html')
+    except Exception as e:
         return f"Ошибка сервера: {e}", 500
 
 if __name__ == '__main__':
