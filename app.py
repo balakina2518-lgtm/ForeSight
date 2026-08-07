@@ -243,16 +243,22 @@ def build_chart_payload(name, year, month, day, hour, minute, lat, lon, tz_str):
 
 @app.route('/api/daily-chart', methods=['GET'])
 def daily_chart():
-    """Карта дня — фиксированные текущие дата/время и Москва, без входа и без
-    лимитов (не расходует бесплатную карту ни зарегистрированного, ни
-    анонимного посетителя). Показывается на первой странице как превью."""
+    """Карта дня — дата и город всегда сегодня/Москва, без входа и без
+    лимитов (пробник, не расходует ничей бесплатный лимит — по прямому
+    уточнению Елены, ограничения только на тарифах). Время по умолчанию —
+    текущее, но можно передать своё через ?time=ЧЧ:ММ (дату/город всё равно
+    не поменять — этот эндпоинт всегда строит на сегодня и Москву)."""
     try:
         moscow_tz = ZoneInfo('Europe/Moscow')
         now = datetime.now(moscow_tz)
+        hour, minute = now.hour, now.minute
+        time_param = request.args.get('time')
+        if time_param:
+            hour, minute = map(int, time_param.split(':'))
         result = build_chart_payload(
             name='Карта дня',
             year=now.year, month=now.month, day=now.day,
-            hour=now.hour, minute=now.minute,
+            hour=hour, minute=minute,
             lat=55.7558, lon=37.6176, tz_str='Europe/Moscow'
         )
         return jsonify({"status": "success", **result})

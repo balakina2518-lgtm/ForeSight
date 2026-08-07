@@ -1093,8 +1093,41 @@
             const cityField = document.getElementById('city');
             cityField.value = 'Москва';
             cityField.disabled = true;
+            document.getElementById('time').value = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
             selectedLocation = { lat: 55.7558, lon: 37.6176, name: 'Москва' };
             window.updateAutoTimezone();
+        };
+
+        // Карта дня строится через отдельный безлимитный /api/daily-chart
+        // (то же, что и фоновое превью, только с выбранным временем) — не
+        // расходует ничей лимит бесплатных карт, это пробник, а не полноценное
+        // построение. Признак режима — заблокированное поле даты (его ставит
+        // startAnonChart и снимает resetForm).
+        window.calculateDailyChart = async function() {
+            const timeVal = document.getElementById('time').value;
+            if (!timeVal) {
+                document.getElementById('infoPanel').innerText = "Укажите время.";
+                return;
+            }
+            try {
+                document.getElementById('infoPanel').innerText = "Анализ данных и расчет орбитальных позиций...";
+                const response = await fetch('/api/daily-chart?time=' + encodeURIComponent(timeVal));
+                const data = await response.json();
+                if (data.status === 'success') {
+                    window.lastChartData = data;
+                    window.drawZodiacChart(data);
+                    document.getElementById('formModal').style.display = 'none';
+                    document.getElementById('infoPanel').innerHTML =
+                        "Карта дня построена.<br><span style='color:var(--accent); font-size:0.9rem;'>Это карта-пробник (сегодня, Москва) — не сохраняется и не расходует бесплатный лимит. Зарегистрируйтесь, чтобы строить и хранить свои карты.</span>";
+                    document.getElementById('chartTopName').textContent = 'Карта дня';
+                    document.getElementById('chartTopDetails').textContent = `Москва, ${timeVal}`;
+                    document.getElementById('chartTopDivider').style.display = 'inline';
+                } else {
+                    document.getElementById('infoPanel').innerText = "Ошибка: " + data.message;
+                }
+            } catch (err) {
+                document.getElementById('infoPanel').innerHTML = "<span style='color:#e74c3c;'>Не удалось связаться с сервером.</span>";
+            }
         };
 
         window.checkAuth = async function() {
@@ -3005,6 +3038,11 @@
 
         window.calculateChart = async function(event) {
             event.preventDefault();
+            // Дата заблокирована -> это карта дня (startAnonChart), у нее свой
+            // безлимитный путь через /api/daily-chart, не /api/calculate
+            if (document.getElementById('date').disabled) {
+                return window.calculateDailyChart();
+            }
             if (selectedLocation.lat === null) {
                 document.getElementById('infoPanel').innerText = "Укажите место рождения — выберите город из списка подсказок или введите координаты вручную.";
                 return;
