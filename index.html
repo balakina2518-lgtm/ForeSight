@@ -477,11 +477,11 @@
                 <div class="chart-type-dropdown">
                     <button type="button" class="toolbar-btn" onclick="window.toggleChartTypeMenu()">▾</button>
                     <nav class="chart-type-nav" id="chartTypeMenu" style="display:none;">
-                        <button type="button" class="nav-item active" onclick="window.toggleChartTypeMenu()"><span class="nav-icon">◎</span>Натал</button>
+                        <button type="button" class="nav-item active" data-type="natal" onclick="window.switchChartType('natal')"><span class="nav-icon">◎</span>Натал</button>
                         <button type="button" class="nav-item disabled" disabled title="Скоро"><span class="nav-icon">◐</span>Синастрия<span class="nav-badge">+</span></button>
                         <button type="button" class="nav-item disabled" disabled title="Скоро"><span class="nav-icon">◈</span>Прогностика<span class="nav-badge">+</span></button>
                         <button type="button" class="nav-item disabled" disabled title="Скоро"><span class="nav-icon">◇</span>Релокация<span class="nav-badge">+</span></button>
-                        <button type="button" class="nav-item disabled" disabled title="Скоро"><span class="nav-icon">◔</span>Хорар<span class="nav-badge">+</span></button>
+                        <button type="button" class="nav-item" data-type="horary" onclick="window.switchChartType('horary')"><span class="nav-icon">◔</span>Хорар</button>
                     </nav>
                 </div>
                 <button type="button" class="toolbar-btn toolbar-btn-edit" onclick="window.openFormModal()" title="Редактировать данные">
@@ -530,17 +530,17 @@
                 </div>
 
                 <div class="form-panel">
-                    <div class="form-panel-header"><span>◎</span> Натал</div>
+                    <div class="form-panel-header" id="formPanelHeader"><span>◎</span> Натал</div>
                     <form id="astroForm" class="astro-form" onsubmit="window.calculateChart(event)">
                         <div class="form-group">
-                            <label>Дата рождения</label>
+                            <label id="dateLabel">Дата рождения</label>
                             <div class="input-with-icon"><span class="field-icon">📅</span>
                                 <input type="date" id="date" required onchange="window.updateAutoTimezone()">
                             </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Время рождения</label>
+                                <label id="timeLabel">Время рождения</label>
                                 <div class="input-with-icon"><span class="field-icon">🕐</span>
                                     <input type="time" id="time" required>
                                 </div>
@@ -551,7 +551,7 @@
                             </div>
                         </div>
                         <div class="form-group">
-                            <label>Место рождения</label>
+                            <label id="cityLabel">Место рождения</label>
                             <div class="input-with-icon"><span class="field-icon">📍</span>
                                 <input type="text" id="city" placeholder="Населённый пункт, область, страна" autocomplete="off" oninput="window.resetLocation(); window.searchCities(this.value)">
                             </div>
@@ -757,6 +757,8 @@
             document.getElementById('manualCoordsGroup').style.display = 'none';
             document.getElementById('city').disabled = false;
             document.getElementById('date').disabled = false;
+            currentChartType = 'natal';
+            applyChartTypeLabels('natal');
             timezoneManuallyEdited = false;
             selectedLocation = { lat: null, lon: null, name: "" };
             window.lastChartData = null;
@@ -1005,6 +1007,28 @@
         window.currentUser = null;
         window.anonInfo = null;
         let authMode = 'login';
+        let currentChartType = 'natal';
+
+        // Подписи формы под тип карты — натал говорит про рождение, хорар про
+        // момент вопроса. Меняются только подписи/заголовок/плейсхолдер,
+        // расчёт карты (тот же /api/calculate) от типа не зависит.
+        const CHART_TYPE_FORM_LABELS = {
+            natal: { header: 'Натал', namePlaceholder: 'Введите название', date: 'Дата рождения', time: 'Время рождения', city: 'Место рождения' },
+            horary: { header: 'Хорар', namePlaceholder: 'Введите вопрос', date: 'Дата вопроса', time: 'Время вопроса', city: 'Место вопроса' }
+        };
+
+        function applyChartTypeLabels(type) {
+            const meta = CHART_TYPE_ICONS[type] || CHART_TYPE_ICONS.natal;
+            const labels = CHART_TYPE_FORM_LABELS[type] || CHART_TYPE_FORM_LABELS.natal;
+            document.getElementById('formPanelHeader').innerHTML = `<span>${meta.icon}</span> ${labels.header}`;
+            document.getElementById('name').placeholder = labels.namePlaceholder;
+            document.getElementById('dateLabel').textContent = labels.date;
+            document.getElementById('timeLabel').textContent = labels.time;
+            document.getElementById('cityLabel').textContent = labels.city;
+            document.querySelectorAll('.chart-type-nav .nav-item[data-type]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.type === type);
+            });
+        }
 
         const PLAN_LABELS = { free: 'Бесплатный', astrolog: 'Сам себе астролог', admin: 'Администратор' };
 
@@ -1259,7 +1283,8 @@
                         lon: selectedLocation.lon,
                         place_name: selectedLocation.name,
                         timezone: document.getElementById('timezone').value,
-                        gender: document.getElementById('gender').value
+                        gender: document.getElementById('gender').value,
+                        chart_type: currentChartType
                     })
                 });
             } catch (err) {
@@ -1361,6 +1386,8 @@
         window.loadChart = function(index) {
             const c = chartsCache[index];
             window.showChartView();
+            currentChartType = c.chart_type || 'natal';
+            applyChartTypeLabels(currentChartType);
             document.getElementById('name').value = c.name;
             document.getElementById('date').value = c.birth_date;
             const timeValue = extractHHMM(c.birth_time);
@@ -1463,6 +1490,25 @@
         window.toggleChartTypeMenu = function() {
             const menuEl = document.getElementById('chartTypeMenu');
             menuEl.style.display = menuEl.style.display === 'none' ? 'flex' : 'none';
+        };
+
+        // Выбор типа карты в меню (пока только Натал/Хорар) — открывает чистую
+        // форму построения под этот тип. Расчёт (/api/calculate) одинаковый
+        // для всех типов, разные только подписи формы и что попадёт в поле
+        // "название"/"вопрос". Для хорара дата/время по умолчанию — сейчас
+        // (момент вопроса), но, в отличие от карты дня, полностью
+        // редактируемые — место вопроса вводится как обычно.
+        window.switchChartType = function(type) {
+            document.getElementById('chartTypeMenu').style.display = 'none';
+            window.showChartForm();
+            currentChartType = type;
+            applyChartTypeLabels(type);
+            if (type === 'horary') {
+                const now = new Date();
+                const pad = n => String(n).padStart(2, '0');
+                document.getElementById('date').value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+                document.getElementById('time').value = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+            }
         };
 
         function rad(deg) { return deg * Math.PI / 180; }
@@ -3119,7 +3165,8 @@
                                     lon: payload.lon,
                                     place_name: selectedLocation.name,
                                     timezone: document.getElementById('timezone').value,
-                                    gender: payload.gender
+                                    gender: payload.gender,
+                                    chart_type: currentChartType
                                 })
                             });
                         } catch (saveErr) {
