@@ -16,11 +16,18 @@ CORS(app, supports_credentials=True)
 # Данные для подключения к БД лежат в config.py прямо на сервере (не в гите —
 # файл с паролем от базы не должен попадать в публичный репозиторий). Там же —
 # SECRET_KEY для подписи сессионных cookie (без него сессии слетают при
-# каждом перезапуске Passenger).
+# каждом перезапуске Passenger). Импортируем раздельно: если в config.py ещё
+# нет SECRET_KEY (например, не успели добавить), это не должно ронять и
+# подключение к БД заодно — раньше был один try/except на всё сразу, и
+# отсутствие любой из переменных обнуляло вообще все, включая DB_HOST.
 try:
-    from config import DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, SECRET_KEY
+    from config import DB_HOST, DB_USER, DB_PASSWORD, DB_NAME
 except ImportError:
-    DB_HOST = DB_USER = DB_PASSWORD = DB_NAME = SECRET_KEY = None
+    DB_HOST = DB_USER = DB_PASSWORD = DB_NAME = None
+try:
+    from config import SECRET_KEY
+except ImportError:
+    SECRET_KEY = None
 
 app.secret_key = SECRET_KEY or 'dev-only-insecure-key-set-SECRET_KEY-in-config.py'
 app.config.update(
