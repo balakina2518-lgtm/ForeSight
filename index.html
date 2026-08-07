@@ -638,36 +638,6 @@
                                         <input type="number" id="lonInput" step="any" placeholder="37.6173" oninput="window.applyManualCoords()">
                                     </div>
                                 </div>
-                                <div class="form-toggle-row">
-                                    <span class="toggle-label">Показать аспекты</span>
-                                    <label class="switch">
-                                        <input type="checkbox" id="showAspectsToggle" checked>
-                                        <span class="slider"></span>
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="form-section">
-                            <button type="button" class="form-section-header collapsed" onclick="window.toggleFormSection(this)">
-                                <span>Дополнительные данные</span><span class="form-section-chevron">⌄</span>
-                            </button>
-                            <div class="form-section-body" style="display:none;">
-                                <div class="form-group">
-                                    <label>Система домов</label>
-                                    <div class="house-system-radios" id="houseSystemRadios">
-                                        <label><input type="radio" name="houseSystem" value="placidus" checked> Плацидус</label>
-                                        <label><input type="radio" name="houseSystem" value="regiomontanus"> Региомонтан</label>
-                                        <label><input type="radio" name="houseSystem" value="koch"> Кох</label>
-                                        <label><input type="radio" name="houseSystem" value="equal"> Равнодомная</label>
-                                    </div>
-                                </div>
-                                <div class="form-toggle-row">
-                                    <span class="toggle-label">Отображать на карте высшие планеты</span>
-                                    <label class="switch">
-                                        <input type="checkbox" id="showHigherPlanetsToggle" checked>
-                                        <span class="slider"></span>
-                                    </label>
-                                </div>
                                 <div class="form-group">
                                     <label>Пол</label>
                                     <select id="gender">
@@ -683,12 +653,50 @@
                                         <span class="slider"></span>
                                     </label>
                                 </div>
-                                <div class="form-section">
-                                    <button type="button" class="form-section-header form-section-header-nested collapsed" onclick="window.toggleFormSection(this)">
-                                        <span>Каталог объектов</span><span class="form-section-chevron">⌄</span>
-                                    </button>
-                                    <div class="form-section-body" style="display:none;">
-                                        <div class="catalog-checklist" id="catalogChecklist"></div>
+                            </div>
+                        </div>
+                        <!-- Всё ниже — только для хорара (по прямому уточнению Елены: в
+                             натальной карте ничего дополнительного быть не должно) -->
+                        <div id="horaryOnlyFields" style="display:none;">
+                            <div class="form-section">
+                                <div class="form-section-body">
+                                    <div class="form-toggle-row">
+                                        <span class="toggle-label">Показать аспекты</span>
+                                        <label class="switch">
+                                            <input type="checkbox" id="showAspectsToggle" checked>
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-section">
+                                <button type="button" class="form-section-header collapsed" onclick="window.toggleFormSection(this)">
+                                    <span>Дополнительные данные</span><span class="form-section-chevron">⌄</span>
+                                </button>
+                                <div class="form-section-body" style="display:none;">
+                                    <div class="form-group">
+                                        <label>Система домов</label>
+                                        <div class="house-system-radios" id="houseSystemRadios">
+                                            <label><input type="radio" name="houseSystem" value="placidus" checked> Плацидус</label>
+                                            <label><input type="radio" name="houseSystem" value="regiomontanus"> Региомонтан</label>
+                                            <label><input type="radio" name="houseSystem" value="koch"> Кох</label>
+                                            <label><input type="radio" name="houseSystem" value="equal"> Равнодомная</label>
+                                        </div>
+                                    </div>
+                                    <div class="form-toggle-row">
+                                        <span class="toggle-label">Отображать на карте высшие планеты</span>
+                                        <label class="switch">
+                                            <input type="checkbox" id="showHigherPlanetsToggle" checked>
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                    <div class="form-section">
+                                        <button type="button" class="form-section-header form-section-header-nested collapsed" onclick="window.toggleFormSection(this)">
+                                            <span>Каталог объектов</span><span class="form-section-chevron">⌄</span>
+                                        </button>
+                                        <div class="form-section-body" style="display:none;">
+                                            <div class="catalog-checklist" id="catalogChecklist"></div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1137,6 +1145,9 @@
             document.querySelectorAll('.chart-type-nav .nav-item[data-type]').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.type === type);
             });
+            // Аспекты-тумблер, система домов, высшие планеты, каталог объектов —
+            // только для хорара, в натале их вообще не должно быть видно
+            document.getElementById('horaryOnlyFields').style.display = (type === 'horary') ? 'block' : 'none';
         }
 
         const PLAN_LABELS = { free: 'Бесплатный', astrolog: 'Сам себе астролог', admin: 'Администратор' };
