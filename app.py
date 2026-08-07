@@ -204,7 +204,12 @@ HOUSE_MAPPING = [
     "ninth_house", "tenth_house", "eleventh_house", "twelfth_house"
 ]
 
-def build_chart_payload(name, year, month, day, hour, minute, lat, lon, tz_str):
+# Буквенные коды систем домов — из документации Kerykeion (Swiss Ephemeris):
+# P=Placidus, R=Regiomontanus, K=Koch, A=equal (Равнодомная)
+HOUSE_SYSTEM_CODES = {"placidus": "P", "regiomontanus": "R", "koch": "K", "equal": "A"}
+
+def build_chart_payload(name, year, month, day, hour, minute, lat, lon, tz_str,
+                         houses_system_identifier='P', seconds=0):
     """Общая логика построения планет/домов через Kerykeion — используется и
     обычным расчётом (/api/calculate), и картой дня (/api/daily-chart)."""
     subject = AstrologicalSubjectFactory.from_birth_data(
@@ -213,7 +218,9 @@ def build_chart_payload(name, year, month, day, hour, minute, lat, lon, tz_str):
         hour=hour, minute=minute,
         lng=lon, lat=lat,
         tz_str=tz_str,
-        online=False
+        online=False,
+        houses_system_identifier=houses_system_identifier,
+        seconds=seconds
     )
 
     planets_data = []
@@ -301,9 +308,12 @@ def calculate():
         # Парсим дату и время
         year, month, day = map(int, data['date'].split('-'))
         hour, minute = map(int, data['time'].split(':'))
+        second = int(data.get('second') or 0)
 
         lat = float(data['lat'])
         lon = float(data['lon'])
+
+        house_system_code = HOUSE_SYSTEM_CODES.get(data.get('house_system'), 'P')
 
         # Часовой пояс: по умолчанию определяем автоматически по координатам
         # места рождения (kerykeion сам учитывает исторические переходы на
@@ -319,8 +329,17 @@ def calculate():
                 return jsonify({"status": "error", "message": "Не удалось определить часовой пояс автоматически — укажите его вручную"}), 400
 
         result = build_chart_payload(
-            data.get('name', 'Проект'), year, month, day, hour, minute, lat, lon, tz_str
+            data.get('name', 'Проект'), year, month, day, hour, minute, lat, lon, tz_str,
+            houses_system_identifier=house_system_code, seconds=second
         )
+
+        # Каталог объектов — какие из уже посчитанных тел реально показывать.
+        # Список приходит с фронта (id из PLANET_MAPPING); если не передан —
+        # ничего не фильтруем, ведут себя как раньше (все тела показаны).
+        active_points = data.get('active_points')
+        if active_points:
+            active_set = set(active_points)
+            result = {**result, "planets": [p for p in result["planets"] if p["id"] in active_set]}
 
         if current_user:
             if current_user['plan'] == FREE_PLAN:

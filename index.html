@@ -338,6 +338,24 @@
         }
         .switch input:checked + .slider { background-color: var(--accent); }
         .switch input:checked + .slider::before { transform: translateX(17px); }
+
+        .form-section { border-top: 1px solid var(--border-color); padding-top: 14px; margin-top: 4px; }
+        .form-section:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+        .form-section-header {
+            width: 100%; display: flex; align-items: center; justify-content: space-between;
+            background: none; border: none; padding: 0 0 12px; cursor: pointer;
+            font-size: 0.95rem; font-weight: 600; color: var(--text-main); text-align: left;
+        }
+        .form-section-header-nested { font-size: 0.88rem; font-weight: 500; color: var(--text-muted); padding-bottom: 8px; }
+        .form-section-chevron { transition: transform 0.15s; color: var(--text-muted); }
+        .form-section-header.collapsed .form-section-chevron { transform: rotate(-90deg); }
+        .form-section-body { display: flex; flex-direction: column; gap: 14px; }
+        .house-system-radios { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+        .house-system-radios label { display: flex; align-items: center; gap: 6px; font-size: 0.88rem; color: var(--text-main); cursor: pointer; }
+        .house-system-radios input { width: auto; }
+        .catalog-checklist { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+        .catalog-checklist label { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--text-main); cursor: pointer; }
+        .catalog-checklist input { width: auto; }
         .switch input:disabled + .slider { opacity: 0.5; cursor: not-allowed; }
         
         .suggestions-list { 
@@ -532,59 +550,104 @@
                 <div class="form-panel">
                     <div class="form-panel-header" id="formPanelHeader"><span>◎</span> Натал</div>
                     <form id="astroForm" class="astro-form" onsubmit="window.calculateChart(event)">
-                        <div class="form-group">
-                            <label id="dateLabel">Дата рождения</label>
-                            <div class="input-with-icon"><span class="field-icon">📅</span>
-                                <input type="date" id="date" required onchange="window.updateAutoTimezone()">
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label id="timeLabel">Время рождения</label>
-                                <div class="input-with-icon"><span class="field-icon">🕐</span>
-                                    <input type="time" id="time" required>
+                        <div class="form-section">
+                            <button type="button" class="form-section-header" onclick="window.toggleFormSection(this)">
+                                <span>Базовые данные</span><span class="form-section-chevron">⌄</span>
+                            </button>
+                            <div class="form-section-body">
+                                <div class="form-group">
+                                    <label id="dateLabel">Дата рождения</label>
+                                    <div class="input-with-icon"><span class="field-icon">📅</span>
+                                        <input type="date" id="date" required onchange="window.updateAutoTimezone()">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label id="timeLabel">Время рождения</label>
+                                        <div class="input-with-icon"><span class="field-icon">🕐</span>
+                                            <input type="time" id="time" step="1" required>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Часовой пояс</label>
+                                        <input type="number" id="timezone" placeholder="Авто" min="-12" max="14" step="1" oninput="window.markTimezoneEdited()">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label id="cityLabel">Место рождения</label>
+                                    <div class="input-with-icon"><span class="field-icon">📍</span>
+                                        <input type="text" id="city" placeholder="Населённый пункт, область, страна" autocomplete="off" oninput="window.resetLocation(); window.searchCities(this.value)">
+                                    </div>
+                                    <ul id="suggestions" class="suggestions-list"></ul>
+                                </div>
+                                <div class="form-checkbox-group">
+                                    <input type="checkbox" id="manualCoords" onchange="window.toggleManualCoords()">
+                                    <label for="manualCoords">Ввести координаты</label>
+                                </div>
+                                <div class="form-row" id="manualCoordsGroup" style="display:none;">
+                                    <div class="form-group">
+                                        <label>Широта</label>
+                                        <input type="number" id="latInput" step="any" placeholder="55.7558" oninput="window.applyManualCoords()">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Долгота</label>
+                                        <input type="number" id="lonInput" step="any" placeholder="37.6173" oninput="window.applyManualCoords()">
+                                    </div>
+                                </div>
+                                <div class="form-toggle-row">
+                                    <span class="toggle-label">Показать аспекты</span>
+                                    <label class="switch">
+                                        <input type="checkbox" id="showAspectsToggle" checked>
+                                        <span class="slider"></span>
+                                    </label>
                                 </div>
                             </div>
-                            <div class="form-group">
-                                <label>Часовой пояс</label>
-                                <input type="number" id="timezone" placeholder="Авто" min="-12" max="14" step="1" oninput="window.markTimezoneEdited()">
+                        </div>
+                        <div class="form-section">
+                            <button type="button" class="form-section-header collapsed" onclick="window.toggleFormSection(this)">
+                                <span>Дополнительные данные</span><span class="form-section-chevron">⌄</span>
+                            </button>
+                            <div class="form-section-body" style="display:none;">
+                                <div class="form-group">
+                                    <label>Система домов</label>
+                                    <div class="house-system-radios" id="houseSystemRadios">
+                                        <label><input type="radio" name="houseSystem" value="placidus" checked> Плацидус</label>
+                                        <label><input type="radio" name="houseSystem" value="regiomontanus"> Региомонтан</label>
+                                        <label><input type="radio" name="houseSystem" value="koch"> Кох</label>
+                                        <label><input type="radio" name="houseSystem" value="equal"> Равнодомная</label>
+                                    </div>
+                                </div>
+                                <div class="form-toggle-row">
+                                    <span class="toggle-label">Отображать на карте высшие планеты</span>
+                                    <label class="switch">
+                                        <input type="checkbox" id="showHigherPlanetsToggle" checked>
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label>Пол</label>
+                                    <select id="gender">
+                                        <option value="">—</option>
+                                        <option value="female">Женский</option>
+                                        <option value="male">Мужской</option>
+                                    </select>
+                                </div>
+                                <div class="form-toggle-row">
+                                    <span class="toggle-label">Режим космограммы</span>
+                                    <label class="switch">
+                                        <input type="checkbox" id="cosmogramMode" disabled title="Скоро">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                <div class="form-section">
+                                    <button type="button" class="form-section-header form-section-header-nested collapsed" onclick="window.toggleFormSection(this)">
+                                        <span>Каталог объектов</span><span class="form-section-chevron">⌄</span>
+                                    </button>
+                                    <div class="form-section-body" style="display:none;">
+                                        <div class="catalog-checklist" id="catalogChecklist"></div>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div class="form-group">
-                            <label id="cityLabel">Место рождения</label>
-                            <div class="input-with-icon"><span class="field-icon">📍</span>
-                                <input type="text" id="city" placeholder="Населённый пункт, область, страна" autocomplete="off" oninput="window.resetLocation(); window.searchCities(this.value)">
-                            </div>
-                            <ul id="suggestions" class="suggestions-list"></ul>
-                        </div>
-                        <div class="form-checkbox-group">
-                            <input type="checkbox" id="manualCoords" onchange="window.toggleManualCoords()">
-                            <label for="manualCoords">Ввести координаты</label>
-                        </div>
-                        <div class="form-row" id="manualCoordsGroup" style="display:none;">
-                            <div class="form-group">
-                                <label>Широта</label>
-                                <input type="number" id="latInput" step="any" placeholder="55.7558" oninput="window.applyManualCoords()">
-                            </div>
-                            <div class="form-group">
-                                <label>Долгота</label>
-                                <input type="number" id="lonInput" step="any" placeholder="37.6173" oninput="window.applyManualCoords()">
-                            </div>
-                        </div>
-                        <div class="form-toggle-row">
-                            <span class="toggle-label">Режим космограммы</span>
-                            <label class="switch">
-                                <input type="checkbox" id="cosmogramMode" disabled title="Скоро">
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                        <div class="form-group">
-                            <label>Пол</label>
-                            <select id="gender">
-                                <option value="">—</option>
-                                <option value="female">Женский</option>
-                                <option value="male">Мужской</option>
-                            </select>
                         </div>
                     </form>
                 </div>
@@ -1323,6 +1386,30 @@
             horary: { icon: '◔', title: 'Хорар' }
         };
 
+        // Каталог объектов — какие тела реально считать/показывать (форма,
+        // "Дополнительные данные"). Список — все тела, которые бэкенд вообще
+        // умеет считать (см. PLANET_MAPPING в app.py), по умолчанию все включены.
+        const CATALOG_OBJECTS = [
+            { id: 'Sun', name: 'Солнце' }, { id: 'Moon', name: 'Луна' },
+            { id: 'Mercury', name: 'Меркурий' }, { id: 'Venus', name: 'Венера' },
+            { id: 'Mars', name: 'Марс' }, { id: 'Jupiter', name: 'Юпитер' },
+            { id: 'Saturn', name: 'Сатурн' }, { id: 'Uranus', name: 'Уран' },
+            { id: 'Neptune', name: 'Нептун' }, { id: 'Pluto', name: 'Плутон' },
+            { id: 'Chiron', name: 'Хирон' }, { id: 'Lilith', name: 'Лилит' },
+            { id: 'Mean_Node', name: 'Северный узел' }, { id: 'South_Node', name: 'Южный узел' }
+        ];
+
+        function renderCatalogChecklist() {
+            const el = document.getElementById('catalogChecklist');
+            el.innerHTML = CATALOG_OBJECTS.map(o => `
+                <label><input type="checkbox" class="catalog-check" value="${o.id}" checked> ${escapeHtml(o.name)}</label>
+            `).join('');
+        }
+
+        function getActiveCatalogPoints() {
+            return Array.from(document.querySelectorAll('.catalog-check:checked')).map(cb => cb.value);
+        }
+
         function renderChartTypeIcons(chartType) {
             const types = (chartType || 'natal').split(',').map(t => t.trim()).filter(Boolean);
             return types.map(t => {
@@ -1490,6 +1577,14 @@
         window.toggleChartTypeMenu = function() {
             const menuEl = document.getElementById('chartTypeMenu');
             menuEl.style.display = menuEl.style.display === 'none' ? 'flex' : 'none';
+        };
+
+        // Сворачивание/разворачивание блоков формы ("Базовые данные",
+        // "Дополнительные данные", вложенный "Каталог объектов")
+        window.toggleFormSection = function(headerBtn) {
+            const body = headerBtn.nextElementSibling;
+            const collapsed = headerBtn.classList.toggle('collapsed');
+            body.style.display = collapsed ? 'none' : 'flex';
         };
 
         // Выбор типа карты в меню (пока только Натал/Хорар) — открывает чистую
@@ -3099,13 +3194,20 @@
             }
 
             const timezoneValue = document.getElementById('timezone').value;
+            // Поле времени теперь с секундами (step="1") — value может прийти
+            // как "ЧЧ:ММ" или "ЧЧ:ММ:СС", секунды отправляем отдельным полем
+            const timeParts = document.getElementById('time').value.split(':');
+            const houseSystemInput = document.querySelector('input[name="houseSystem"]:checked');
             const payload = {
                 name: document.getElementById('name').value,
                 date: document.getElementById('date').value,
-                time: document.getElementById('time').value,
+                time: `${timeParts[0]}:${timeParts[1]}`,
+                second: timeParts[2] ? parseInt(timeParts[2], 10) : 0,
                 lat: selectedLocation.lat,
                 lon: selectedLocation.lon,
-                gender: document.getElementById('gender').value
+                gender: document.getElementById('gender').value,
+                house_system: houseSystemInput ? houseSystemInput.value : 'placidus',
+                active_points: getActiveCatalogPoints()
             };
             if (timezoneValue !== '') {
                 payload.timezone = timezoneValue;
@@ -3197,7 +3299,15 @@
             `;
         };
 
+        // Планеты, скрываемые тумблером "Отображать на карте высшие планеты"
+        // (переключатель в форме, не про построение — только вид колеса)
+        const HIGHER_PLANETS = ['Uranus', 'Neptune', 'Pluto'];
+
         window.drawZodiacChart = function(data) {
+            const higherToggle = document.getElementById('showHigherPlanetsToggle');
+            if (higherToggle && !higherToggle.checked) {
+                data = { ...data, planets: (data.planets || []).filter(p => !HIGHER_PLANETS.includes(p.id)) };
+            }
             const size = 800;
             const center = size / 2;
             const radius = 340;
@@ -3256,7 +3366,9 @@
             // (Хирон, Лилит, Северный/Южный Узел) в видимых аспектах не участвуют.
             // Орбис для каждой пары — по таблице (getPairOrb), одинаковый для всех
             // типов аспектов внутри пары.
-            const aspectPlanets = (data.planets || []).filter(p => !FICTITIOUS_POINTS.includes(p.id));
+            const aspectsToggle = document.getElementById('showAspectsToggle');
+            const showAspects = !aspectsToggle || aspectsToggle.checked;
+            const aspectPlanets = showAspects ? (data.planets || []).filter(p => !FICTITIOUS_POINTS.includes(p.id)) : [];
 
             // Пары, чей аспект подтверждён расширенным (конфигурационным) орбисом —
             // такой аспект рисуется на круге наравне со стандартными, иначе
@@ -3590,6 +3702,7 @@
             document.getElementById('canvasContainer').innerHTML = svgContent;
         };
 
+        renderCatalogChecklist();
         window.checkAuth();
     </script>
 </body>
