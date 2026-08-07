@@ -381,7 +381,27 @@
             aspect-ratio: 1 / 1; position: relative;
         }
         .canvas-container svg { width: 100%; height: 100%; display: block; }
-        
+
+        .chart-with-ruler { display: flex; flex-direction: row; align-items: center; gap: 20px; min-width: 0; }
+        .chart-with-ruler .canvas-container { flex: 1 1 auto; min-width: 0; }
+        /* Линейка градусов (0-30) — только для хорара, планеты выстроены по
+           градусу-в-знаке independent от их реального положения на круге */
+        .degree-ruler {
+            flex: 0 0 92px; align-self: stretch; position: relative; min-height: 300px;
+            font-size: 0.72rem; color: var(--text-muted);
+        }
+        .degree-ruler-track { position: relative; height: 100%; margin-left: 22px; }
+        .degree-ruler-tick {
+            position: absolute; left: -22px; transform: translateY(-50%);
+            display: flex; align-items: center; gap: 4px; width: 100%; white-space: nowrap;
+        }
+        .degree-ruler-tick::after { content: ''; flex: 1; height: 1px; background: var(--border-color); }
+        .degree-ruler-item {
+            position: absolute; left: 0; transform: translateY(-50%);
+            display: flex; align-items: center; gap: 3px; white-space: nowrap; font-size: 0.82rem;
+        }
+        .degree-ruler-item .degree-ruler-sign { opacity: 0.7; font-size: 0.78rem; }
+
         .info-panel { 
             margin-top: 25px; min-height: 60px; text-align: center; font-size: 1.05rem; 
             color: var(--text-muted); max-width: 600px; line-height: 1.4;
@@ -482,12 +502,15 @@
             </div>
             <div class="datetime-scale-overlay" id="datetimeScaleOverlay" style="display:none;"></div>
             <main class="main-content">
-                <div class="canvas-container" id="canvasContainer">
-                    <div style="color: var(--text-muted); text-align: center;" id="placeholderText">
-                        <span style="font-size: 3.5rem; display:block; margin-bottom:10px;">⚜️</span>
-                        Астропроцессор «Форсайт»<br>
-                        <span style="font-size:0.95rem; opacity: 0.6;">Профессиональная визуализация</span>
+                <div class="chart-with-ruler">
+                    <div class="canvas-container" id="canvasContainer">
+                        <div style="color: var(--text-muted); text-align: center;" id="placeholderText">
+                            <span style="font-size: 3.5rem; display:block; margin-bottom:10px;">⚜️</span>
+                            Астропроцессор «Форсайт»<br>
+                            <span style="font-size:0.95rem; opacity: 0.6;">Профессиональная визуализация</span>
+                        </div>
                     </div>
+                    <div class="degree-ruler" id="degreeRuler" style="display:none;"></div>
                 </div>
                 <div class="info-panel" id="infoPanel">Заполните данные для старта вычислений</div>
             </main>
@@ -822,6 +845,8 @@
             document.getElementById('date').disabled = false;
             currentChartType = 'natal';
             applyChartTypeLabels('natal');
+            document.getElementById('degreeRuler').style.display = 'none';
+            document.getElementById('degreeRuler').innerHTML = '';
             timezoneManuallyEdited = false;
             selectedLocation = { lat: null, lon: null, name: "" };
             window.lastChartData = null;
@@ -1710,6 +1735,31 @@
             const m = Math.floor(mFull);
             const s = Math.round((mFull - m) * 60);
             return `${d}°${String(m).padStart(2, '0')}'${String(s).padStart(2, '0')}"`;
+        }
+
+        // Линейка градусов (0-30) для хорара — все тела выстроены по их
+        // градусу-в-знаке (0 сверху, 30 снизу), независимо от знака. Позиции —
+        // в процентах высоты, чтобы линейка тянулась вместе с колесом
+        // (без анти-коллизии — при точном совпадении градусов подписи лягут
+        // друг на друга, это упрощение первой версии).
+        function buildDegreeRulerHTML(planetsList) {
+            let html = '';
+            for (let d = 0; d <= 30; d += 5) {
+                html += `<div class="degree-ruler-tick" style="top:${(d / 30 * 100).toFixed(2)}%">${d}</div>`;
+            }
+            (planetsList || []).forEach(p => {
+                if (typeof p.longitude !== 'number') return;
+                const lon = ((p.longitude % 360) + 360) % 360;
+                const signIdx = Math.floor(lon / 30);
+                const degInSign = lon - signIdx * 30;
+                const topPct = (degInSign / 30 * 100).toFixed(2);
+                const title = `${escapeHtml(p.name)} ${toDMS(degInSign)} ${ZODIAC_NAMES[signIdx]}`;
+                html += `<div class="degree-ruler-item" style="top:${topPct}%" title="${title}">
+                    <span>${p.symbol}${p.retrograde ? '<sup>r</sup>' : ''}</span>
+                    <span class="degree-ruler-sign">${ZODIAC_SYMBOLS[signIdx]}</span>
+                </div>`;
+            });
+            return html;
         }
 
         // Как detectAspect, но дополнительно проверяет пары, чей аспект
@@ -3308,7 +3358,13 @@
             if (higherToggle && !higherToggle.checked) {
                 data = { ...data, planets: (data.planets || []).filter(p => !HIGHER_PLANETS.includes(p.id)) };
             }
-            const size = 800;
+            // Хорар — отдельный вид колеса (по референсу Елены): планеты вынесены
+            // ЗА кольцо знаков, а не внутрь как в натале, плюс номера домов внутри
+            // и звёздочки-риски у куспидов. Больше svg-полотно (size/center),
+            // чтобы вынесенным наружу планетам хватило места — сам радиус кольца
+            // (radius) не меняется, натал этот флаг никак не задевает.
+            const isHorary = currentChartType === 'horary';
+            const size = isHorary ? 900 : 800;
             const center = size / 2;
             const radius = 340;
             const innerRadius = radius - 110;
@@ -3325,7 +3381,7 @@
 
             // Углы планет считаем заранее (а не только в секции 4), чтобы куспиды домов
             // (секция 3) знали, где физически проходит разрыв под символом планеты
-            const baseRadius = radius - 75;
+            const baseRadius = isHorary ? radius + 70 : radius - 75;
             let planets = JSON.parse(JSON.stringify(data.planets || []));
             planets.sort((a, b) => b.longitude - a.longitude);
             const angleStep = 10; // градусов смещения символа на каждую коллизию
@@ -3587,8 +3643,34 @@
                     const houseDegree = Math.ceil(house.longitude % 30) === 0 ? 1 : Math.ceil(house.longitude % 30);
                     const houseDegreeColor = isMainAxis ? "var(--accent)" : "var(--text-main)";
                     svgContent += `<text x="${tx + 7}" y="${ty - 7}" fill="${houseDegreeColor}" font-size="9" font-weight="bold" text-anchor="start">${houseDegree}°</text>`;
+
+                    // Хорар (по референсу): звёздочка-тик у неугловых куспидов —
+                    // угловые и так выделены стрелкой/кружком-терминатором выше
+                    if (isHorary && !isMainAxis) {
+                        const starR = extendOut + 26;
+                        const starX = center + starR * dCos(angle);
+                        const starY = center + starR * dSin(angle);
+                        svgContent += `<text x="${starX}" y="${starY}" fill="var(--text-muted)" font-size="11" text-anchor="middle" dominant-baseline="central">✦</text>`;
+                    }
                     svgContent += `</g>`;
                 });
+
+                // Хорар: номера домов (1-12) внутри, посередине между соседними
+                // куспидами по факту (дома не всегда ровно по 30°)
+                if (isHorary) {
+                    for (let n = 1; n <= 12; n++) {
+                        const h1 = data.houses.find(hh => hh.num === n);
+                        const h2 = data.houses.find(hh => hh.num === (n === 12 ? 1 : n + 1));
+                        if (!h1 || !h2) continue;
+                        let span = h2.longitude - h1.longitude;
+                        if (span <= 0) span += 360;
+                        const midAngle = getScreenAngle(h1.longitude + span / 2);
+                        const numR = innerRadius * 0.4;
+                        const numX = center + numR * dCos(midAngle);
+                        const numY = center + numR * dSin(midAngle);
+                        svgContent += `<text x="${numX}" y="${numY}" fill="var(--text-muted)" font-size="13" text-anchor="middle" dominant-baseline="central">${n}</text>`;
+                    }
+                }
             }
 
             // 2. ВНЕШНЕЕ КОЛЬЦО (Цвета стихий и квадратики символов)
@@ -3650,8 +3732,12 @@
                 const trueAngle = body.trueAngle;
                 const symbolAngle = body.displayAngle;
 
-                const dotX = center + innerRadius * dCos(trueAngle);
-                const dotY = center + innerRadius * dSin(trueAngle);
+                // В хораре планеты вынесены за кольцо — метка истинной позиции
+                // ставится у внешнего края кольца, а не на внутреннем круге,
+                // иначе поводок-леска тянулся бы через всё кольцо целиком
+                const dotRadius = isHorary ? radius : innerRadius;
+                const dotX = center + dotRadius * dCos(trueAngle);
+                const dotY = center + dotRadius * dSin(trueAngle);
                 svgContent += `<circle cx="${dotX}" cy="${dotY}" r="3.5" fill="var(--accent)" />`;
 
                 if (Math.abs(symbolAngle - trueAngle) > 0.01) {
@@ -3700,6 +3786,15 @@
             svgContent += conjunctionOverlay;
             svgContent += `</svg>`;
             document.getElementById('canvasContainer').innerHTML = svgContent;
+
+            const rulerEl = document.getElementById('degreeRuler');
+            if (isHorary) {
+                rulerEl.innerHTML = `<div class="degree-ruler-track">${buildDegreeRulerHTML(planets)}</div>`;
+                rulerEl.style.display = 'block';
+            } else {
+                rulerEl.style.display = 'none';
+                rulerEl.innerHTML = '';
+            }
         };
 
         renderCatalogChecklist();
