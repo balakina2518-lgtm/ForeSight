@@ -1044,6 +1044,28 @@
         // (по прямому уточнению Елены: 1 карту можно построить без
         // регистрации) — сразу открываем форму построения карты, вход нужен
         // только чтобы построить больше одной или сохранить карту.
+        let dailyChartLoaded = false;
+        // Карта дня — фиксированные текущее время + Москва, без формы и без
+        // расхода бесплатного лимита (отдельный публичный эндпоинт). Просто
+        // рисуется в круге как превью, не трогает window.lastChartData —
+        // иначе перепутается с реальной картой, которую человек строит сам.
+        window.loadDailyChart = async function() {
+            if (dailyChartLoaded) return;
+            dailyChartLoaded = true;
+            try {
+                const response = await fetch('/api/daily-chart');
+                const data = await response.json();
+                if (data.status === 'success' && !window.lastChartData) {
+                    window.drawZodiacChart(data);
+                    document.getElementById('chartTopName').textContent = 'Карта дня';
+                    document.getElementById('chartTopDetails').textContent = 'Москва, сейчас';
+                    document.getElementById('chartTopDivider').style.display = 'inline';
+                }
+            } catch (err) {
+                dailyChartLoaded = false; // не получилось — можно попробовать снова
+            }
+        };
+
         window.checkAuth = async function() {
             try {
                 const response = await fetch('/api/me');
@@ -1065,6 +1087,7 @@
                 renderAnonBadge();
                 if (!window.lastChartData) {
                     window.showChartForm();
+                    window.loadDailyChart();
                 }
             }
         };

@@ -190,6 +190,73 @@ def get_timezone():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
 
+PLANET_MAPPING = {
+    "sun": "Sun", "moon": "Moon", "mercury": "Mercury", "venus": "Venus",
+    "mars": "Mars", "jupiter": "Jupiter", "saturn": "Saturn", "uranus": "Uranus",
+    "neptune": "Neptune", "pluto": "Pluto", "chiron": "Chiron", "mean_lilith": "Lilith",
+    "true_north_lunar_node": "Mean_Node", "true_south_lunar_node": "South_Node"
+}
+HOUSE_MAPPING = [
+    "first_house", "second_house", "third_house", "fourth_house",
+    "fifth_house", "sixth_house", "seventh_house", "eighth_house",
+    "ninth_house", "tenth_house", "eleventh_house", "twelfth_house"
+]
+
+def build_chart_payload(name, year, month, day, hour, minute, lat, lon, tz_str):
+    """Общая логика построения планет/домов через Kerykeion — используется и
+    обычным расчётом (/api/calculate), и картой дня (/api/daily-chart)."""
+    subject = AstrologicalSubjectFactory.from_birth_data(
+        name=name,
+        year=year, month=month, day=day,
+        hour=hour, minute=minute,
+        lng=lon, lat=lat,
+        tz_str=tz_str,
+        online=False
+    )
+
+    planets_data = []
+    for attr_name, obj_name in PLANET_MAPPING.items():
+        p = getattr(subject, attr_name, None)
+        if p is not None:
+            planets_data.append({
+                "id": obj_name,
+                "name": PLANET_NAMES_RU.get(obj_name, obj_name),
+                "symbol": PLANET_SYMBOLS.get(obj_name, "?"),
+                "longitude": float(p.abs_pos),
+                "retrograde": bool(p.retrograde),
+                "interpretation": INTERPRETATIONS.get(obj_name, "Описание в процессе добавления.")
+            })
+
+    houses_data = []
+    for i, attr_name in enumerate(HOUSE_MAPPING, start=1):
+        h = getattr(subject, attr_name, None)
+        if h is not None:
+            houses_data.append({
+                "num": i,
+                "name": f"{i} Дом",
+                "longitude": float(h.abs_pos)
+            })
+
+    return {"planets": planets_data, "houses": houses_data}
+
+@app.route('/api/daily-chart', methods=['GET'])
+def daily_chart():
+    """Карта дня — фиксированные текущие дата/время и Москва, без входа и без
+    лимитов (не расходует бесплатную карту ни зарегистрированного, ни
+    анонимного посетителя). Показывается на первой странице как превью."""
+    try:
+        moscow_tz = ZoneInfo('Europe/Moscow')
+        now = datetime.now(moscow_tz)
+        result = build_chart_payload(
+            name='Карта дня',
+            year=now.year, month=now.month, day=now.day,
+            hour=now.hour, minute=now.minute,
+            lat=55.7558, lon=37.6176, tz_str='Europe/Moscow'
+        )
+        return jsonify({"status": "success", **result})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/api/calculate', methods=['POST', 'OPTIONS'])
 def calculate():
     if request.method == 'OPTIONS':
@@ -243,53 +310,9 @@ def calculate():
             if tz_str is None:
                 return jsonify({"status": "error", "message": "Не удалось определить часовой пояс автоматически — укажите его вручную"}), 400
 
-        # Создаем астрологический объект через Kerykeion
-        subject = AstrologicalSubjectFactory.from_birth_data(
-            name=data.get('name', 'Проект'),
-            year=year, month=month, day=day,
-            hour=hour, minute=minute,
-            lng=lon, lat=lat,
-            tz_str=tz_str,
-            online=False
+        result = build_chart_payload(
+            data.get('name', 'Проект'), year, month, day, hour, minute, lat, lon, tz_str
         )
-
-        # Собираем данные планет по обновленной структуре Kerykeion
-        planets_data = []
-        PLANET_MAPPING = {
-            "sun": "Sun", "moon": "Moon", "mercury": "Mercury", "venus": "Venus",
-            "mars": "Mars", "jupiter": "Jupiter", "saturn": "Saturn", "uranus": "Uranus",
-            "neptune": "Neptune", "pluto": "Pluto", "chiron": "Chiron", "mean_lilith": "Lilith",
-            "true_north_lunar_node": "Mean_Node", "true_south_lunar_node": "South_Node"
-        }
-
-        for attr_name, obj_name in PLANET_MAPPING.items():
-            p = getattr(subject, attr_name, None)
-            if p is not None:
-                planets_data.append({
-                    "id": obj_name,
-                    "name": PLANET_NAMES_RU.get(obj_name, obj_name),
-                    "symbol": PLANET_SYMBOLS.get(obj_name, "?"),
-                    "longitude": float(p.abs_pos),
-                    "retrograde": bool(p.retrograde),
-                    "interpretation": INTERPRETATIONS.get(obj_name, "Описание в процессе добавления.")
-                })
-
-        # Собираем данные домов по обновленной структуре Kerykeion
-        houses_data = []
-        HOUSE_MAPPING = [
-            "first_house", "second_house", "third_house", "fourth_house", 
-            "fifth_house", "sixth_house", "seventh_house", "eighth_house", 
-            "ninth_house", "tenth_house", "eleventh_house", "twelfth_house"
-        ]
-        
-        for i, attr_name in enumerate(HOUSE_MAPPING, start=1):
-            h = getattr(subject, attr_name, None)
-            if h is not None:
-                houses_data.append({
-                    "num": i,
-                    "name": f"{i} Дом",
-                    "longitude": float(h.abs_pos)
-                })
 
         if current_user:
             if current_user['plan'] == FREE_PLAN:
@@ -303,11 +326,7 @@ def calculate():
         else:
             session['anon_calculations_used'] = session.get('anon_calculations_used', 0) + 1
 
-        return jsonify({
-            "status": "success",
-            "planets": planets_data,
-            "houses": houses_data
-        })
+        return jsonify({"status": "success", **result})
 
     except Exception as e:
         print(f"Ошибка при расчете: {e}")
