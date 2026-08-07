@@ -756,6 +756,7 @@
             document.getElementById('name').value = ''; // вне <form>, astroForm.reset() его не трогает
             document.getElementById('manualCoordsGroup').style.display = 'none';
             document.getElementById('city').disabled = false;
+            document.getElementById('date').disabled = false;
             timezoneManuallyEdited = false;
             selectedLocation = { lat: null, lon: null, name: "" };
             window.lastChartData = null;
@@ -1069,10 +1070,31 @@
 
         // Кнопка "Построить временную карту дня" на стартовом экране —
         // уходим со стартового блока в обычную форму построения карты
+        // Временная карта — фиксируем дату (сегодня) и город (Москва), не даём
+        // их менять, название сразу "Карта дня". Эти ограничения задаются
+        // ПОСЛЕ resetForm() (внутри showChartForm) и снимаются самим же
+        // resetForm() при следующем его вызове — обычная форма построения
+        // новой карты в аккаунте (window.showChartForm из "+ Добавить карту")
+        // всегда остаётся чистой и полностью редактируемой, эти фиксированные
+        // значения туда не тянутся (по прямому уточнению Елены).
         window.startAnonChart = function() {
             document.getElementById('authView').style.display = 'none';
             window.showChartForm();
             window.loadDailyChart();
+
+            const now = new Date();
+            const pad = n => String(n).padStart(2, '0');
+            const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+
+            document.getElementById('name').value = 'Карта дня';
+            const dateField = document.getElementById('date');
+            dateField.value = todayStr;
+            dateField.disabled = true;
+            const cityField = document.getElementById('city');
+            cityField.value = 'Москва';
+            cityField.disabled = true;
+            selectedLocation = { lat: 55.7558, lon: 37.6176, name: 'Москва' };
+            window.updateAutoTimezone();
         };
 
         window.checkAuth = async function() {
