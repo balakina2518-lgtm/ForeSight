@@ -373,7 +373,7 @@ def list_charts():
                     return jsonify({"status": "success", "charts": []})
                 cur.execute(
                     "SELECT id, name, birth_date, birth_time, lat, lon, place_name, "
-                    "timezone_offset, gender, chart_type, comment, created_at FROM charts "
+                    "timezone_offset, gender, chart_type, comment, folder_id, created_at FROM charts "
                     "WHERE user_id=%s ORDER BY created_at DESC",
                     (current_user['id'],)
                 )
@@ -413,29 +413,50 @@ def save_chart():
                     if existing:
                         existing_id = existing['id']
 
+                folder_id = data.get('folder_id')
+                folder_id = int(folder_id) if folder_id not in (None, '') else None
+                if folder_id is not None:
+                    # Папка должна принадлежать этому же пользователю — иначе тихо игнорируем
+                    cur.execute("SELECT id FROM folders WHERE id=%s AND user_id=%s", (folder_id, current_user['id']))
+                    if not cur.fetchone():
+                        folder_id = None
+
                 if existing_id:
-                    cur.execute(
-                        "UPDATE charts SET birth_date=%s, birth_time=%s, lat=%s, lon=%s, "
-                        "place_name=%s, timezone_offset=%s, gender=%s, chart_type=%s WHERE id=%s AND user_id=%s",
-                        (
-                            data['date'], data['time'], float(data['lat']), float(data['lon']),
-                            data.get('place_name', ''), float(data['timezone']),
-                            data.get('gender', ''), data.get('chart_type', 'natal'),
-                            existing_id, current_user['id']
+                    if 'folder_id' in data:
+                        cur.execute(
+                            "UPDATE charts SET birth_date=%s, birth_time=%s, lat=%s, lon=%s, "
+                            "place_name=%s, timezone_offset=%s, gender=%s, chart_type=%s, folder_id=%s WHERE id=%s AND user_id=%s",
+                            (
+                                data['date'], data['time'], float(data['lat']), float(data['lon']),
+                                data.get('place_name', ''), float(data['timezone']),
+                                data.get('gender', ''), data.get('chart_type', 'natal'), folder_id,
+                                existing_id, current_user['id']
+                            )
                         )
-                    )
+                    else:
+                        # folder_id не передан — обновляем карту, не трогая её текущую папку
+                        cur.execute(
+                            "UPDATE charts SET birth_date=%s, birth_time=%s, lat=%s, lon=%s, "
+                            "place_name=%s, timezone_offset=%s, gender=%s, chart_type=%s WHERE id=%s AND user_id=%s",
+                            (
+                                data['date'], data['time'], float(data['lat']), float(data['lon']),
+                                data.get('place_name', ''), float(data['timezone']),
+                                data.get('gender', ''), data.get('chart_type', 'natal'),
+                                existing_id, current_user['id']
+                            )
+                        )
                     new_id = existing_id
                 else:
                     cur.execute(
                         "INSERT INTO charts (user_id, name, birth_date, birth_time, lat, lon, "
-                        "place_name, timezone_offset, gender, chart_type, comment) "
-                        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                        "place_name, timezone_offset, gender, chart_type, comment, folder_id) "
+                        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                         (
                             current_user['id'], name, data['date'], data['time'],
                             float(data['lat']), float(data['lon']),
                             data.get('place_name', ''), float(data['timezone']),
                             data.get('gender', ''), data.get('chart_type', 'natal'),
-                            data.get('comment', '')
+                            data.get('comment', ''), folder_id
                         )
                     )
                     new_id = cur.lastrowid
@@ -460,6 +481,112 @@ def update_chart_comment(chart_id):
                     "UPDATE charts SET comment=%s WHERE id=%s AND user_id=%s",
                     (data.get('comment', ''), chart_id, current_user['id'])
                 )
+            conn.commit()
+        finally:
+            conn.close()
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/charts/<int:chart_id>/folder', methods=['PATCH'])
+def update_chart_folder(chart_id):
+    data = request.json or {}
+    try:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                current_user = get_current_user(cur)
+                if not current_user:
+                    return jsonify({"status": "error", "message": "Войдите в аккаунт"}), 401
+                folder_id = data.get('folder_id')
+                folder_id = int(folder_id) if folder_id not in (None, '') else None
+                if folder_id is not None:
+                    cur.execute("SELECT id FROM folders WHERE id=%s AND user_id=%s", (folder_id, current_user['id']))
+                    if not cur.fetchone():
+                        return jsonify({"status": "error", "message": "Папка не найдена"}), 404
+                cur.execute(
+                    "UPDATE charts SET folder_id=%s WHERE id=%s AND user_id=%s",
+                    (folder_id, chart_id, current_user['id'])
+                )
+            conn.commit()
+        finally:
+            conn.close()
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/folders', methods=['GET'])
+def list_folders():
+    try:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                current_user = get_current_user(cur)
+                if not current_user:
+                    return jsonify({"status": "error", "message": "Войдите в аккаунт"}), 401
+                cur.execute("SELECT id, name FROM folders WHERE user_id=%s ORDER BY name", (current_user['id'],))
+                rows = cur.fetchall()
+        finally:
+            conn.close()
+        return jsonify({"status": "success", "folders": rows})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/folders', methods=['POST'])
+def create_folder():
+    data = request.json or {}
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({"status": "error", "message": "Введите название папки"}), 400
+    try:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                current_user = get_current_user(cur)
+                if not current_user:
+                    return jsonify({"status": "error", "message": "Войдите в аккаунт"}), 401
+                cur.execute("INSERT INTO folders (user_id, name) VALUES (%s, %s)", (current_user['id'], name))
+                new_id = cur.lastrowid
+            conn.commit()
+        finally:
+            conn.close()
+        return jsonify({"status": "success", "id": new_id, "name": name})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/folders/<int:folder_id>', methods=['PATCH'])
+def rename_folder(folder_id):
+    data = request.json or {}
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({"status": "error", "message": "Введите название папки"}), 400
+    try:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                current_user = get_current_user(cur)
+                if not current_user:
+                    return jsonify({"status": "error", "message": "Войдите в аккаунт"}), 401
+                cur.execute("UPDATE folders SET name=%s WHERE id=%s AND user_id=%s", (name, folder_id, current_user['id']))
+            conn.commit()
+        finally:
+            conn.close()
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/folders/<int:folder_id>', methods=['DELETE'])
+def delete_folder(folder_id):
+    try:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                current_user = get_current_user(cur)
+                if not current_user:
+                    return jsonify({"status": "error", "message": "Войдите в аккаунт"}), 401
+                # Карты из удаляемой папки не удаляются — просто становятся "без папки"
+                cur.execute("UPDATE charts SET folder_id=NULL WHERE folder_id=%s AND user_id=%s", (folder_id, current_user['id']))
+                cur.execute("DELETE FROM folders WHERE id=%s AND user_id=%s", (folder_id, current_user['id']))
             conn.commit()
         finally:
             conn.close()

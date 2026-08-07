@@ -282,6 +282,17 @@
         .btn-anon-chart:hover { background: var(--accent); color: #fff; }
         .anon-badge { display: none; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-muted); margin-left: auto; }
         .anon-badge .anon-login-btn { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 0.8rem; text-decoration: underline; padding: 0; }
+        .folder-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; }
+        .folder-tab {
+            background: none; border: 1px solid var(--border-color); border-radius: 16px; padding: 6px 14px;
+            font-size: 0.85rem; color: var(--text-muted); cursor: pointer; white-space: nowrap;
+        }
+        .folder-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .folder-tab-add { color: var(--accent); border-style: dashed; }
+        .charts-table select.folder-select {
+            font-size: 0.82rem; padding: 4px 6px; border-radius: 5px; border: 1px solid var(--border-color);
+            background: var(--input-bg); color: var(--text-main);
+        }
         .charts-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
         .charts-table th { text-align: left; color: var(--text-muted); font-weight: 500; font-size: 0.82rem; padding: 8px 10px; border-bottom: 1px solid var(--border-color); }
         .charts-table td { padding: 10px; border-bottom: 1px solid var(--border-color); color: var(--text-main); }
@@ -477,9 +488,10 @@
                     <button type="button" class="btn-add-chart" onclick="window.showChartForm()">+ Добавить карту</button>
                 </div>
             </div>
+            <div class="folder-tabs" id="folderTabs"></div>
             <table class="charts-table">
                 <thead>
-                    <tr><th>Название</th><th>Карты</th><th>Дата и время рождения</th><th>Место рождения</th><th>Комментарий</th><th></th></tr>
+                    <tr><th>Название</th><th>Карты</th><th>Дата и время рождения</th><th>Место рождения</th><th>Комментарий</th><th>Папка</th><th></th></tr>
                 </thead>
                 <tbody id="chartsTableBody"></tbody>
             </table>
@@ -1452,41 +1464,152 @@
             }).join('');
         }
 
+        let foldersCache = [];
+        let currentFolderFilter = null; // null = все карты, 'unfiled' = без папки, иначе id папки
+
+        function renderFolderTabs() {
+            const el = document.getElementById('folderTabs');
+            const tabs = [
+                { key: null, label: 'Все карты' },
+                { key: 'unfiled', label: 'Без папки' },
+                ...foldersCache.map(f => ({ key: f.id, label: f.name, isFolder: true }))
+            ];
+            el.innerHTML = tabs.map(t => `
+                <button type="button" class="folder-tab${currentFolderFilter === t.key ? ' active' : ''}"
+                        onclick='window.selectFolderTab(${JSON.stringify(t.key)})'
+                        ${t.isFolder ? `ondblclick="window.renameFolderPrompt(${t.key}, event)"` : ''}>
+                    ${escapeHtml(t.label)}${t.isFolder ? ` <span onclick="window.deleteFolderPrompt(${t.key}, event)" title="Удалить папку" style="opacity:0.6; margin-left:2px;">✕</span>` : ''}
+                </button>
+            `).join('') + `<button type="button" class="folder-tab folder-tab-add" onclick="window.createFolderPrompt()">+ Папка</button>`;
+        }
+
+        async function loadFolders() {
+            try {
+                const response = await fetch('/api/folders');
+                const data = await response.json();
+                foldersCache = (data.status === 'success') ? data.folders : [];
+            } catch (err) {
+                foldersCache = [];
+            }
+        }
+
+        window.selectFolderTab = function(key) {
+            currentFolderFilter = key;
+            renderFolderTabs();
+            renderChartsTable();
+        };
+
+        window.createFolderPrompt = async function() {
+            const name = prompt('Название новой папки:');
+            if (!name || !name.trim()) return;
+            try {
+                const response = await fetch('/api/folders', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name.trim() })
+                });
+                const data = await response.json();
+                if (data.status !== 'success') { alert(data.message); return; }
+                await loadFolders();
+                renderFolderTabs();
+            } catch (err) { alert('Не удалось создать папку'); }
+        };
+
+        window.renameFolderPrompt = async function(folderId, event) {
+            if (event) event.stopPropagation();
+            const folder = foldersCache.find(f => f.id === folderId);
+            const name = prompt('Новое название папки:', folder ? folder.name : '');
+            if (!name || !name.trim()) return;
+            try {
+                await fetch('/api/folders/' + folderId, {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name.trim() })
+                });
+                await loadFolders();
+                renderFolderTabs();
+            } catch (err) { alert('Не удалось переименовать папку'); }
+        };
+
+        window.deleteFolderPrompt = async function(folderId, event) {
+            if (event) event.stopPropagation();
+            if (!confirm('Удалить папку? Карты из неё останутся, просто станут «без папки».')) return;
+            try {
+                await fetch('/api/folders/' + folderId, { method: 'DELETE' });
+                if (currentFolderFilter === folderId) currentFolderFilter = null;
+                await loadFolders();
+                renderFolderTabs();
+                await window.refreshChartsList();
+            } catch (err) { alert('Не удалось удалить папку'); }
+        };
+
+        window.moveChartToFolder = async function(chartId, folderIdRaw) {
+            const folder_id = folderIdRaw === '' ? null : parseInt(folderIdRaw, 10);
+            try {
+                await fetch('/api/charts/' + chartId + '/folder', {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ folder_id })
+                });
+                const chart = chartsCache.find(c => c.id === chartId);
+                if (chart) chart.folder_id = folder_id;
+                renderChartsTable();
+            } catch (err) { alert('Не удалось перенести карту в папку'); }
+        };
+
+        function folderSelectHTML(chart) {
+            const options = [`<option value="">Без папки</option>`]
+                .concat(foldersCache.map(f => `<option value="${f.id}"${chart.folder_id === f.id ? ' selected' : ''}>${escapeHtml(f.name)}</option>`));
+            return `<select class="folder-select" onchange="window.moveChartToFolder(${chart.id}, this.value)">${options.join('')}</select>`;
+        }
+
+        function renderChartsTable() {
+            const tbody = document.getElementById('chartsTableBody');
+            const indexed = chartsCache.map((c, i) => ({ ...c, _idx: i }));
+            const visible = indexed.filter(c => {
+                if (currentFolderFilter === null) return true;
+                if (currentFolderFilter === 'unfiled') return !c.folder_id;
+                return c.folder_id === currentFolderFilter;
+            });
+            if (visible.length === 0) {
+                tbody.innerHTML = chartsCache.length === 0
+                    ? ((window.currentUser && window.currentUser.plan === 'free')
+                        ? '<tr><td colspan="7">На бесплатном тарифе карты не сохраняются в библиотеку — оформите «Сам себе астролог», чтобы хранить карты</td></tr>'
+                        : '<tr><td colspan="7">Пока нет сохранённых карт — нажмите «+ Добавить карту»</td></tr>')
+                    : '<tr><td colspan="7">В этой папке пока нет карт</td></tr>';
+                return;
+            }
+            tbody.innerHTML = visible.map(c => `
+                <tr>
+                    <td>${escapeHtml(c.name) || '(без названия)'}</td>
+                    <td>${renderChartTypeIcons(c.chart_type)}</td>
+                    <td>${c.birth_date}, ${c.birth_time.slice(0, 5)}</td>
+                    <td>${escapeHtml(c.place_name)}</td>
+                    <td>
+                        <input type="text" class="comment-input" value="${escapeHtml(c.comment || '')}"
+                               placeholder="—" onblur="window.saveComment(${c.id}, this.value)">
+                    </td>
+                    <td>${folderSelectHTML(c)}</td>
+                    <td class="charts-table-actions">
+                        <button type="button" onclick="window.loadChart(${c._idx})">Открыть</button>
+                        <button type="button" onclick="window.deleteChart(${c.id})">Удалить</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
         window.refreshChartsList = async function() {
             const tbody = document.getElementById('chartsTableBody');
-            tbody.innerHTML = '<tr><td colspan="6">Загрузка…</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7">Загрузка…</td></tr>';
             try {
-                const response = await fetch('/api/charts');
-                const data = await response.json();
+                const [chartsResponse] = await Promise.all([fetch('/api/charts'), loadFolders()]);
+                const data = await chartsResponse.json();
                 if (data.status !== 'success') {
-                    tbody.innerHTML = `<tr><td colspan="6">Ошибка: ${escapeHtml(data.message)}</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="7">Ошибка: ${escapeHtml(data.message)}</td></tr>`;
                     return;
                 }
                 chartsCache = data.charts;
-                if (chartsCache.length === 0) {
-                    tbody.innerHTML = (window.currentUser && window.currentUser.plan === 'free')
-                        ? '<tr><td colspan="6">На бесплатном тарифе карты не сохраняются в библиотеку — оформите «Сам себе астролог», чтобы хранить карты</td></tr>'
-                        : '<tr><td colspan="6">Пока нет сохранённых карт — нажмите «+ Добавить карту»</td></tr>';
-                    return;
-                }
-                tbody.innerHTML = chartsCache.map((c, i) => `
-                    <tr>
-                        <td>${escapeHtml(c.name) || '(без названия)'}</td>
-                        <td>${renderChartTypeIcons(c.chart_type)}</td>
-                        <td>${c.birth_date}, ${c.birth_time.slice(0, 5)}</td>
-                        <td>${escapeHtml(c.place_name)}</td>
-                        <td>
-                            <input type="text" class="comment-input" value="${escapeHtml(c.comment || '')}"
-                                   placeholder="—" onblur="window.saveComment(${c.id}, this.value)">
-                        </td>
-                        <td class="charts-table-actions">
-                            <button type="button" onclick="window.loadChart(${i})">Открыть</button>
-                            <button type="button" onclick="window.deleteChart(${c.id})">Удалить</button>
-                        </td>
-                    </tr>
-                `).join('');
+                renderFolderTabs();
+                renderChartsTable();
             } catch (err) {
-                tbody.innerHTML = '<tr><td colspan="6">Не удалось связаться с сервером</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7">Не удалось связаться с сервером</td></tr>';
             }
         };
 
