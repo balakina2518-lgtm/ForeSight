@@ -382,8 +382,17 @@
         }
         .canvas-container svg { width: 100%; height: 100%; display: block; }
 
-        .chart-with-ruler { display: flex; flex-direction: row; align-items: center; gap: 20px; min-width: 0; }
-        .chart-with-ruler .canvas-container { flex: 1 1 auto; min-width: 0; }
+        .chart-with-ruler {
+            display: flex; flex-direction: row; align-items: center; justify-content: center;
+            gap: 20px; width: 100%; min-width: 0;
+        }
+        /* flex-grow на элементе с aspect-ratio в некоторых браузерах считает
+           итоговую ширину нестабильно (в паре со свободным местом ужимается
+           сильнее, чем нужно) — явная формула ширины надёжнее, чем flex:1 1
+           auto. Линейка видна только в хораре (класс has-ruler ставится/
+           снимается в drawZodiacChart) — без неё вычитать её ширину не нужно. */
+        .chart-with-ruler .canvas-container { flex: 0 0 auto; width: min(800px, 100%); min-width: 0; }
+        .chart-with-ruler.has-ruler .canvas-container { width: min(800px, calc(100% - 112px)); }
         /* Линейка градусов (0-30) — только для хорара, планеты выстроены по
            градусу-в-знаке independent от их реального положения на круге */
         .degree-ruler {
@@ -502,7 +511,7 @@
             </div>
             <div class="datetime-scale-overlay" id="datetimeScaleOverlay" style="display:none;"></div>
             <main class="main-content">
-                <div class="chart-with-ruler">
+                <div class="chart-with-ruler" id="chartWithRuler">
                     <div class="canvas-container" id="canvasContainer">
                         <div style="color: var(--text-muted); text-align: center;" id="placeholderText">
                             <span style="font-size: 3.5rem; display:block; margin-bottom:10px;">⚜️</span>
@@ -3791,9 +3800,11 @@
             if (isHorary) {
                 rulerEl.innerHTML = `<div class="degree-ruler-track">${buildDegreeRulerHTML(planets)}</div>`;
                 rulerEl.style.display = 'block';
+                document.getElementById('chartWithRuler').classList.add('has-ruler');
             } else {
                 rulerEl.style.display = 'none';
                 rulerEl.innerHTML = '';
+                document.getElementById('chartWithRuler').classList.remove('has-ruler');
             }
         };
 
