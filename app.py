@@ -1,22 +1,38 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, session
 from flask_cors import CORS
 from kerykeion import AstrologicalSubjectFactory
 from timezonefinder import TimezoneFinder
 from zoneinfo import ZoneInfo
 from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
 import os
+import re
 import pymysql
 import pymysql.cursors
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, supports_credentials=True)
 
 # Данные для подключения к БД лежат в config.py прямо на сервере (не в гите —
-# файл с паролем от базы не должен попадать в публичный репозиторий)
+# файл с паролем от базы не должен попадать в публичный репозиторий). Там же —
+# SECRET_KEY для подписи сессионных cookie (без него сессии слетают при
+# каждом перезапуске Passenger).
 try:
-    from config import DB_HOST, DB_USER, DB_PASSWORD, DB_NAME
+    from config import DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, SECRET_KEY
 except ImportError:
-    DB_HOST = DB_USER = DB_PASSWORD = DB_NAME = None
+    DB_HOST = DB_USER = DB_PASSWORD = DB_NAME = SECRET_KEY = None
+
+app.secret_key = SECRET_KEY or 'dev-only-insecure-key-set-SECRET_KEY-in-config.py'
+app.config.update(
+    SESSION_COOKIE_SAMESITE='Lax',
+    SESSION_COOKIE_SECURE=True,
+)
+
+FREE_PLAN = 'free'
+PAID_PLAN = 'astrolog'
+FREE_CALCULATIONS_LIMIT = 1
+
+EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
 
 def get_db_connection():
     if not DB_HOST:
@@ -25,6 +41,15 @@ def get_db_connection():
         host=DB_HOST, user=DB_USER, password=DB_PASSWORD, database=DB_NAME,
         cursorclass=pymysql.cursors.DictCursor, charset='utf8mb4'
     )
+
+def get_current_user(cur):
+    """Текущий пользователь по сессии, либо None если не залогинен."""
+    user_id = session.get('user_id')
+    if not user_id:
+        return None
+    cur.execute("SELECT id, email, plan, calculations_used FROM users WHERE id=%s", (user_id,))
+    return cur.fetchone()
+
 tf = TimezoneFinder()
 
 # Карта символов для планет
@@ -61,6 +86,80 @@ INTERPRETATIONS = {
     "South_Node": "Южный Узел показывает накопленный опыт и зону комфорта — то, от чего важно оттолкнуться на пути к задачам Северного Узла."
 }
 
+@app.route('/api/register', methods=['POST'])
+def register():
+    data = request.json or {}
+    email = (data.get('email') or '').strip().lower()
+    password = data.get('password') or ''
+    if not EMAIL_RE.match(email):
+        return jsonify({"status": "error", "message": "Некорректный email"}), 400
+    if len(password) < 6:
+        return jsonify({"status": "error", "message": "Пароль должен быть не короче 6 символов"}), 400
+    try:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id FROM users WHERE email=%s", (email,))
+                if cur.fetchone():
+                    return jsonify({"status": "error", "message": "Пользователь с таким email уже зарегистрирован"}), 400
+                cur.execute(
+                    "INSERT INTO users (email, password_hash, plan) VALUES (%s, %s, %s)",
+                    (email, generate_password_hash(password), FREE_PLAN)
+                )
+                user_id = cur.lastrowid
+            conn.commit()
+        finally:
+            conn.close()
+        session['user_id'] = user_id
+        return jsonify({"status": "success", "email": email, "plan": FREE_PLAN})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.json or {}
+    email = (data.get('email') or '').strip().lower()
+    password = data.get('password') or ''
+    try:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id, email, password_hash, plan FROM users WHERE email=%s", (email,))
+                user = cur.fetchone()
+        finally:
+            conn.close()
+        if not user or not check_password_hash(user['password_hash'], password):
+            return jsonify({"status": "error", "message": "Неверный email или пароль"}), 401
+        session['user_id'] = user['id']
+        return jsonify({"status": "success", "email": user['email'], "plan": user['plan']})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/logout', methods=['POST'])
+def logout():
+    session.pop('user_id', None)
+    return jsonify({"status": "success"})
+
+@app.route('/api/me', methods=['GET'])
+def me():
+    try:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                user = get_current_user(cur)
+        finally:
+            conn.close()
+        if not user:
+            return jsonify({"status": "success", "user": None})
+        return jsonify({"status": "success", "user": {
+            "email": user['email'],
+            "plan": user['plan'],
+            "calculations_used": user['calculations_used'],
+            "calculations_limit": FREE_CALCULATIONS_LIMIT if user['plan'] == FREE_PLAN else None
+        }})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/api/timezone', methods=['GET'])
 def get_timezone():
     """Возвращает исторически верное смещение UTC для координат+даты — используется
@@ -85,8 +184,22 @@ def get_timezone():
 def calculate():
     if request.method == 'OPTIONS':
         return jsonify({"status": "ok"}), 200
-        
+
     data = request.json
+    try:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                current_user = get_current_user(cur)
+        finally:
+            conn.close()
+        if not current_user:
+            return jsonify({"status": "error", "message": "Войдите, чтобы построить карту"}), 401
+        if current_user['plan'] == FREE_PLAN and current_user['calculations_used'] >= FREE_CALCULATIONS_LIMIT:
+            return jsonify({"status": "error", "message": "Бесплатный тариф позволяет построить только 1 карту. Оформите тариф «Сам себе астролог» для неограниченного доступа."}), 403
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
     try:
         # Явные проверки перед парсингом — иначе int('') на пустой дате/времени
         # даёт малопонятную ошибку "invalid literal for int() with base 10: ''"
@@ -164,6 +277,15 @@ def calculate():
                     "longitude": float(h.abs_pos)
                 })
 
+        if current_user['plan'] == FREE_PLAN:
+            conn = get_db_connection()
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("UPDATE users SET calculations_used = calculations_used + 1 WHERE id=%s", (current_user['id'],))
+                conn.commit()
+            finally:
+                conn.close()
+
         return jsonify({
             "status": "success",
             "planets": planets_data,
@@ -180,9 +302,17 @@ def list_charts():
         conn = get_db_connection()
         try:
             with conn.cursor() as cur:
+                current_user = get_current_user(cur)
+                if not current_user:
+                    return jsonify({"status": "error", "message": "Войдите, чтобы посмотреть библиотеку карт"}), 401
+                # Бесплатный тариф карты не хранит — библиотека всегда пуста
+                if current_user['plan'] == FREE_PLAN:
+                    return jsonify({"status": "success", "charts": []})
                 cur.execute(
                     "SELECT id, name, birth_date, birth_time, lat, lon, place_name, "
-                    "timezone_offset, gender, chart_type, comment, created_at FROM charts ORDER BY created_at DESC"
+                    "timezone_offset, gender, chart_type, comment, created_at FROM charts "
+                    "WHERE user_id=%s ORDER BY created_at DESC",
+                    (current_user['id'],)
                 )
                 rows = cur.fetchall()
         finally:
@@ -203,11 +333,19 @@ def save_chart():
         conn = get_db_connection()
         try:
             with conn.cursor() as cur:
-                # Карта с таким же названием уже есть — обновляем её вместо дубля.
-                # Безымянные карты (пустое название) не дедуплицируются между собой.
+                current_user = get_current_user(cur)
+                if not current_user:
+                    return jsonify({"status": "error", "message": "Войдите, чтобы сохранить карту"}), 401
+                if current_user['plan'] == FREE_PLAN:
+                    return jsonify({"status": "error", "message": "Сохранение карт в библиотеку доступно на тарифе «Сам себе астролог»"}), 403
+
+                # Карта с таким же названием у ЭТОГО пользователя уже есть —
+                # обновляем её вместо дубля. Безымянные карты (пустое название)
+                # не дедуплицируются между собой. Карты других пользователей не
+                # затрагиваются, даже при совпадении названия.
                 existing_id = None
                 if name:
-                    cur.execute("SELECT id FROM charts WHERE name=%s LIMIT 1", (name,))
+                    cur.execute("SELECT id FROM charts WHERE name=%s AND user_id=%s LIMIT 1", (name, current_user['id']))
                     existing = cur.fetchone()
                     if existing:
                         existing_id = existing['id']
@@ -215,22 +353,22 @@ def save_chart():
                 if existing_id:
                     cur.execute(
                         "UPDATE charts SET birth_date=%s, birth_time=%s, lat=%s, lon=%s, "
-                        "place_name=%s, timezone_offset=%s, gender=%s, chart_type=%s WHERE id=%s",
+                        "place_name=%s, timezone_offset=%s, gender=%s, chart_type=%s WHERE id=%s AND user_id=%s",
                         (
                             data['date'], data['time'], float(data['lat']), float(data['lon']),
                             data.get('place_name', ''), float(data['timezone']),
                             data.get('gender', ''), data.get('chart_type', 'natal'),
-                            existing_id
+                            existing_id, current_user['id']
                         )
                     )
                     new_id = existing_id
                 else:
                     cur.execute(
-                        "INSERT INTO charts (name, birth_date, birth_time, lat, lon, "
+                        "INSERT INTO charts (user_id, name, birth_date, birth_time, lat, lon, "
                         "place_name, timezone_offset, gender, chart_type, comment) "
-                        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                         (
-                            name, data['date'], data['time'],
+                            current_user['id'], name, data['date'], data['time'],
                             float(data['lat']), float(data['lon']),
                             data.get('place_name', ''), float(data['timezone']),
                             data.get('gender', ''), data.get('chart_type', 'natal'),
@@ -252,9 +390,12 @@ def update_chart_comment(chart_id):
         conn = get_db_connection()
         try:
             with conn.cursor() as cur:
+                current_user = get_current_user(cur)
+                if not current_user:
+                    return jsonify({"status": "error", "message": "Войдите в аккаунт"}), 401
                 cur.execute(
-                    "UPDATE charts SET comment=%s WHERE id=%s",
-                    (data.get('comment', ''), chart_id)
+                    "UPDATE charts SET comment=%s WHERE id=%s AND user_id=%s",
+                    (data.get('comment', ''), chart_id, current_user['id'])
                 )
             conn.commit()
         finally:
@@ -269,7 +410,10 @@ def delete_chart(chart_id):
         conn = get_db_connection()
         try:
             with conn.cursor() as cur:
-                cur.execute("DELETE FROM charts WHERE id=%s", (chart_id,))
+                current_user = get_current_user(cur)
+                if not current_user:
+                    return jsonify({"status": "error", "message": "Войдите в аккаунт"}), 401
+                cur.execute("DELETE FROM charts WHERE id=%s AND user_id=%s", (chart_id, current_user['id']))
             conn.commit()
         finally:
             conn.close()

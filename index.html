@@ -247,6 +247,29 @@
             font-size: 0.92rem; font-weight: 600; cursor: pointer;
         }
         .btn-add-chart:hover { opacity: 0.9; }
+        .charts-home-header-right { display: flex; align-items: center; gap: 16px; }
+        .user-badge { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: 0.8rem; color: var(--text-muted); }
+        .user-badge .user-badge-email { color: var(--text-main); }
+        .user-badge .user-badge-plan { color: var(--accent); font-weight: 600; }
+        .user-badge .user-badge-plan.plan-free { color: var(--text-muted); }
+        .user-badge .user-badge-logout { background: none; border: none; color: var(--text-muted); font-size: 0.78rem; cursor: pointer; padding: 0; text-decoration: underline; }
+        .user-badge .user-badge-logout:hover { color: var(--accent); }
+
+        .auth-view {
+            width: 100%; max-width: 420px; margin: 60px auto; padding: 0 24px; box-sizing: border-box;
+            display: flex; flex-direction: column; align-items: center;
+        }
+        .auth-form {
+            width: 100%; display: flex; flex-direction: column; gap: 14px;
+            background: var(--bg-card, var(--bg-app)); border: 1px solid var(--border-color); border-radius: 10px;
+            padding: 28px; box-sizing: border-box;
+        }
+        .auth-form h2 { margin: 0 0 4px; font-size: 1.2rem; color: var(--text-main); font-weight: 600; text-align: center; }
+        .auth-form label { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; color: var(--text-muted); }
+        .auth-form input { padding: 9px 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-app); color: var(--text-main); font-size: 0.92rem; }
+        .auth-error { color: #e74c3c; font-size: 0.85rem; }
+        .auth-switch { text-align: center; font-size: 0.85rem; color: var(--text-muted); margin: 4px 0 0; }
+        .auth-switch-btn { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 0.85rem; text-decoration: underline; padding: 0; margin-left: 4px; }
         .charts-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
         .charts-table th { text-align: left; color: var(--text-muted); font-weight: 500; font-size: 0.82rem; padding: 8px 10px; border-bottom: 1px solid var(--border-color); }
         .charts-table td { padding: 10px; border-bottom: 1px solid var(--border-color); color: var(--text-main); }
@@ -360,7 +383,28 @@
 </head>
 <body class="notranslate">
     <div id="root">
-        <div id="chartsHomeView" class="charts-home">
+        <div id="authView" class="auth-view" style="display:none;">
+            <div class="brand-hero">
+                <svg width="66" height="84" viewBox="0 0 100 100" class="brand-emblem">
+                    <path d="M50,15 C46,32 46,42 46,50 C46,58 46,68 50,85 C54,68 54,58 54,50 C54,42 54,32 50,15 Z" fill="var(--accent)"/>
+                    <ellipse cx="48" cy="48" rx="32" ry="9" fill="none" stroke="var(--accent)" stroke-width="2.6" transform="rotate(-14 48 48)"/>
+                    <circle cx="76" cy="40" r="3.4" fill="var(--accent)"/>
+                </svg>
+                <h1 class="brand-hero-title">Астропроцессор Форсайт</h1>
+            </div>
+            <form class="auth-form" id="authForm" onsubmit="window.submitAuthForm(event)">
+                <h2 id="authFormTitle">Вход</h2>
+                <label>Email<input type="email" id="authEmail" required autocomplete="email"></label>
+                <label>Пароль<input type="password" id="authPassword" required minlength="6" autocomplete="current-password"></label>
+                <div class="auth-error" id="authError" style="display:none;"></div>
+                <button type="submit" class="btn-add-chart" id="authSubmitBtn">Войти</button>
+                <p class="auth-switch">
+                    <span id="authSwitchText">Нет аккаунта?</span>
+                    <button type="button" class="auth-switch-btn" onclick="window.toggleAuthMode()" id="authSwitchBtn">Зарегистрироваться</button>
+                </p>
+            </form>
+        </div>
+        <div id="chartsHomeView" class="charts-home" style="display:none;">
             <div class="brand-hero">
                 <svg width="66" height="84" viewBox="0 0 100 100" class="brand-emblem">
                     <path d="M50,15 C46,32 46,42 46,50 C46,58 46,68 50,85 C54,68 54,58 54,50 C54,42 54,32 50,15 Z" fill="var(--accent)"/>
@@ -371,7 +415,10 @@
             </div>
             <div class="charts-home-header">
                 <h1>Карты</h1>
-                <button type="button" class="btn-add-chart" onclick="window.showChartForm()">+ Добавить карту</button>
+                <div class="charts-home-header-right">
+                    <div class="user-badge" id="userBadge"></div>
+                    <button type="button" class="btn-add-chart" onclick="window.showChartForm()">+ Добавить карту</button>
+                </div>
             </div>
             <table class="charts-table">
                 <thead>
@@ -943,6 +990,91 @@
         }
 
         let chartsCache = [];
+        window.currentUser = null;
+        let authMode = 'login';
+
+        const PLAN_LABELS = { free: 'Бесплатный', astrolog: 'Сам себе астролог' };
+
+        function renderUserBadge() {
+            const el = document.getElementById('userBadge');
+            if (!window.currentUser) { el.innerHTML = ''; return; }
+            const u = window.currentUser;
+            const planLabel = PLAN_LABELS[u.plan] || u.plan;
+            const usageLine = (u.plan === 'free')
+                ? `<span class="user-badge-plan plan-free">${planLabel} — использовано ${u.calculations_used}/${u.calculations_limit}</span>`
+                : `<span class="user-badge-plan">${planLabel}</span>`;
+            el.innerHTML = `
+                <span class="user-badge-email">${escapeHtml(u.email)}</span>
+                ${usageLine}
+                <button type="button" class="user-badge-logout" onclick="window.logout()">Выйти</button>
+            `;
+        }
+
+        // Проверка сессии при загрузке страницы — показывает либо форму
+        // входа/регистрации, либо обычный интерфейс с картами
+        window.checkAuth = async function() {
+            try {
+                const response = await fetch('/api/me');
+                const data = await response.json();
+                window.currentUser = (data.status === 'success') ? data.user : null;
+            } catch (err) {
+                window.currentUser = null;
+            }
+            if (window.currentUser) {
+                document.getElementById('authView').style.display = 'none';
+                document.getElementById('chartsHomeView').style.display = 'block';
+                renderUserBadge();
+                window.refreshChartsList();
+            } else {
+                document.getElementById('authView').style.display = 'flex';
+                document.getElementById('chartsHomeView').style.display = 'none';
+            }
+        };
+
+        window.toggleAuthMode = function() {
+            authMode = authMode === 'login' ? 'register' : 'login';
+            document.getElementById('authFormTitle').textContent = authMode === 'login' ? 'Вход' : 'Регистрация';
+            document.getElementById('authSubmitBtn').textContent = authMode === 'login' ? 'Войти' : 'Зарегистрироваться';
+            document.getElementById('authSwitchText').textContent = authMode === 'login' ? 'Нет аккаунта?' : 'Уже есть аккаунт?';
+            document.getElementById('authSwitchBtn').textContent = authMode === 'login' ? 'Зарегистрироваться' : 'Войти';
+            document.getElementById('authError').style.display = 'none';
+        };
+
+        window.submitAuthForm = async function(event) {
+            event.preventDefault();
+            const email = document.getElementById('authEmail').value.trim();
+            const password = document.getElementById('authPassword').value;
+            const errorEl = document.getElementById('authError');
+            errorEl.style.display = 'none';
+            try {
+                const response = await fetch(authMode === 'login' ? '/api/login' : '/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await response.json();
+                if (data.status !== 'success') {
+                    errorEl.textContent = data.message;
+                    errorEl.style.display = 'block';
+                    return;
+                }
+                await window.checkAuth();
+            } catch (err) {
+                errorEl.textContent = 'Не удалось связаться с сервером';
+                errorEl.style.display = 'block';
+            }
+        };
+
+        window.logout = async function() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+            } catch (err) { /* всё равно сбрасываем локальное состояние */ }
+            window.currentUser = null;
+            document.getElementById('formModal').style.display = 'none';
+            document.getElementById('chartViewContainer').style.display = 'none';
+            document.getElementById('chartsHomeView').style.display = 'none';
+            await window.checkAuth();
+        };
 
         // Переключение между домашним экраном (список карт), видом колеса и всплывающей формой
         window.showChartsHome = function() {
@@ -1045,7 +1177,9 @@
                 }
                 chartsCache = data.charts;
                 if (chartsCache.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6">Пока нет сохранённых карт — нажмите «+ Добавить карту»</td></tr>';
+                    tbody.innerHTML = (window.currentUser && window.currentUser.plan === 'free')
+                        ? '<tr><td colspan="6">На бесплатном тарифе карты не сохраняются в библиотеку — оформите «Сам себе астролог», чтобы хранить карты</td></tr>'
+                        : '<tr><td colspan="6">Пока нет сохранённых карт — нажмите «+ Добавить карту»</td></tr>';
                     return;
                 }
                 tbody.innerHTML = chartsCache.map((c, i) => `
@@ -2802,27 +2936,45 @@
                     captureOriginalDatetime();
                     window.formatDatetimeBadge();
                     document.getElementById('formModal').style.display = 'none';
-                    document.getElementById('infoPanel').innerHTML = "Карта успешно построена.<br><span style='color:var(--accent); font-size:0.9rem;'>Кликая на планеты, можно изучать их бизнес-трактовку.</span>";
 
-                    // Сохраняем карту в библиотеку — тихо, ошибка сохранения не должна мешать
-                    // уже построенной карте на экране
-                    try {
-                        await fetch('/api/charts', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                name: payload.name,
-                                date: payload.date,
-                                time: payload.time,
-                                lat: payload.lat,
-                                lon: payload.lon,
-                                place_name: selectedLocation.name,
-                                timezone: document.getElementById('timezone').value,
-                                gender: payload.gender
-                            })
-                        });
-                    } catch (saveErr) {
-                        console.error("Не удалось сохранить карту в библиотеку:", saveErr);
+                    // На бесплатном тарифе карты не хранятся — не дёргаем API
+                    // сохранения зря, сразу честно предупреждаем прямо в сообщении
+                    const isFree = window.currentUser && window.currentUser.plan === 'free';
+                    document.getElementById('infoPanel').innerHTML = isFree
+                        ? "Карта успешно построена.<br><span style='color:var(--accent); font-size:0.9rem;'>Бесплатный тариф не сохраняет карты в библиотеку — оформите «Сам себе астролог», чтобы хранить карты.</span>"
+                        : "Карта успешно построена.<br><span style='color:var(--accent); font-size:0.9rem;'>Кликая на планеты, можно изучать их бизнес-трактовку.</span>";
+
+                    if (isFree) {
+                        // Обновляем счётчик "использовано X/1" в бейдже пользователя
+                        try {
+                            const meResp = await fetch('/api/me');
+                            const meData = await meResp.json();
+                            if (meData.status === 'success') {
+                                window.currentUser = meData.user;
+                                renderUserBadge();
+                            }
+                        } catch (meErr) { /* бейдж просто не обновится, не критично */ }
+                    } else {
+                        // Сохраняем карту в библиотеку — тихо, ошибка сохранения не должна мешать
+                        // уже построенной карте на экране
+                        try {
+                            await fetch('/api/charts', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    name: payload.name,
+                                    date: payload.date,
+                                    time: payload.time,
+                                    lat: payload.lat,
+                                    lon: payload.lon,
+                                    place_name: selectedLocation.name,
+                                    timezone: document.getElementById('timezone').value,
+                                    gender: payload.gender
+                                })
+                            });
+                        } catch (saveErr) {
+                            console.error("Не удалось сохранить карту в библиотеку:", saveErr);
+                        }
                     }
                 } else {
                     document.getElementById('infoPanel').innerText = "Ошибка: " + data.message;
@@ -3237,7 +3389,7 @@
             document.getElementById('canvasContainer').innerHTML = svgContent;
         };
 
-        window.refreshChartsList();
+        window.checkAuth();
     </script>
 </body>
 </html>
