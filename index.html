@@ -677,8 +677,8 @@
                                     <div class="form-group">
                                         <label>Система домов</label>
                                         <div class="house-system-radios" id="houseSystemRadios">
-                                            <label><input type="radio" name="houseSystem" value="placidus" checked> Плацидус</label>
-                                            <label><input type="radio" name="houseSystem" value="regiomontanus"> Региомонтан</label>
+                                            <label><input type="radio" name="houseSystem" value="placidus"> Плацидус</label>
+                                            <label><input type="radio" name="houseSystem" value="regiomontanus" checked> Региомонтан</label>
                                             <label><input type="radio" name="houseSystem" value="koch"> Кох</label>
                                             <label><input type="radio" name="houseSystem" value="equal"> Равнодомная</label>
                                         </div>
@@ -1878,6 +1878,15 @@
             const m = Math.floor(mFull);
             const s = Math.round((mFull - m) * 60);
             return `${d}°${String(m).padStart(2, '0')}'${String(s).padStart(2, '0')}"`;
+        }
+
+        // Градус+минуты без секунд (для хорара — подписи куспидов/планет на
+        // круге, по референсу Елены, "12°25'")
+        function toDM(deg) {
+            const d = Math.floor(deg);
+            let m = Math.round((deg - d) * 60);
+            if (m === 60) return `${d + 1}°00'`;
+            return `${d}°${String(m).padStart(2, '0')}'`;
         }
 
         // Линейка градусов (0-30) для хорара — все тела выстроены по их
@@ -3790,9 +3799,12 @@
                     svgContent += `<text x="${tx}" y="${ty}" fill="${labelColor}" font-size="14" font-weight="${labelWeight}" text-anchor="middle" dominant-baseline="central">${houseLabel}</text>`;
 
                     // Градус дома в верхнем правом углу от названия
-                    const houseDegree = Math.ceil(house.longitude % 30) === 0 ? 1 : Math.ceil(house.longitude % 30);
+                    // (в хораре — градус+минуты по референсу, в натале — как раньше)
+                    const houseDegreeText = isHorary
+                        ? toDM(((house.longitude % 30) + 30) % 30)
+                        : (Math.ceil(house.longitude % 30) === 0 ? 1 : Math.ceil(house.longitude % 30)) + '°';
                     const houseDegreeColor = isMainAxis ? "var(--accent)" : "var(--text-main)";
-                    svgContent += `<text x="${tx + 7}" y="${ty - 7}" fill="${houseDegreeColor}" font-size="9" font-weight="bold" text-anchor="start">${houseDegree}°</text>`;
+                    svgContent += `<text x="${tx + 7}" y="${ty - 7}" fill="${houseDegreeColor}" font-size="9" font-weight="bold" text-anchor="start">${houseDegreeText}</text>`;
 
                     // Хорар (по референсу): звёздочка-тик у неугловых куспидов —
                     // угловые и так выделены стрелкой/кружком-терминатором выше
@@ -3900,7 +3912,9 @@
                 const px = center + baseRadius * dCos(symbolAngle);
                 const py = center + baseRadius * dSin(symbolAngle);
 
-                const roundedDegree = Math.ceil(body.longitude % 30) === 0 ? 1 : Math.ceil(body.longitude % 30);
+                const degreeText = isHorary
+                    ? toDM(((body.longitude % 30) + 30) % 30)
+                    : (Math.ceil(body.longitude % 30) === 0 ? 1 : Math.ceil(body.longitude % 30)) + '°';
                 const safeInterp = body.interpretation ? body.interpretation.replace(/'/g, "\\'").replace(/\n/g, " ") : "";
 
                 const symbolMarkup = body.id === 'Pluto'
@@ -3927,7 +3941,7 @@
                 svgContent += `<g class="planet-body" data-id="${body.id}" onclick="window.showElementInfo('${body.name}', ${body.longitude}, '${safeInterp}')" style="cursor:pointer;">
                     ${symbolMarkup}
                     <text x="${px + 11}" y="${py - 10}" fill="var(--text-main)" font-size="9.5" font-family="monospace" font-weight="bold" text-anchor="start">
-                        ${roundedDegree}°
+                        ${degreeText}
                     </text>${body.retrograde ? `
                     <text x="${px + 11}" y="${py + 13}" fill="var(--text-main)" font-size="8" font-weight="bold" text-anchor="start">r</text>` : ''}
                 </g>`;
