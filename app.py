@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file, send_from_directory, session
+from flask import Flask, request, jsonify, send_file, session
 from flask_cors import CORS
 from kerykeion import AstrologicalSubjectFactory
 from timezonefinder import TimezoneFinder
@@ -633,28 +633,6 @@ def index():
 def policy():
     try:
         return send_file('policy.html')
-    except Exception as e:
-        return f"Ошибка сервера: {e}", 500
-
-# Картинки планет для витрины на стартовом экране входа/регистрации.
-# URL намеренно без расширения файла (не /planets/sun.jpg) — nginx на
-# Beget блокирует прямые запросы к .jpg/.png ещё до того, как они
-# доходят до Passenger/Flask (проверено: 403 отдаёт сам nginx, даже для
-# несуществующих файлов), поэтому расширение прячем, а реальное имя
-# файла (с настоящим mime-type) отдаём через send_from_directory.
-PLANET_PHOTO_FILES = {
-    'sun': 'sun.jpg', 'moon': 'moon.jpg', 'mercury': 'mercury.jpg', 'venus': 'venus.png',
-    'mars': 'mars.jpg', 'jupiter': 'jupiter.jpg', 'saturn': 'saturn.jpg', 'uranus': 'uranus.jpg',
-    'neptune': 'neptune.jpg', 'pluto': 'pluto.jpg'
-}
-
-@app.route('/planet-photo/<name>', methods=['GET'])
-def planet_photo(name):
-    filename = PLANET_PHOTO_FILES.get(name)
-    if not filename:
-        return "", 404
-    try:
-        return send_from_directory('planets', filename)
     except Exception as e:
         return f"Ошибка сервера: {e}", 500
 
