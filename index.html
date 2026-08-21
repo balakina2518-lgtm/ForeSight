@@ -266,9 +266,12 @@
             padding: 40px; box-sizing: border-box; color: var(--text-main);
         }
         .auth-visual-center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 0; pointer-events: none; }
-        .auth-visual-ring { position: absolute; width: min(60%, 380px); aspect-ratio: 1 / 1; border-radius: 50%; border: 1px solid var(--border-color); }
-        .auth-visual-ring::before { content: ''; position: absolute; inset: 13%; border-radius: 50%; border: 1px solid var(--border-color); }
-        .auth-visual-glyph { position: relative; font-size: clamp(7rem, 22vw, 13rem); line-height: 1; color: var(--accent); opacity: 0.16; }
+        .auth-visual-ring { position: relative; width: min(60%, 380px); aspect-ratio: 1 / 1; border-radius: 50%; border: 1px solid var(--border-color); }
+        .auth-visual-ring::before { content: ''; position: absolute; inset: 13%; border-radius: 50%; border: 1px solid var(--border-color); pointer-events: none; }
+        .auth-visual-photo {
+            position: absolute; inset: 13%; width: 74%; height: 74%; border-radius: 50%;
+            object-fit: cover; box-shadow: 0 10px 34px rgba(62,50,41,0.18);
+        }
         .auth-visual-top, .auth-visual-bottom { position: relative; z-index: 1; }
         .auth-visual-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
         .auth-visual-heading { display: flex; align-items: baseline; gap: 12px; }
@@ -496,8 +499,9 @@
         <div id="authView" class="auth-view">
             <div class="auth-visual" id="authVisual">
                 <div class="auth-visual-center" aria-hidden="true">
-                    <div class="auth-visual-ring"></div>
-                    <span class="auth-visual-glyph" id="authVisualGlyph"></span>
+                    <div class="auth-visual-ring">
+                        <img class="auth-visual-photo" id="authVisualPhoto" alt="">
+                    </div>
                 </div>
                 <div class="auth-visual-top">
                     <div class="auth-visual-heading">
@@ -1267,25 +1271,25 @@
         // из уже согласованной бизнес-базы INTERPRETATIONS (app.py), просто
         // продублирована сюда, чтобы стартовый экран не зависел от API.
         const AUTH_PLANET_SHOWCASE = [
-            { name: 'Солнце', symbol: '☉', house: '5 дом', sign: 'Лев', speed: '~0.98° в сутки',
+            { name: 'Солнце', symbol: '☉', image: 'sun.jpg', house: '5 дом', sign: 'Лев', speed: '~0.98° в сутки',
               desc: 'Солнце символизирует ваше ядро личности, волю, лидерский потенциал и авторскую позицию в бизнесе и жизни.' },
-            { name: 'Луна', symbol: '☽', house: '4 дом', sign: 'Рак', speed: '~13.2° в сутки',
+            { name: 'Луна', symbol: '☽', image: 'moon.jpg', house: '4 дом', sign: 'Рак', speed: '~13.2° в сутки',
               desc: 'Луна отражает внутренние потребности, адаптационные механизмы, уровень стрессоустойчивости и интуитивное восприятие рисков.' },
-            { name: 'Меркурий', symbol: '☿', house: '3 дом', sign: 'Близнецы', speed: '~1.4° в сутки',
+            { name: 'Меркурий', symbol: '☿', image: 'mercury.jpg', house: '3 дом', sign: 'Близнецы', speed: '~1.4° в сутки',
               desc: 'Меркурий управляет стилем коммуникации, бизнес-мышлением, скоростью обработки данных и финансовой логикой.' },
-            { name: 'Венера', symbol: '♀', house: '2 дом', sign: 'Телец', speed: '~1.2° в сутки',
+            { name: 'Венера', symbol: '♀', image: 'venus.png', house: '2 дом', sign: 'Телец', speed: '~1.2° в сутки',
               desc: 'Венера определяет ваши ценности, отношение к материальным ресурсам, партнерский выбор и способность привлекать финансы.' },
-            { name: 'Марс', symbol: '♂', house: '8 дом', sign: 'Овен', speed: '~0.52° в сутки',
+            { name: 'Марс', symbol: '♂', image: 'mars.jpg', house: '8 дом', sign: 'Овен', speed: '~0.52° в сутки',
               desc: 'Марс показывает способ действия, предпринимательскую активность, решительность и стратегию преодоления кризисных ситуаций.' },
-            { name: 'Юпитер', symbol: '♃', house: '9 дом', sign: 'Стрелец', speed: '~0.08° в сутки',
+            { name: 'Юпитер', symbol: '♃', image: 'jupiter.jpg', house: '9 дом', sign: 'Стрелец', speed: '~0.08° в сутки',
               desc: 'Юпитер указывает на зоны стратегического масштабирования, новые возможности, авторитет и главные точки финансового роста.' },
-            { name: 'Сатурн', symbol: '♄', house: '10 дом', sign: 'Козерог', speed: '~0.03° в сутки',
+            { name: 'Сатурн', symbol: '♄', image: 'saturn.jpg', house: '10 дом', sign: 'Козерог', speed: '~0.03° в сутки',
               desc: 'Сатурн отвечает за структуру, дисциплину, долгосрочное планирование, управление рисками и внутреннюю стабильность.' },
-            { name: 'Уран', symbol: '♅', house: '11 дом', sign: 'Водолей', speed: '~0.01° в сутки',
+            { name: 'Уран', symbol: '♅', image: 'uranus.jpg', house: '11 дом', sign: 'Водолей', speed: '~0.01° в сутки',
               desc: 'Уран символизирует инновации, инсайты, готовность к изменениям, масштабные реформы и форс-мажорные стратегии.' },
-            { name: 'Нептун', symbol: '♆', house: '12 дом', sign: 'Рыбы', speed: '~0.006° в сутки',
+            { name: 'Нептун', symbol: '♆', image: 'neptune.jpg', house: '12 дом', sign: 'Рыбы', speed: '~0.006° в сутки',
               desc: 'Нептун связан с интуицией, масштабным видением трендов, психологическим капиталом и скрытыми возможностями рынка.' },
-            { name: 'Плутон', symbol: '♇', house: '8 дом', sign: 'Скорпион', speed: '~0.004° в сутки',
+            { name: 'Плутон', symbol: '♇', image: 'pluto.jpg', house: '8 дом', sign: 'Скорпион', speed: '~0.004° в сутки',
               desc: 'Плутон представляет управление крупными объемами энергии и капитала, трансформации, бизнес-власть и инвестиционные риски.' }
         ];
 
@@ -1297,7 +1301,8 @@
             authPlanetIndex = ((index % AUTH_PLANET_SHOWCASE.length) + AUTH_PLANET_SHOWCASE.length) % AUTH_PLANET_SHOWCASE.length;
             const item = AUTH_PLANET_SHOWCASE[authPlanetIndex];
             document.getElementById('authVisualSymbol').textContent = item.symbol;
-            document.getElementById('authVisualGlyph').textContent = item.symbol;
+            document.getElementById('authVisualPhoto').src = '/planets/' + item.image;
+            document.getElementById('authVisualPhoto').alt = item.name;
             document.getElementById('authVisualName').textContent = item.name;
             document.getElementById('authVisualHouse').textContent = item.house;
             document.getElementById('authVisualSign').textContent = item.sign;
