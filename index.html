@@ -256,13 +256,39 @@
         .user-badge .user-badge-logout:hover { color: var(--accent); }
 
         .auth-view {
-            width: 100%; max-width: 420px; margin: 60px auto; padding: 0 24px; box-sizing: border-box;
-            display: none; flex-direction: column; align-items: center; gap: 16px;
+            width: 100%; margin: 0; padding: 0; max-width: none; box-sizing: border-box;
+            display: none; flex-direction: row; align-items: stretch; min-height: 100vh;
         }
+        .auth-visual {
+            flex: 1 1 55%; position: relative; overflow: hidden; min-height: 100vh;
+            background-size: cover; background-position: center; background-color: #14100c;
+            display: flex; flex-direction: column; justify-content: space-between;
+            padding: 40px; box-sizing: border-box; color: #fff;
+        }
+        .auth-visual::before {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(180deg, rgba(20,15,10,0.55) 0%, rgba(20,15,10,0.05) 32%, rgba(20,15,10,0.1) 58%, rgba(20,15,10,0.68) 100%);
+            pointer-events: none;
+        }
+        .auth-visual-top, .auth-visual-bottom { position: relative; z-index: 1; }
+        .auth-visual-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
+        .auth-visual-heading { display: flex; align-items: baseline; gap: 12px; }
+        .auth-visual-symbol { font-size: 2.1rem; line-height: 1; opacity: 0.9; }
+        .auth-visual-name { margin: 0; font-size: 2.5rem; font-weight: 600; letter-spacing: 0.5px; }
+        .auth-visual-speed { display: block; margin-top: 10px; font-size: 0.8rem; opacity: 0.75; letter-spacing: 0.3px; }
+        .auth-visual-stats { display: flex; gap: 28px; text-align: right; }
+        .auth-visual-stat-label { display: block; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 1.2px; opacity: 0.65; margin-bottom: 4px; }
+        .auth-visual-stat-value { display: block; font-size: 1rem; font-weight: 600; }
+        .auth-visual-desc { max-width: 480px; font-size: 0.92rem; line-height: 1.55; opacity: 0.92; margin: 0; }
+        .auth-panel {
+            flex: 0 0 420px; display: flex; flex-direction: column; justify-content: center; align-items: center;
+            padding: 40px 32px; box-sizing: border-box; background: var(--bg-app); gap: 18px;
+        }
+        .auth-panel-brand { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 6px; }
+        .auth-panel-brand-title { margin: 0; font-size: 1.1rem; font-weight: 600; color: var(--text-main); text-align: center; }
         .auth-form {
             width: 100%; display: flex; flex-direction: column; gap: 14px;
-            background: var(--bg-card, var(--bg-app)); border: 1px solid var(--border-color); border-radius: 10px;
-            padding: 28px; box-sizing: border-box;
+            background: none; border: none; padding: 0; box-sizing: border-box;
         }
         .auth-form h2 { margin: 0 0 4px; font-size: 1.2rem; color: var(--text-main); font-weight: 600; text-align: center; }
         .auth-form label { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; color: var(--text-muted); }
@@ -448,29 +474,68 @@
             .form-modal-inner { max-height: 95vh; }
             .main-content { padding: 15px; height: 100%; overflow: visible; }
             .canvas-container { max-width: 95vw; max-height: 95vw; }
+            .auth-view { flex-direction: column; min-height: 0; }
+            .auth-visual { flex: 0 0 240px; min-height: 240px; padding: 22px; }
+            .auth-visual-name { font-size: 1.7rem; }
+            .auth-visual-symbol { font-size: 1.4rem; }
+            .auth-visual-desc, .auth-visual-speed { display: none; }
+            .auth-visual-stats { gap: 16px; }
+            .auth-panel { flex: 1; padding: 28px 22px; }
         }
     </style>
 </head>
 <body class="notranslate">
     <div id="root">
         <div id="authView" class="auth-view">
-            <form class="auth-form" id="authForm" onsubmit="window.submitAuthForm(event)">
-                <h2 id="authFormTitle">Вход</h2>
-                <label>Email<input type="email" id="authEmail" required autocomplete="email"></label>
-                <label>Пароль<input type="password" id="authPassword" required minlength="6" autocomplete="current-password"></label>
-                <label class="auth-consent-label" id="authConsentLabel" style="display:none;">
-                    <input type="checkbox" id="authConsent">
-                    Согласен(на) с <a href="/policy" target="_blank" rel="noopener">политикой обработки персональных данных</a>
-                </label>
-                <div class="auth-error" id="authError" style="display:none;"></div>
-                <button type="submit" class="btn-add-chart" id="authSubmitBtn">Войти</button>
-                <p class="auth-switch">
-                    <span id="authSwitchText">Нет аккаунта?</span>
-                    <button type="button" class="auth-switch-btn" onclick="window.toggleAuthMode()" id="authSwitchBtn">Зарегистрироваться</button>
-                </p>
-            </form>
-            <div class="auth-view-divider">или</div>
-            <button type="button" class="btn-anon-chart" onclick="window.startAnonChart()">Построить временную карту дня</button>
+            <div class="auth-visual" id="authVisual">
+                <div class="auth-visual-top">
+                    <div class="auth-visual-heading">
+                        <span class="auth-visual-symbol" id="authVisualSymbol"></span>
+                        <h2 class="auth-visual-name" id="authVisualName"></h2>
+                    </div>
+                    <div class="auth-visual-stats">
+                        <div>
+                            <span class="auth-visual-stat-label">Дом-сигнификатор</span>
+                            <span class="auth-visual-stat-value" id="authVisualHouse"></span>
+                        </div>
+                        <div>
+                            <span class="auth-visual-stat-label">Управляет знаком</span>
+                            <span class="auth-visual-stat-value" id="authVisualSign"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="auth-visual-bottom">
+                    <p class="auth-visual-desc" id="authVisualDesc"></p>
+                    <span class="auth-visual-speed" id="authVisualSpeed"></span>
+                </div>
+            </div>
+            <div class="auth-panel">
+                <div class="auth-panel-brand">
+                    <svg width="38" height="48" viewBox="0 0 100 100" class="brand-emblem">
+                        <path d="M50,15 C46,32 46,42 46,50 C46,58 46,68 50,85 C54,68 54,58 54,50 C54,42 54,32 50,15 Z" fill="var(--accent)"/>
+                        <ellipse cx="48" cy="48" rx="32" ry="9" fill="none" stroke="var(--accent)" stroke-width="2.6" transform="rotate(-14 48 48)"/>
+                        <circle cx="76" cy="40" r="3.4" fill="var(--accent)"/>
+                    </svg>
+                    <h1 class="auth-panel-brand-title">Астропроцессор Форсайт</h1>
+                </div>
+                <form class="auth-form" id="authForm" onsubmit="window.submitAuthForm(event)">
+                    <h2 id="authFormTitle">Вход</h2>
+                    <label>Email<input type="email" id="authEmail" required autocomplete="email"></label>
+                    <label>Пароль<input type="password" id="authPassword" required minlength="6" autocomplete="current-password"></label>
+                    <label class="auth-consent-label" id="authConsentLabel" style="display:none;">
+                        <input type="checkbox" id="authConsent">
+                        Согласен(на) с <a href="/policy" target="_blank" rel="noopener">политикой обработки персональных данных</a>
+                    </label>
+                    <div class="auth-error" id="authError" style="display:none;"></div>
+                    <button type="submit" class="btn-add-chart" id="authSubmitBtn">Войти</button>
+                    <p class="auth-switch">
+                        <span id="authSwitchText">Нет аккаунта?</span>
+                        <button type="button" class="auth-switch-btn" onclick="window.toggleAuthMode()" id="authSwitchBtn">Зарегистрироваться</button>
+                    </p>
+                </form>
+                <div class="auth-view-divider">или</div>
+                <button type="button" class="btn-anon-chart" onclick="window.startAnonChart()">Построить временную карту дня</button>
+            </div>
         </div>
         <div id="chartsHomeView" class="charts-home" style="display:none;">
             <div class="brand-hero">
@@ -1180,6 +1245,46 @@
             `;
         }
 
+        // Витрина планет на стартовом экране входа/регистрации — картинка и
+        // подписи берутся случайно из одного и того же списка тел. Дом и
+        // управляемый знак — те же значения, что и в остальном интерфейсе
+        // (PLANET_SIGNIFICATION_FIXED/PLANET_RULED_SIGN), трактовка — дословно
+        // из уже согласованной бизнес-базы INTERPRETATIONS (app.py), просто
+        // продублирована сюда, чтобы стартовый экран не зависел от API.
+        const AUTH_PLANET_SHOWCASE = [
+            { name: 'Солнце', symbol: '☉', image: 'sun.jpg', house: '5 дом', sign: 'Лев', speed: '~0.98° в сутки',
+              desc: 'Солнце символизирует ваше ядро личности, волю, лидерский потенциал и авторскую позицию в бизнесе и жизни.' },
+            { name: 'Луна', symbol: '☽', image: 'moon.jpg', house: '4 дом', sign: 'Рак', speed: '~13.2° в сутки',
+              desc: 'Луна отражает внутренние потребности, адаптационные механизмы, уровень стрессоустойчивости и интуитивное восприятие рисков.' },
+            { name: 'Меркурий', symbol: '☿', image: 'mercury.jpg', house: '3 дом', sign: 'Близнецы', speed: '~1.4° в сутки',
+              desc: 'Меркурий управляет стилем коммуникации, бизнес-мышлением, скоростью обработки данных и финансовой логикой.' },
+            { name: 'Венера', symbol: '♀', image: 'venus.png', house: '2 дом', sign: 'Телец', speed: '~1.2° в сутки',
+              desc: 'Венера определяет ваши ценности, отношение к материальным ресурсам, партнерский выбор и способность привлекать финансы.' },
+            { name: 'Марс', symbol: '♂', image: 'mars.jpg', house: '8 дом', sign: 'Овен', speed: '~0.52° в сутки',
+              desc: 'Марс показывает способ действия, предпринимательскую активность, решительность и стратегию преодоления кризисных ситуаций.' },
+            { name: 'Юпитер', symbol: '♃', image: 'jupiter.jpg', house: '9 дом', sign: 'Стрелец', speed: '~0.08° в сутки',
+              desc: 'Юпитер указывает на зоны стратегического масштабирования, новые возможности, авторитет и главные точки финансового роста.' },
+            { name: 'Сатурн', symbol: '♄', image: 'saturn.jpg', house: '10 дом', sign: 'Козерог', speed: '~0.03° в сутки',
+              desc: 'Сатурн отвечает за структуру, дисциплину, долгосрочное планирование, управление рисками и внутреннюю стабильность.' },
+            { name: 'Уран', symbol: '♅', image: 'uranus.jpg', house: '11 дом', sign: 'Водолей', speed: '~0.01° в сутки',
+              desc: 'Уран символизирует инновации, инсайты, готовность к изменениям, масштабные реформы и форс-мажорные стратегии.' },
+            { name: 'Нептун', symbol: '♆', image: 'neptune.jpg', house: '12 дом', sign: 'Рыбы', speed: '~0.006° в сутки',
+              desc: 'Нептун связан с интуицией, масштабным видением трендов, психологическим капиталом и скрытыми возможностями рынка.' },
+            { name: 'Плутон', symbol: '♇', image: 'pluto.jpg', house: '8 дом', sign: 'Скорпион', speed: '~0.004° в сутки',
+              desc: 'Плутон представляет управление крупными объемами энергии и капитала, трансформации, бизнес-власть и инвестиционные риски.' }
+        ];
+
+        function renderAuthVisual() {
+            const item = AUTH_PLANET_SHOWCASE[Math.floor(Math.random() * AUTH_PLANET_SHOWCASE.length)];
+            document.getElementById('authVisual').style.backgroundImage = `url('/planets/${item.image}')`;
+            document.getElementById('authVisualSymbol').textContent = item.symbol;
+            document.getElementById('authVisualName').textContent = item.name;
+            document.getElementById('authVisualHouse').textContent = item.house;
+            document.getElementById('authVisualSign').textContent = item.sign;
+            document.getElementById('authVisualSpeed').textContent = 'Средняя скорость: ' + item.speed;
+            document.getElementById('authVisualDesc').textContent = item.desc;
+        }
+
         // Стартовый экран для незалогиненных: блок входа/регистрации + кнопка
         // построить временную карту (по прямому уточнению Елены — форма
         // ввода данных больше не открывается сама, только по этой кнопке)
@@ -1188,6 +1293,7 @@
             document.getElementById('chartViewContainer').style.display = 'none';
             document.getElementById('chartsHomeView').style.display = 'none';
             document.getElementById('authView').style.display = 'flex';
+            renderAuthVisual();
         };
 
         let dailyChartLoaded = false;

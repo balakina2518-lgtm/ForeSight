@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file, session
+from flask import Flask, request, jsonify, send_file, send_from_directory, session
 from flask_cors import CORS
 from kerykeion import AstrologicalSubjectFactory
 from timezonefinder import TimezoneFinder
@@ -633,6 +633,15 @@ def index():
 def policy():
     try:
         return send_file('policy.html')
+    except Exception as e:
+        return f"Ошибка сервера: {e}", 500
+
+# Картинки планет для витрины на стартовом экране входа/регистрации.
+# send_from_directory защищает от выхода за пределы папки planets/.
+@app.route('/planets/<path:filename>', methods=['GET'])
+def planet_image(filename):
+    try:
+        return send_from_directory('planets', filename)
     except Exception as e:
         return f"Ошибка сервера: {e}", 500
 
