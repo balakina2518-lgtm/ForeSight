@@ -1271,25 +1271,25 @@
         // из уже согласованной бизнес-базы INTERPRETATIONS (app.py), просто
         // продублирована сюда, чтобы стартовый экран не зависел от API.
         const AUTH_PLANET_SHOWCASE = [
-            { name: 'Солнце', symbol: '☉', image: 'sun.jpg', house: '5 дом', sign: 'Лев', speed: '~0.98° в сутки',
+            { name: 'Солнце', symbol: '☉', image: 'sun', house: '5 дом', sign: 'Лев', speed: '~0.98° в сутки',
               desc: 'Солнце символизирует ваше ядро личности, волю, лидерский потенциал и авторскую позицию в бизнесе и жизни.' },
-            { name: 'Луна', symbol: '☽', image: 'moon.jpg', house: '4 дом', sign: 'Рак', speed: '~13.2° в сутки',
+            { name: 'Луна', symbol: '☽', image: 'moon', house: '4 дом', sign: 'Рак', speed: '~13.2° в сутки',
               desc: 'Луна отражает внутренние потребности, адаптационные механизмы, уровень стрессоустойчивости и интуитивное восприятие рисков.' },
-            { name: 'Меркурий', symbol: '☿', image: 'mercury.jpg', house: '3 дом', sign: 'Близнецы', speed: '~1.4° в сутки',
+            { name: 'Меркурий', symbol: '☿', image: 'mercury', house: '3 дом', sign: 'Близнецы', speed: '~1.4° в сутки',
               desc: 'Меркурий управляет стилем коммуникации, бизнес-мышлением, скоростью обработки данных и финансовой логикой.' },
-            { name: 'Венера', symbol: '♀', image: 'venus.png', house: '2 дом', sign: 'Телец', speed: '~1.2° в сутки',
+            { name: 'Венера', symbol: '♀', image: 'venus', house: '2 дом', sign: 'Телец', speed: '~1.2° в сутки',
               desc: 'Венера определяет ваши ценности, отношение к материальным ресурсам, партнерский выбор и способность привлекать финансы.' },
-            { name: 'Марс', symbol: '♂', image: 'mars.jpg', house: '8 дом', sign: 'Овен', speed: '~0.52° в сутки',
+            { name: 'Марс', symbol: '♂', image: 'mars', house: '8 дом', sign: 'Овен', speed: '~0.52° в сутки',
               desc: 'Марс показывает способ действия, предпринимательскую активность, решительность и стратегию преодоления кризисных ситуаций.' },
-            { name: 'Юпитер', symbol: '♃', image: 'jupiter.jpg', house: '9 дом', sign: 'Стрелец', speed: '~0.08° в сутки',
+            { name: 'Юпитер', symbol: '♃', image: 'jupiter', house: '9 дом', sign: 'Стрелец', speed: '~0.08° в сутки',
               desc: 'Юпитер указывает на зоны стратегического масштабирования, новые возможности, авторитет и главные точки финансового роста.' },
-            { name: 'Сатурн', symbol: '♄', image: 'saturn.jpg', house: '10 дом', sign: 'Козерог', speed: '~0.03° в сутки',
+            { name: 'Сатурн', symbol: '♄', image: 'saturn', house: '10 дом', sign: 'Козерог', speed: '~0.03° в сутки',
               desc: 'Сатурн отвечает за структуру, дисциплину, долгосрочное планирование, управление рисками и внутреннюю стабильность.' },
-            { name: 'Уран', symbol: '♅', image: 'uranus.jpg', house: '11 дом', sign: 'Водолей', speed: '~0.01° в сутки',
+            { name: 'Уран', symbol: '♅', image: 'uranus', house: '11 дом', sign: 'Водолей', speed: '~0.01° в сутки',
               desc: 'Уран символизирует инновации, инсайты, готовность к изменениям, масштабные реформы и форс-мажорные стратегии.' },
-            { name: 'Нептун', symbol: '♆', image: 'neptune.jpg', house: '12 дом', sign: 'Рыбы', speed: '~0.006° в сутки',
+            { name: 'Нептун', symbol: '♆', image: 'neptune', house: '12 дом', sign: 'Рыбы', speed: '~0.006° в сутки',
               desc: 'Нептун связан с интуицией, масштабным видением трендов, психологическим капиталом и скрытыми возможностями рынка.' },
-            { name: 'Плутон', symbol: '♇', image: 'pluto.jpg', house: '8 дом', sign: 'Скорпион', speed: '~0.004° в сутки',
+            { name: 'Плутон', symbol: '♇', image: 'pluto', house: '8 дом', sign: 'Скорпион', speed: '~0.004° в сутки',
               desc: 'Плутон представляет управление крупными объемами энергии и капитала, трансформации, бизнес-власть и инвестиционные риски.' }
         ];
 
@@ -1301,7 +1301,7 @@
             authPlanetIndex = ((index % AUTH_PLANET_SHOWCASE.length) + AUTH_PLANET_SHOWCASE.length) % AUTH_PLANET_SHOWCASE.length;
             const item = AUTH_PLANET_SHOWCASE[authPlanetIndex];
             document.getElementById('authVisualSymbol').textContent = item.symbol;
-            document.getElementById('authVisualPhoto').src = '/planets/' + item.image;
+            document.getElementById('authVisualPhoto').src = '/planet-photo/' + item.image;
             document.getElementById('authVisualPhoto').alt = item.name;
             document.getElementById('authVisualName').textContent = item.name;
             document.getElementById('authVisualHouse').textContent = item.house;
