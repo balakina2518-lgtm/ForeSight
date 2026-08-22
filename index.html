@@ -23,7 +23,31 @@
             --house-line-main: rgba(201, 160, 84, 0.6);
             --tick-color: rgba(124, 110, 101, 0.35);
             --neutral-line: #3e3229;
+            --site-header-h: 54px;
         }
+
+        .site-nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            height: var(--site-header-h); background: var(--bg-sidebar);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .site-nav-inner {
+            height: 100%; max-width: 1400px; margin: 0 auto; padding: 0 20px; box-sizing: border-box;
+            display: flex; align-items: center; justify-content: space-between; gap: 24px;
+        }
+        .site-nav-brand {
+            display: flex; align-items: center; gap: 8px; text-decoration: none;
+            color: var(--text-main); font-weight: 700; font-size: 0.98rem; flex-shrink: 0;
+        }
+        .site-nav-menu { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; overflow-x: auto; }
+        .site-nav-item {
+            font-size: 0.85rem; color: var(--text-main); text-decoration: none; cursor: pointer;
+            white-space: nowrap; background: none; border: none; padding: 0; font-family: inherit;
+        }
+        .site-nav-item:hover { color: var(--accent); }
+        .site-nav-item.disabled { color: var(--text-muted); cursor: default; opacity: 0.6; }
+        .site-nav-item.disabled:hover { color: var(--text-muted); }
+        #root { margin-top: var(--site-header-h); }
 
         body, html {
             margin: 0; padding: 0; height: 100%;
@@ -52,7 +76,7 @@
             display: flex; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--border-color); flex-shrink: 0;
         }
 
-        #chartViewContainer { position: relative; height: 100vh; }
+        #chartViewContainer { position: relative; height: calc(100vh - var(--site-header-h)); }
         .chart-top-bar {
             position: absolute; top: 20px; left: 20px; right: 20px; z-index: 10;
             display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
@@ -257,7 +281,7 @@
 
         .auth-view {
             width: 100%; margin: 0; padding: 0; max-width: none; box-sizing: border-box;
-            display: none; flex-direction: row-reverse; align-items: stretch; min-height: 100vh;
+            display: none; flex-direction: row-reverse; align-items: stretch; min-height: calc(100vh - var(--site-header-h));
         }
         .auth-visual {
             /* Ширина строго равна высоте (100vh) — контейнер получается
@@ -265,7 +289,7 @@
                заполняет его без чёрных полос по бокам и без обрезки планеты,
                при любой ширине окна (по просьбе Елены: "не хочется черных
                полос", после того как contain оставлял пустые поля) */
-            flex: 0 0 100vh; width: 100vh; position: relative; overflow: hidden; min-height: 100vh;
+            flex: 0 0 calc(100vh - var(--site-header-h)); width: calc(100vh - var(--site-header-h)); position: relative; overflow: hidden; min-height: calc(100vh - var(--site-header-h));
             background-color: #0f0d0a; background-size: cover; background-position: center;
             display: flex; flex-direction: column; justify-content: space-between;
             padding: 40px; box-sizing: border-box; color: #fff;
@@ -520,10 +544,33 @@
             .auth-visual-desc-cols { display: none; }
             .auth-visual-stats { gap: 16px; }
             .auth-panel { flex: 1; padding: 28px 22px; }
+            .site-nav-inner { gap: 14px; padding: 0 12px; }
+            .site-nav-brand span { display: none; }
+            .site-nav-menu { gap: 14px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
         }
     </style>
 </head>
 <body class="notranslate">
+    <header class="site-nav" id="siteNav">
+        <div class="site-nav-inner">
+            <a href="#" class="site-nav-brand" onclick="window.goToForsight(event)">
+                <svg width="20" height="26" viewBox="0 0 100 100" class="brand-emblem">
+                    <path d="M50,15 C46,32 46,42 46,50 C46,58 46,68 50,85 C54,68 54,58 54,50 C54,42 54,32 50,15 Z" fill="var(--accent)"/>
+                    <ellipse cx="48" cy="48" rx="32" ry="9" fill="none" stroke="var(--accent)" stroke-width="2.6" transform="rotate(-14 48 48)"/>
+                    <circle cx="76" cy="40" r="3.4" fill="var(--accent)"/>
+                </svg>
+                <span>Форсайт</span>
+            </a>
+            <nav class="site-nav-menu">
+                <span class="site-nav-item disabled" title="Планеты, Знаки, Дома — скоро">Астробаза</span>
+                <span class="site-nav-item disabled" title="Видеокурсы — скоро">Прикладная астрология</span>
+                <a href="#" class="site-nav-item" onclick="window.goToForsight(event)">Форсайт</a>
+                <span class="site-nav-item disabled" title="Скоро">Выбор услуг</span>
+                <span class="site-nav-item disabled" title="Скоро">Навигатор по натальной карте</span>
+                <a href="#" class="site-nav-item" onclick="window.goToPersonalArea(event)">Личный кабинет</a>
+            </nav>
+        </div>
+    </header>
     <div id="root">
         <div id="authView" class="auth-view">
             <div class="auth-visual" id="authVisual">
@@ -1750,6 +1797,19 @@ const AUTH_PLANET_PHOTOS = {
             document.getElementById('chartViewContainer').style.display = 'none';
             document.getElementById('chartsHomeView').style.display = 'block';
             window.refreshChartsList();
+        };
+
+        // Пункты меню сайта "Форсайт" и "Личный кабинет" пока ведут в одно и
+        // то же место — сам инструмент построения карт и есть личный кабинет
+        // в его нынешнем виде. Разделятся, когда на сайте появятся другие
+        // самостоятельные разделы (Астробаза, Видеокурсы и т.д.)
+        window.goToForsight = function(event) {
+            if (event) event.preventDefault();
+            window.showChartsHome();
+        };
+        window.goToPersonalArea = function(event) {
+            if (event) event.preventDefault();
+            window.showChartsHome();
         };
 
         // Дата/время в бейдже отличаются от тех, с которыми карта была
