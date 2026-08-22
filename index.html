@@ -272,12 +272,6 @@
         }
         .btn-add-chart:hover { opacity: 0.9; }
         .charts-home-header-right { display: flex; align-items: center; gap: 16px; }
-        .user-badge { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: 0.8rem; color: var(--text-muted); }
-        .user-badge .user-badge-email { color: var(--text-main); }
-        .user-badge .user-badge-plan { color: var(--accent); font-weight: 600; }
-        .user-badge .user-badge-plan.plan-free { color: var(--text-muted); }
-        .user-badge .user-badge-logout { background: none; border: none; color: var(--text-muted); font-size: 0.78rem; cursor: pointer; padding: 0; text-decoration: underline; }
-        .user-badge .user-badge-logout:hover { color: var(--accent); }
 
         .auth-view {
             width: 100%; margin: 0; padding: 0; max-width: none; box-sizing: border-box;
@@ -753,7 +747,6 @@
             <div class="charts-home-header">
                 <h1>Карты</h1>
                 <div class="charts-home-header-right">
-                    <div class="user-badge" id="userBadge"></div>
                     <button type="button" class="btn-add-chart" onclick="window.showChartForm()">+ Добавить карту</button>
                 </div>
             </div>
@@ -1523,22 +1516,6 @@
             document.getElementById('horaryOnlyFields').style.display = (type === 'horary') ? 'block' : 'none';
         }
 
-        const PLAN_LABELS = { free: 'Бесплатный', astrolog: 'Сам себе астролог', admin: 'Администратор' };
-
-        function renderUserBadge() {
-            const el = document.getElementById('userBadge');
-            if (!window.currentUser) { el.innerHTML = ''; return; }
-            const u = window.currentUser;
-            const planLabel = PLAN_LABELS[u.plan] || u.plan;
-            const usageLine = (u.plan === 'free')
-                ? `<span class="user-badge-plan plan-free">${planLabel} — использовано ${u.calculations_used}/${u.calculations_limit}</span>`
-                : `<span class="user-badge-plan">${planLabel}</span>`;
-            el.innerHTML = `
-                <span class="user-badge-email">${escapeHtml(u.email)}</span>
-                ${usageLine}
-                <button type="button" class="user-badge-logout" onclick="window.logout()">Выйти</button>
-            `;
-        }
 
         // Бейдж в шапке карты для незалогиненных — показывает, сколько ещё
         // осталось бесплатных карт без регистрации, и ссылку назад на вход
@@ -1747,7 +1724,6 @@ const AUTH_PLANET_PHOTOS = {
                 document.getElementById('authView').style.display = 'none';
                 document.getElementById('chartsHomeView').style.display = 'block';
                 document.getElementById('chartViewContainer').style.display = 'none';
-                renderUserBadge();
                 window.refreshChartsList();
             } else {
                 document.getElementById('chartsHomeView').style.display = 'none';
@@ -4223,7 +4199,6 @@ const AUTH_PLANET_PHOTOS = {
                             if (meData.status === 'success') {
                                 window.currentUser = meData.user;
                                 window.anonInfo = meData.anon || null;
-                                renderUserBadge();
                                 renderAnonBadge();
                             }
                         } catch (meErr) { /* бейдж просто не обновится, не критично */ }
