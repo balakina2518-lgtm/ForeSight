@@ -321,6 +321,15 @@
         }
         .auth-password-toggle:hover { color: var(--accent); }
         .auth-error { color: #e74c3c; font-size: 0.85rem; }
+        .auth-success { color: #2e8b57; font-size: 0.85rem; }
+        .auth-forgot-hint { margin: -2px 0 2px; font-size: 0.82rem; color: var(--text-muted); }
+        .auth-submit-row { display: flex; align-items: center; gap: 14px; }
+        .auth-submit-row .btn-add-chart { flex: 1; }
+        .auth-forgot-btn {
+            background: none; border: none; color: var(--text-muted); cursor: pointer;
+            font-size: 0.82rem; text-decoration: underline; padding: 0; white-space: nowrap; flex-shrink: 0;
+        }
+        .auth-forgot-btn:hover { color: var(--accent); }
         .auth-switch { text-align: center; font-size: 0.85rem; color: var(--text-muted); margin: 4px 0 0; }
         .auth-switch-btn { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 0.85rem; text-decoration: underline; padding: 0; margin-left: 4px; }
         .auth-consent-label { flex-direction: row !important; align-items: flex-start; gap: 8px !important; font-size: 0.82rem !important; color: var(--text-muted) !important; }
@@ -549,7 +558,7 @@
                 </div>
             </div>
             <div class="auth-panel">
-                <p class="auth-panel-top-switch">
+                <p class="auth-panel-top-switch" id="authTopSwitch">
                     <span id="authSwitchText">Нет аккаунта?</span>
                     <button type="button" class="auth-switch-btn" onclick="window.toggleAuthMode()" id="authSwitchBtn">Зарегистрироваться</button>
                 </p>
@@ -577,10 +586,41 @@
                         Согласен(на) с <a href="/policy" target="_blank" rel="noopener">политикой обработки персональных данных</a>
                     </label>
                     <div class="auth-error" id="authError" style="display:none;"></div>
-                    <button type="submit" class="btn-add-chart" id="authSubmitBtn">Войти</button>
+                    <div class="auth-success" id="authSuccess" style="display:none;"></div>
+                    <div class="auth-submit-row">
+                        <button type="submit" class="btn-add-chart" id="authSubmitBtn">Войти</button>
+                        <button type="button" class="auth-forgot-btn" id="authForgotBtn" onclick="window.showForgotPassword()">Забыли пароль?</button>
+                    </div>
                 </form>
-                <div class="auth-view-divider">или</div>
-                <button type="button" class="btn-anon-chart" onclick="window.startAnonChart()">Построить временную карту дня</button>
+
+                <form class="auth-form" id="forgotForm" style="display:none;" onsubmit="window.submitForgotPassword(event)">
+                    <h2>Восстановление пароля</h2>
+                    <p class="auth-forgot-hint">Введите email — если он зарегистрирован, пришлём ссылку для сброса пароля.</p>
+                    <label>Email<input type="email" id="forgotEmail" required autocomplete="email"></label>
+                    <div class="auth-error" id="forgotError" style="display:none;"></div>
+                    <div class="auth-success" id="forgotSuccess" style="display:none;"></div>
+                    <button type="submit" class="btn-add-chart" id="forgotSubmitBtn">Отправить ссылку</button>
+                    <p class="auth-switch">
+                        <button type="button" class="auth-switch-btn" onclick="window.hideForgotPassword()">← Назад ко входу</button>
+                    </p>
+                </form>
+
+                <form class="auth-form" id="resetForm" style="display:none;" onsubmit="window.submitResetPassword(event)">
+                    <h2>Новый пароль</h2>
+                    <label>Новый пароль
+                        <div class="auth-password-wrap">
+                            <input type="password" id="resetPassword" required minlength="6" autocomplete="new-password">
+                            <button type="button" class="auth-password-toggle" id="resetPasswordToggleBtn" onclick="window.toggleResetPasswordVisibility()" aria-label="Показать пароль">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                            </button>
+                        </div>
+                    </label>
+                    <div class="auth-error" id="resetError" style="display:none;"></div>
+                    <button type="submit" class="btn-add-chart" id="resetSubmitBtn">Сохранить новый пароль</button>
+                </form>
+
+                <div class="auth-view-divider" id="authDivider">или</div>
+                <button type="button" class="btn-anon-chart" id="authAnonBtn" onclick="window.startAnonChart()">Построить временную карту дня</button>
             </div>
         </div>
         <div id="chartsHomeView" class="charts-home" style="display:none;">
@@ -1468,6 +1508,10 @@ const AUTH_PLANET_PHOTOS = {
         };
 
         window.checkAuth = async function() {
+            // Ссылка восстановления пароля работает вне зависимости от того,
+            // залогинен человек сейчас или нет — не должна перебиваться
+            // обычным редиректом в библиотеку карт для залогиненных
+            if (checkResetTokenInUrl()) return;
             try {
                 const response = await fetch('/api/me');
                 const data = await response.json();
@@ -1515,6 +1559,121 @@ const AUTH_PLANET_PHOTOS = {
             const isRegister = authMode === 'register';
             document.getElementById('authConsentLabel').style.display = isRegister ? 'flex' : 'none';
             document.getElementById('authConsent').required = isRegister;
+            // "Забыли пароль?" имеет смысл только при входе — при регистрации
+            // аккаунта ещё не существует, восстанавливать нечего
+            document.getElementById('authForgotBtn').style.display = isRegister ? 'none' : 'inline';
+        };
+
+        // Восстановление пароля: отдельная мини-форма поверх обычного
+        // входа/регистрации — прячет их и divider/кнопку карты дня, чтобы не
+        // путать человека лишними элементами, пока он вводит только email
+        window.showForgotPassword = function() {
+            document.getElementById('authForm').style.display = 'none';
+            document.getElementById('authTopSwitch').style.display = 'none';
+            document.getElementById('authDivider').style.display = 'none';
+            document.getElementById('authAnonBtn').style.display = 'none';
+            document.getElementById('forgotError').style.display = 'none';
+            document.getElementById('forgotSuccess').style.display = 'none';
+            document.getElementById('forgotEmail').value = '';
+            document.getElementById('forgotForm').style.display = 'flex';
+        };
+        window.hideForgotPassword = function() {
+            document.getElementById('forgotForm').style.display = 'none';
+            document.getElementById('authForm').style.display = 'flex';
+            document.getElementById('authTopSwitch').style.display = 'flex';
+            document.getElementById('authDivider').style.display = 'flex';
+            document.getElementById('authAnonBtn').style.display = 'block';
+        };
+        window.submitForgotPassword = async function(event) {
+            event.preventDefault();
+            const email = document.getElementById('forgotEmail').value.trim();
+            const errorEl = document.getElementById('forgotError');
+            const successEl = document.getElementById('forgotSuccess');
+            errorEl.style.display = 'none';
+            successEl.style.display = 'none';
+            try {
+                const response = await fetch('/api/forgot-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const data = await response.json();
+                if (data.status !== 'success') {
+                    errorEl.textContent = data.message;
+                    errorEl.style.display = 'block';
+                    return;
+                }
+                successEl.textContent = data.message;
+                successEl.style.display = 'block';
+            } catch (err) {
+                errorEl.textContent = 'Не удалось связаться с сервером';
+                errorEl.style.display = 'block';
+            }
+        };
+
+        window.toggleResetPasswordVisibility = function() {
+            const input = document.getElementById('resetPassword');
+            const btn = document.getElementById('resetPasswordToggleBtn');
+            const willShow = input.type === 'password';
+            input.type = willShow ? 'text' : 'password';
+            btn.innerHTML = willShow ? AUTH_EYE_OFF_ICON : AUTH_EYE_ICON;
+            btn.setAttribute('aria-label', willShow ? 'Скрыть пароль' : 'Показать пароль');
+        };
+
+        // Токен из ссылки в письме (?reset=...) — если есть, сразу показываем
+        // форму нового пароля вместо обычного входа, независимо от того,
+        // залогинен человек или нет (проверяется до fetch('/api/me') в
+        // checkAuth, чтобы обычный редирект в библиотеку карт не перебивал)
+        let resetPasswordToken = null;
+        function checkResetTokenInUrl() {
+            const token = new URLSearchParams(window.location.search).get('reset');
+            if (!token) return false;
+            resetPasswordToken = token;
+            document.getElementById('formModal').style.display = 'none';
+            document.getElementById('chartViewContainer').style.display = 'none';
+            document.getElementById('chartsHomeView').style.display = 'none';
+            document.getElementById('authView').style.display = 'flex';
+            renderAuthVisual();
+            document.getElementById('authForm').style.display = 'none';
+            document.getElementById('forgotForm').style.display = 'none';
+            document.getElementById('authTopSwitch').style.display = 'none';
+            document.getElementById('authDivider').style.display = 'none';
+            document.getElementById('authAnonBtn').style.display = 'none';
+            document.getElementById('resetForm').style.display = 'flex';
+            return true;
+        }
+        window.submitResetPassword = async function(event) {
+            event.preventDefault();
+            const password = document.getElementById('resetPassword').value;
+            const errorEl = document.getElementById('resetError');
+            errorEl.style.display = 'none';
+            try {
+                const response = await fetch('/api/reset-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: resetPasswordToken, password })
+                });
+                const data = await response.json();
+                if (data.status !== 'success') {
+                    errorEl.textContent = data.message;
+                    errorEl.style.display = 'block';
+                    return;
+                }
+                // Убираем токен из адресной строки, чтобы её нельзя было
+                // случайно переиспользовать, и возвращаемся на обычный вход
+                window.history.replaceState({}, '', window.location.pathname);
+                resetPasswordToken = null;
+                document.getElementById('resetForm').style.display = 'none';
+                document.getElementById('authForm').style.display = 'flex';
+                document.getElementById('authTopSwitch').style.display = 'flex';
+                document.getElementById('authDivider').style.display = 'flex';
+                document.getElementById('authAnonBtn').style.display = 'block';
+                document.getElementById('authSuccess').textContent = 'Пароль обновлён, теперь можно войти';
+                document.getElementById('authSuccess').style.display = 'block';
+            } catch (err) {
+                errorEl.textContent = 'Не удалось связаться с сервером';
+                errorEl.style.display = 'block';
+            }
         };
 
         window.submitAuthForm = async function(event) {
@@ -1524,6 +1683,7 @@ const AUTH_PLANET_PHOTOS = {
             const consent = document.getElementById('authConsent').checked;
             const errorEl = document.getElementById('authError');
             errorEl.style.display = 'none';
+            document.getElementById('authSuccess').style.display = 'none';
             if (authMode === 'register' && !consent) {
                 errorEl.textContent = 'Нужно согласие на обработку персональных данных';
                 errorEl.style.display = 'block';

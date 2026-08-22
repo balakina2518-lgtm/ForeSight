@@ -3,10 +3,13 @@ from flask_cors import CORS
 from kerykeion import AstrologicalSubjectFactory
 from timezonefinder import TimezoneFinder
 from zoneinfo import ZoneInfo
-from datetime import datetime
+from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 import re
+import secrets
+import smtplib
+from email.mime.text import MIMEText
 import pymysql
 import pymysql.cursors
 
@@ -28,6 +31,14 @@ try:
     from config import SECRET_KEY
 except ImportError:
     SECRET_KEY = None
+# Почта для отправки писем восстановления пароля — тот же принцип, отдельный
+# try/except, чтобы отсутствие SMTP-настроек не роняло остальной app.py
+try:
+    from config import SMTP_EMAIL, SMTP_PASSWORD
+except ImportError:
+    SMTP_EMAIL = SMTP_PASSWORD = None
+SMTP_HOST = 'smtp.mail.ru'
+SMTP_PORT = 465
 
 app.secret_key = SECRET_KEY or 'dev-only-insecure-key-set-SECRET_KEY-in-config.py'
 app.config.update(
@@ -48,6 +59,28 @@ def get_db_connection():
         host=DB_HOST, user=DB_USER, password=DB_PASSWORD, database=DB_NAME,
         cursorclass=pymysql.cursors.DictCursor, charset='utf8mb4'
     )
+
+def send_reset_email(to_email, reset_link):
+    """Письмо со ссылкой восстановления пароля. Молча ничего не делает, если
+    SMTP не настроен в config.py — вызывающий код не должен из-за этого падать
+    (пользователю в любом случае показывается общий ответ 'если email
+    зарегистрирован, письмо отправлено', чтобы не палить, есть ли такой email)."""
+    if not SMTP_EMAIL or not SMTP_PASSWORD:
+        print("SMTP не настроен (нет SMTP_EMAIL/SMTP_PASSWORD в config.py) — письмо не отправлено")
+        return
+    msg = MIMEText(
+        "Здравствуйте!\n\n"
+        "Вы (или кто-то от вашего имени) запросили восстановление пароля на astro-forsight.ru.\n"
+        f"Перейдите по ссылке, чтобы задать новый пароль (ссылка активна 1 час):\n{reset_link}\n\n"
+        "Если это были не вы — просто проигнорируйте это письмо, пароль останется прежним.",
+        "plain", "utf-8"
+    )
+    msg['Subject'] = "Восстановление пароля — Форсайт"
+    msg['From'] = SMTP_EMAIL
+    msg['To'] = to_email
+    with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT) as server:
+        server.login(SMTP_EMAIL, SMTP_PASSWORD)
+        server.sendmail(SMTP_EMAIL, [to_email], msg.as_string())
 
 def get_current_user(cur):
     """Текущий пользователь по сессии, либо None если не залогинен."""
@@ -141,6 +174,69 @@ def login():
             return jsonify({"status": "error", "message": "Неверный email или пароль"}), 401
         session['user_id'] = user['id']
         return jsonify({"status": "success", "email": user['email'], "plan": user['plan']})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+GENERIC_FORGOT_MESSAGE = "Если такой email зарегистрирован, мы отправили на него письмо со ссылкой для восстановления пароля"
+
+@app.route('/api/forgot-password', methods=['POST'])
+def forgot_password():
+    data = request.json or {}
+    email = (data.get('email') or '').strip().lower()
+    if not EMAIL_RE.match(email):
+        return jsonify({"status": "error", "message": "Некорректный email"}), 400
+    # Ответ всегда одинаковый независимо от того, нашёлся ли email — иначе
+    # через эту форму можно проверять, какие email зарегистрированы на сайте
+    try:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id FROM users WHERE email=%s", (email,))
+                user = cur.fetchone()
+                if user:
+                    token = secrets.token_urlsafe(32)
+                    expires = datetime.now() + timedelta(hours=1)
+                    cur.execute(
+                        "UPDATE users SET reset_token=%s, reset_token_expires=%s WHERE id=%s",
+                        (token, expires, user['id'])
+                    )
+                    conn.commit()
+                    reset_link = f"https://astro-forsight.ru/?reset={token}"
+                    send_reset_email(email, reset_link)
+        finally:
+            conn.close()
+    except Exception as e:
+        print(f"Ошибка при восстановлении пароля: {e}")
+    return jsonify({"status": "success", "message": GENERIC_FORGOT_MESSAGE})
+
+@app.route('/api/reset-password', methods=['POST'])
+def reset_password():
+    data = request.json or {}
+    token = (data.get('token') or '').strip()
+    password = data.get('password') or ''
+    if not token:
+        return jsonify({"status": "error", "message": "Некорректная ссылка восстановления"}), 400
+    if len(password) < 6:
+        return jsonify({"status": "error", "message": "Пароль должен быть не короче 6 символов"}), 400
+    try:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT id, reset_token_expires FROM users WHERE reset_token=%s",
+                    (token,)
+                )
+                user = cur.fetchone()
+                if not user or not user['reset_token_expires'] or user['reset_token_expires'] < datetime.now():
+                    return jsonify({"status": "error", "message": "Ссылка недействительна или устарела — запросите новую"}), 400
+                cur.execute(
+                    "UPDATE users SET password_hash=%s, reset_token=NULL, reset_token_expires=NULL WHERE id=%s",
+                    (generate_password_hash(password), user['id'])
+                )
+            conn.commit()
+        finally:
+            conn.close()
+        return jsonify({"status": "success"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
