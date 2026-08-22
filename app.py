@@ -179,6 +179,24 @@ def login():
 
 GENERIC_FORGOT_MESSAGE = "Если такой email зарегистрирован, мы отправили на него письмо со ссылкой для восстановления пароля"
 
+# ВРЕМЕННЫЙ отладочный маршрут — пробует разные варианты логина SMTP напрямую,
+# чтобы не гонять полный деплой на каждую попытку. Убрать после диагностики.
+@app.route('/api/_debug_smtp', methods=['POST'])
+def debug_smtp():
+    data = request.json or {}
+    if data.get('_debug_key') != 'forsight-debug-2026':
+        return "", 404
+    username = data.get('username') or SMTP_EMAIL
+    password = data.get('password') or SMTP_PASSWORD
+    host = data.get('host') or SMTP_HOST
+    port = int(data.get('port') or SMTP_PORT)
+    try:
+        with smtplib.SMTP_SSL(host, port, timeout=10) as server:
+            server.login(username, password)
+        return jsonify({"status": "success", "message": f"LOGIN OK как {username} на {host}:{port}"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"{type(e).__name__}: {e}"})
+
 @app.route('/api/forgot-password', methods=['POST'])
 def forgot_password():
     data = request.json or {}
