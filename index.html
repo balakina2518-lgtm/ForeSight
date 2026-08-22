@@ -280,13 +280,13 @@
         .auth-visual-heading { display: flex; align-items: flex-start; gap: 14px; }
         .auth-visual-symbol { font-size: 2.3rem; line-height: 1; color: #fff; margin-top: 6px; }
         .auth-visual-name { margin: 0; font-size: 2.6rem; font-weight: 600; letter-spacing: 0.5px; color: #fff; }
-        .auth-visual-speed { display: block; margin-top: 6px; font-size: 0.8rem; color: rgba(255,255,255,0.75); letter-spacing: 0.3px; }
-        .auth-visual-stats { display: flex; gap: 28px; text-align: right; }
-        .auth-visual-stat-label { display: block; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255,255,255,0.65); margin-bottom: 4px; }
-        .auth-visual-stat-value { display: block; font-size: 1rem; font-weight: 600; color: #fff; }
+        .auth-visual-stats { display: flex; gap: 20px; text-align: left; margin-top: 10px; }
+        .auth-visual-stat-label { display: block; font-size: 0.64rem; text-transform: uppercase; letter-spacing: 1.1px; color: rgba(255,255,255,0.65); margin-bottom: 3px; }
+        .auth-visual-stat-value { display: block; font-size: 0.9rem; font-weight: 600; color: #fff; }
         .auth-visual-bottom { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; }
         .auth-visual-desc-cols { display: flex; gap: 32px; flex-wrap: wrap; }
-        .auth-visual-desc { flex: 1 1 220px; max-width: 260px; font-size: 0.88rem; line-height: 1.55; color: rgba(255,255,255,0.9); margin: 0; }
+        .auth-visual-desc-cols > * { flex: 1 1 220px; max-width: 260px; }
+        .auth-visual-desc { font-size: 0.88rem; line-height: 1.55; color: rgba(255,255,255,0.9); margin: 0; }
         .auth-visual-nav { display: flex; gap: 10px; flex-shrink: 0; }
         .auth-visual-nav-btn {
             width: 36px; height: 36px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.4);
@@ -521,7 +521,7 @@
             .auth-visual { flex: 0 0 240px; width: 100%; min-height: 240px; padding: 22px; }
             .auth-visual-name { font-size: 1.7rem; }
             .auth-visual-symbol { font-size: 1.4rem; }
-            .auth-visual-desc-cols, .auth-visual-speed { display: none; }
+            .auth-visual-desc-cols { display: none; }
             .auth-visual-stats { gap: 16px; }
             .auth-panel { flex: 1; padding: 28px 22px; }
             .auth-panel-top-switch { top: 14px; right: 16px; font-size: 0.72rem; }
@@ -537,26 +537,25 @@
                 <div class="auth-visual-top">
                     <div class="auth-visual-heading">
                         <span class="auth-visual-symbol" id="authVisualSymbol"></span>
-                        <div>
-                            <h2 class="auth-visual-name" id="authVisualName"></h2>
-                            <span class="auth-visual-speed" id="authVisualSpeed"></span>
-                        </div>
-                    </div>
-                    <div class="auth-visual-stats">
-                        <div>
-                            <span class="auth-visual-stat-label">Симв. управитель</span>
-                            <span class="auth-visual-stat-value" id="authVisualHouse"></span>
-                        </div>
-                        <div>
-                            <span class="auth-visual-stat-label">Знаки зодиака</span>
-                            <span class="auth-visual-stat-value" id="authVisualSign"></span>
-                        </div>
+                        <h2 class="auth-visual-name" id="authVisualName"></h2>
                     </div>
                 </div>
                 <div class="auth-visual-bottom">
                     <div class="auth-visual-desc-cols">
                         <p class="auth-visual-desc" id="authVisualDesc"></p>
-                        <p class="auth-visual-desc" id="authVisualDesc2"></p>
+                        <div>
+                            <p class="auth-visual-desc" id="authVisualDesc2"></p>
+                            <div class="auth-visual-stats">
+                                <div>
+                                    <span class="auth-visual-stat-label">Знаки зодиака</span>
+                                    <span class="auth-visual-stat-value" id="authVisualSign"></span>
+                                </div>
+                                <div>
+                                    <span class="auth-visual-stat-label">Симв. управитель</span>
+                                    <span class="auth-visual-stat-value" id="authVisualHouse"></span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="auth-visual-nav">
                         <button type="button" class="auth-visual-nav-btn" onclick="window.cycleAuthPlanet(-1)" aria-label="Предыдущая планета">‹</button>
@@ -626,6 +625,7 @@
                     <button type="submit" class="btn-add-chart" id="resetSubmitBtn">Сохранить новый пароль</button>
                 </form>
 
+                <button type="button" class="btn-anon-chart" id="authRegisterBtn" onclick="if (authMode !== 'register') window.toggleAuthMode();">Зарегистрироваться</button>
                 <div class="auth-view-divider" id="authDivider">или</div>
                 <button type="button" class="btn-anon-chart" id="authAnonBtn" onclick="window.startAnonChart()">Построить временную карту дня</button>
                 <div class="auth-legal-footer">
@@ -1423,7 +1423,6 @@ const AUTH_PLANET_PHOTOS = {
             document.getElementById('authVisualName').textContent = item.name;
             document.getElementById('authVisualHouse').textContent = item.house;
             document.getElementById('authVisualSign').textContent = item.sign;
-            document.getElementById('authVisualSpeed').textContent = 'Скорость: ' + item.speed;
             document.getElementById('authVisualDesc').textContent = item.desc;
             document.getElementById('authVisualDesc2').textContent = item.orbit;
         }
@@ -1582,6 +1581,9 @@ const AUTH_PLANET_PHOTOS = {
             // "Забыли пароль?" имеет смысл только при входе — при регистрации
             // аккаунта ещё не существует, восстанавливать нечего
             document.getElementById('authForgotBtn').style.display = isRegister ? 'none' : 'inline';
+            // Кнопка "Зарегистрироваться" в списке действий не нужна в режиме
+            // регистрации — там уже сама форма подписана "Зарегистрироваться"
+            document.getElementById('authRegisterBtn').style.display = isRegister ? 'none' : 'block';
         };
 
         // Восстановление пароля: отдельная мини-форма поверх обычного
@@ -1590,6 +1592,7 @@ const AUTH_PLANET_PHOTOS = {
         window.showForgotPassword = function() {
             document.getElementById('authForm').style.display = 'none';
             document.getElementById('authTopSwitch').style.display = 'none';
+            document.getElementById('authRegisterBtn').style.display = 'none';
             document.getElementById('authDivider').style.display = 'none';
             document.getElementById('authAnonBtn').style.display = 'none';
             document.getElementById('forgotError').style.display = 'none';
@@ -1601,6 +1604,7 @@ const AUTH_PLANET_PHOTOS = {
             document.getElementById('forgotForm').style.display = 'none';
             document.getElementById('authForm').style.display = 'flex';
             document.getElementById('authTopSwitch').style.display = 'flex';
+            document.getElementById('authRegisterBtn').style.display = 'block';
             document.getElementById('authDivider').style.display = 'flex';
             document.getElementById('authAnonBtn').style.display = 'block';
         };
@@ -1657,6 +1661,7 @@ const AUTH_PLANET_PHOTOS = {
             document.getElementById('authForm').style.display = 'none';
             document.getElementById('forgotForm').style.display = 'none';
             document.getElementById('authTopSwitch').style.display = 'none';
+            document.getElementById('authRegisterBtn').style.display = 'none';
             document.getElementById('authDivider').style.display = 'none';
             document.getElementById('authAnonBtn').style.display = 'none';
             document.getElementById('resetForm').style.display = 'flex';
@@ -1686,6 +1691,7 @@ const AUTH_PLANET_PHOTOS = {
                 document.getElementById('resetForm').style.display = 'none';
                 document.getElementById('authForm').style.display = 'flex';
                 document.getElementById('authTopSwitch').style.display = 'flex';
+                document.getElementById('authRegisterBtn').style.display = 'block';
                 document.getElementById('authDivider').style.display = 'flex';
                 document.getElementById('authAnonBtn').style.display = 'block';
                 document.getElementById('authSuccess').textContent = 'Пароль обновлён, теперь можно войти';
