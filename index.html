@@ -856,10 +856,7 @@
                             <div class="form-section-body" style="display:none;">
                                 <p class="profile-panel-hint" style="margin:0 0 8px;">Сейчас для входа используется <b id="profileCurrentEmail"></b> — можно заменить в любой момент.</p>
                                 <label class="profile-field">Новая почта
-                                    <input type="email" id="profileNewEmail" autocomplete="off">
-                                </label>
-                                <label class="profile-field">Пароль (подтверждение)
-                                    <input type="password" id="profileEmailPassword" autocomplete="current-password">
+                                    <input type="email" id="profileNewEmail" name="profile_email_new" autocomplete="off">
                                 </label>
                                 <div class="auth-error" id="profileEmailError" style="display:none;"></div>
                                 <div class="auth-success" id="profileEmailSuccess" style="display:none;"></div>
@@ -2191,8 +2188,7 @@ const AUTH_PLANET_PHOTOS = {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        new_email: document.getElementById('profileNewEmail').value.trim(),
-                        password: document.getElementById('profileEmailPassword').value
+                        new_email: document.getElementById('profileNewEmail').value.trim()
                     })
                 });
                 const data = await response.json();
@@ -2204,7 +2200,6 @@ const AUTH_PLANET_PHOTOS = {
                 window.currentUser.email = data.email;
                 document.getElementById('profileCurrentEmail').textContent = data.email;
                 document.getElementById('profileNewEmail').value = '';
-                document.getElementById('profileEmailPassword').value = '';
                 successEl.textContent = 'Почта обновлена';
                 successEl.style.display = 'block';
             } catch (err) {
