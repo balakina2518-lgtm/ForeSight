@@ -620,12 +620,12 @@
     <header class="site-nav" id="siteNav">
         <div class="site-nav-inner">
             <a href="#" class="site-nav-brand" onclick="window.goToForsight(event)">
-                <svg width="20" height="26" viewBox="0 0 100 100" class="brand-emblem">
+                <svg width="30" height="38" viewBox="0 0 100 100" class="brand-emblem">
                     <path d="M50,15 C46,32 46,42 46,50 C46,58 46,68 50,85 C54,68 54,58 54,50 C54,42 54,32 50,15 Z" fill="var(--accent)"/>
                     <ellipse cx="48" cy="48" rx="32" ry="9" fill="none" stroke="var(--accent)" stroke-width="2.6" transform="rotate(-14 48 48)"/>
                     <circle cx="76" cy="40" r="3.4" fill="var(--accent)"/>
                 </svg>
-                <span>Форсайт</span>
+                <span>Астропроцессор - Форсайт</span>
             </a>
             <nav class="site-nav-menu">
                 <span class="site-nav-item disabled" title="Планеты, Знаки, Дома — скоро">Астробаза</span>
@@ -1773,10 +1773,10 @@ const AUTH_PLANET_PHOTOS = {
                 window.anonInfo = null;
             }
             if (window.currentUser) {
-                document.getElementById('authView').style.display = 'none';
-                document.getElementById('chartsHomeView').style.display = 'block';
-                document.getElementById('chartViewContainer').style.display = 'none';
-                window.refreshChartsList();
+                // По прямому уточнению Елены — после входа всегда попадаем в
+                // Личный кабинет, а не сразу в список карт (Карты доступны
+                // оттуда через пункт "Форсайт" в шапке)
+                window.showProfileView();
             } else {
                 document.getElementById('chartsHomeView').style.display = 'none';
                 renderAnonBadge();
