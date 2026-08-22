@@ -1977,8 +1977,9 @@ const AUTH_PLANET_PHOTOS = {
             if (window.currentUser) {
                 window.showChartsHome();
             } else {
-                document.getElementById('authView').style.display = 'none';
-                window.showChartForm();
+                // Без входа — сразу карта дня (как кнопка "Построить временную
+                // карту дня"), а не пустая форма с нуля, по прямому уточнению Елены
+                window.startAnonChart();
             }
         };
         window.goToPersonalArea = function(event) {
