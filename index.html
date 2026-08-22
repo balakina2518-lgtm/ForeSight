@@ -33,7 +33,7 @@
         }
         .site-nav-inner {
             height: 100%; max-width: 1400px; margin: 0 auto; padding: 0 20px; box-sizing: border-box;
-            display: flex; align-items: center; justify-content: space-between; gap: 24px;
+            display: flex; align-items: center; justify-content: center; gap: 48px;
         }
         .site-nav-brand {
             display: flex; align-items: center; gap: 8px; text-decoration: none;
@@ -1799,13 +1799,20 @@ const AUTH_PLANET_PHOTOS = {
             window.refreshChartsList();
         };
 
-        // Пункты меню сайта "Форсайт" и "Личный кабинет" пока ведут в одно и
-        // то же место — сам инструмент построения карт и есть личный кабинет
-        // в его нынешнем виде. Разделятся, когда на сайте появятся другие
-        // самостоятельные разделы (Астробаза, Видеокурсы и т.д.)
+        // "Форсайт" в меню сайта — сразу сам инструмент построения карты,
+        // без требования входа (анонимный лимит карт по-прежнему действует
+        // на этапе расчёта, как и везде). "Личный кабинет" — именно вход и
+        // аккаунт: showChartsHome уже умеет показывать библиотеку карт
+        // залогиненным и форму входа всем остальным, по прямому уточнению
+        // Елены — авторизация должна жить только в разделе "Личный кабинет"
         window.goToForsight = function(event) {
             if (event) event.preventDefault();
-            window.showChartsHome();
+            if (window.currentUser) {
+                window.showChartsHome();
+            } else {
+                document.getElementById('authView').style.display = 'none';
+                window.showChartForm();
+            }
         };
         window.goToPersonalArea = function(event) {
             if (event) event.preventDefault();
