@@ -531,6 +531,61 @@
            "крючком" для подсветки из таблицы аспектов */
         .aspect-hidden { opacity: 0; pointer-events: none; }
 
+        /* Личный кабинет — вкладки слева, как попросила Елена (в референсе
+           у Chronos были сверху) */
+        .profile-view { max-width: 900px; margin: 0 auto; padding: 32px 24px 80px; box-sizing: border-box; }
+        .profile-header { display: flex; align-items: center; gap: 16px; margin-bottom: 32px; flex-wrap: wrap; }
+        .profile-avatar-wrap {
+            width: 64px; height: 64px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+            background: var(--bg-app); border: 1px solid var(--border-color);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .profile-avatar-wrap-sm { width: 48px; height: 48px; }
+        .profile-avatar-img { width: 100%; height: 100%; object-fit: cover; }
+        .profile-avatar-placeholder { font-size: 1.6rem; color: var(--text-muted); }
+        .profile-avatar-wrap-sm .profile-avatar-placeholder { font-size: 1.2rem; }
+        .profile-header-name { flex: 1; font-size: 1.4rem; margin: 0; color: var(--text-main); }
+        .btn-profile-logout {
+            background: none; border: 1px solid #e0776b; color: #c0392b; padding: 8px 14px; border-radius: 6px;
+            font-size: 0.85rem; cursor: pointer;
+        }
+        .btn-profile-logout:hover { background: #c0392b; color: #fff; }
+        .profile-layout { display: flex; gap: 32px; align-items: flex-start; }
+        .profile-sidebar { display: flex; flex-direction: column; gap: 4px; width: 200px; flex-shrink: 0; }
+        .profile-tab {
+            display: flex; align-items: center; gap: 10px; text-align: left; background: none; border: none;
+            padding: 10px 14px; border-radius: 8px; font-size: 0.9rem; color: var(--text-main); cursor: pointer;
+        }
+        .profile-tab:hover { background: var(--bg-app); }
+        .profile-tab.active { background: var(--accent); color: #fff; }
+        .profile-tab.disabled { color: var(--text-muted); cursor: default; opacity: 0.6; }
+        .profile-tab.disabled:hover { background: none; }
+        .profile-content {
+            flex: 1; min-width: 0; background: var(--bg-sidebar); border: 1px solid var(--border-color);
+            border-radius: 12px; padding: 28px; box-sizing: border-box;
+        }
+        .profile-panel h2 { margin: 0 0 6px; font-size: 1.1rem; color: var(--text-main); }
+        .profile-panel-hint { margin: 0 0 20px; font-size: 0.85rem; color: var(--text-muted); }
+        .profile-field { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px; }
+        .profile-field input[type="text"], .profile-field input[type="date"],
+        .profile-field input[type="time"], .profile-field input[type="password"] {
+            padding: 9px 10px; border-radius: 6px; border: 1px solid var(--border-color);
+            background: var(--bg-app); color: var(--text-main); font-size: 0.92rem;
+        }
+        .profile-field-label { font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 6px; }
+        .profile-field-row { display: flex; gap: 16px; }
+        .profile-field-row .profile-field { flex: 1; }
+        .profile-avatar-row { display: flex; align-items: center; gap: 12px; }
+        .profile-btn-sm { width: auto; padding: 8px 14px; font-size: 0.85rem; }
+        .profile-radio-row { display: flex; gap: 18px; font-size: 0.9rem; color: var(--text-main); }
+        .profile-radio-row label { display: flex; align-items: center; gap: 6px; }
+        .profile-plan-card {
+            display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; border-radius: 10px;
+            background: var(--bg-app); border: 1px solid var(--border-color); margin-bottom: 16px; max-width: 320px;
+        }
+        .profile-plan-label { font-size: 1.05rem; font-weight: 700; color: var(--accent); }
+        .profile-plan-desc { font-size: 0.82rem; color: var(--text-muted); }
+
         @media (max-width: 768px) {
             .sidebar { flex-direction: column; }
             .nav-strip { width: 100%; border-right: none; border-bottom: 1px solid var(--border-color); }
@@ -547,6 +602,11 @@
             .site-nav-inner { gap: 14px; padding: 0 12px; }
             .site-nav-brand span { display: none; }
             .site-nav-menu { gap: 14px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .profile-layout { flex-direction: column; }
+            .profile-sidebar { flex-direction: row; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .profile-tab { flex-shrink: 0; }
+            .profile-content { padding: 20px; width: 100%; }
+            .profile-field-row { flex-direction: column; gap: 0; }
         }
     </style>
 </head>
@@ -704,6 +764,110 @@
                 </thead>
                 <tbody id="chartsTableBody"></tbody>
             </table>
+        </div>
+
+        <div id="profileView" class="profile-view" style="display:none;">
+            <div class="profile-header">
+                <button type="button" class="chart-top-back" onclick="window.showChartsHome()" title="К картам">←</button>
+                <div class="profile-avatar-wrap">
+                    <img class="profile-avatar-img" id="profileAvatarImg" src="" alt="" style="display:none;">
+                    <span class="profile-avatar-placeholder" id="profileAvatarPlaceholder">◎</span>
+                </div>
+                <h1 class="profile-header-name" id="profileHeaderName">Аккаунт</h1>
+                <button type="button" class="btn-profile-logout" onclick="window.logout()">Выйти из аккаунта</button>
+            </div>
+            <div class="profile-layout">
+                <nav class="profile-sidebar">
+                    <button type="button" class="profile-tab active" id="profileTabBtn-personal" onclick="window.switchProfileTab('personal')">
+                        <span class="nav-icon">☺</span>Персональные
+                    </button>
+                    <button type="button" class="profile-tab" id="profileTabBtn-security" onclick="window.switchProfileTab('security')">
+                        <span class="nav-icon">◈</span>Безопасность
+                    </button>
+                    <button type="button" class="profile-tab disabled" disabled title="Скоро">
+                        <span class="nav-icon">◐</span>Выплаты<span class="nav-badge">+</span>
+                    </button>
+                    <button type="button" class="profile-tab" id="profileTabBtn-billing" onclick="window.switchProfileTab('billing')">
+                        <span class="nav-icon">◎</span>Подписки и оплата
+                    </button>
+                </nav>
+                <div class="profile-content">
+                    <div class="profile-panel" id="profilePanel-personal">
+                        <h2>Персональные</h2>
+                        <p class="profile-panel-hint">Эти данные видны только вам — используются для подписи в личном кабинете, не для построения карт.</p>
+
+                        <div class="profile-field">
+                            <label class="profile-field-label">Фото</label>
+                            <div class="profile-avatar-row">
+                                <div class="profile-avatar-wrap profile-avatar-wrap-sm">
+                                    <img class="profile-avatar-img" id="profileAvatarImgSmall" src="" alt="" style="display:none;">
+                                    <span class="profile-avatar-placeholder" id="profileAvatarPlaceholderSmall">◎</span>
+                                </div>
+                                <input type="file" id="profileAvatarFile" accept="image/*" style="display:none;" onchange="window.uploadProfileAvatar(event)">
+                                <button type="button" class="btn-anon-chart profile-btn-sm" onclick="document.getElementById('profileAvatarFile').click()">Загрузить фото</button>
+                                <button type="button" class="auth-forgot-btn" onclick="window.deleteProfileAvatar()">Удалить</button>
+                            </div>
+                        </div>
+
+                        <label class="profile-field">Имя
+                            <input type="text" id="profileFullName" maxlength="255" placeholder="Как к вам обращаться">
+                        </label>
+
+                        <div class="profile-field">
+                            <label class="profile-field-label">Пол</label>
+                            <div class="profile-radio-row">
+                                <label><input type="radio" name="profileGender" value="male"> Мужчина</label>
+                                <label><input type="radio" name="profileGender" value="female"> Женщина</label>
+                                <label><input type="radio" name="profileGender" value=""> Не указан</label>
+                            </div>
+                        </div>
+
+                        <div class="profile-field-row">
+                            <label class="profile-field">Дата рождения
+                                <input type="date" id="profileBirthDate">
+                            </label>
+                            <label class="profile-field">Время рождения
+                                <input type="time" id="profileBirthTime" step="60">
+                            </label>
+                        </div>
+
+                        <label class="profile-field">Город рождения
+                            <input type="text" id="profileBirthCity" maxlength="255" placeholder="Населённый пункт, область, страна">
+                        </label>
+
+                        <div class="auth-error" id="profilePersonalError" style="display:none;"></div>
+                        <div class="auth-success" id="profilePersonalSuccess" style="display:none;"></div>
+                        <button type="button" class="btn-add-chart" onclick="window.saveProfilePersonal()">Сохранить</button>
+                    </div>
+
+                    <div class="profile-panel" id="profilePanel-security" style="display:none;">
+                        <h2>Безопасность</h2>
+                        <p class="profile-panel-hint">Смена пароля от аккаунта.</p>
+                        <label class="profile-field">Текущий пароль
+                            <input type="password" id="profileCurrentPassword" autocomplete="current-password">
+                        </label>
+                        <label class="profile-field">Новый пароль
+                            <input type="password" id="profileNewPassword" minlength="6" autocomplete="new-password">
+                        </label>
+                        <label class="profile-field">Повторите новый пароль
+                            <input type="password" id="profileNewPasswordRepeat" minlength="6" autocomplete="new-password">
+                        </label>
+                        <div class="auth-error" id="profileSecurityError" style="display:none;"></div>
+                        <div class="auth-success" id="profileSecuritySuccess" style="display:none;"></div>
+                        <button type="button" class="btn-add-chart" onclick="window.saveProfilePassword()">Сменить пароль</button>
+                    </div>
+
+                    <div class="profile-panel" id="profilePanel-billing" style="display:none;">
+                        <h2>Подписки и оплата</h2>
+                        <p class="profile-panel-hint">Текущий тариф аккаунта.</p>
+                        <div class="profile-plan-card">
+                            <span class="profile-plan-label" id="profilePlanLabel">Бесплатный</span>
+                            <span class="profile-plan-desc" id="profilePlanDesc"></span>
+                        </div>
+                        <p class="profile-panel-hint">Автоматическая оплата онлайн пока не подключена — чтобы перейти на другой тариф или изменить подписку, напишите на <a href="mailto:support@astro-forsight.ru">support@astro-forsight.ru</a>.</p>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div id="chartViewContainer" style="display:none;">
@@ -1476,6 +1640,7 @@ const AUTH_PLANET_PHOTOS = {
             document.getElementById('formModal').style.display = 'none';
             document.getElementById('chartViewContainer').style.display = 'none';
             document.getElementById('chartsHomeView').style.display = 'none';
+            document.getElementById('profileView').style.display = 'none';
             document.getElementById('authView').style.display = 'flex';
             renderAuthVisual();
         };
@@ -1775,6 +1940,7 @@ const AUTH_PLANET_PHOTOS = {
             document.getElementById('formModal').style.display = 'none';
             document.getElementById('chartViewContainer').style.display = 'none';
             document.getElementById('chartsHomeView').style.display = 'none';
+            document.getElementById('profileView').style.display = 'none';
             await window.checkAuth();
         };
 
@@ -1795,6 +1961,7 @@ const AUTH_PLANET_PHOTOS = {
         window.proceedToChartsHome = function() {
             document.getElementById('formModal').style.display = 'none';
             document.getElementById('chartViewContainer').style.display = 'none';
+            document.getElementById('profileView').style.display = 'none';
             document.getElementById('chartsHomeView').style.display = 'block';
             window.refreshChartsList();
         };
@@ -1816,7 +1983,169 @@ const AUTH_PLANET_PHOTOS = {
         };
         window.goToPersonalArea = function(event) {
             if (event) event.preventDefault();
-            window.showChartsHome();
+            if (!window.currentUser) {
+                window.showAnonLanding();
+                return;
+            }
+            window.showProfileView();
+        };
+
+        window.showProfileView = function() {
+            document.getElementById('formModal').style.display = 'none';
+            document.getElementById('authView').style.display = 'none';
+            document.getElementById('chartsHomeView').style.display = 'none';
+            document.getElementById('chartViewContainer').style.display = 'none';
+            document.getElementById('profileView').style.display = 'block';
+            window.loadProfileData();
+        };
+
+        window.switchProfileTab = function(tab) {
+            ['personal', 'security', 'billing'].forEach(t => {
+                document.getElementById('profileTabBtn-' + t).classList.toggle('active', t === tab);
+                document.getElementById('profilePanel-' + t).style.display = (t === tab) ? 'block' : 'none';
+            });
+        };
+
+        function applyAvatarToDom(dataUrl) {
+            [document.getElementById('profileAvatarImg'), document.getElementById('profileAvatarImgSmall')].forEach(img => {
+                if (dataUrl) { img.src = dataUrl; img.style.display = 'block'; }
+                else { img.removeAttribute('src'); img.style.display = 'none'; }
+            });
+            [document.getElementById('profileAvatarPlaceholder'), document.getElementById('profileAvatarPlaceholderSmall')].forEach(el => {
+                el.style.display = dataUrl ? 'none' : 'flex';
+            });
+        }
+
+        window.loadProfileData = async function() {
+            try {
+                const response = await fetch('/api/profile');
+                const data = await response.json();
+                if (data.status !== 'success') return;
+                const p = data.profile;
+                document.getElementById('profileHeaderName').textContent = p.full_name || p.email;
+                document.getElementById('profileFullName').value = p.full_name;
+                document.getElementById('profileBirthDate').value = p.birth_date;
+                document.getElementById('profileBirthTime').value = p.birth_time;
+                document.getElementById('profileBirthCity').value = p.birth_city;
+                document.querySelectorAll('input[name="profileGender"]').forEach(r => { r.checked = (r.value === p.gender); });
+                applyAvatarToDom(p.avatar_data || null);
+                const planNames = { free: 'Бесплатный', astrolog: 'Сам себе астролог', admin: 'Полный доступ' };
+                document.getElementById('profilePlanLabel').textContent = planNames[p.plan] || p.plan;
+                document.getElementById('profilePlanDesc').textContent = p.plan === 'free'
+                    ? '1 карта без сохранения в библиотеке'
+                    : 'Неограниченное число карт с сохранением';
+            } catch (err) { /* профиль не критичен для остального интерфейса */ }
+        };
+
+        window.saveProfilePersonal = async function() {
+            const errorEl = document.getElementById('profilePersonalError');
+            const successEl = document.getElementById('profilePersonalSuccess');
+            errorEl.style.display = 'none';
+            successEl.style.display = 'none';
+            const genderInput = document.querySelector('input[name="profileGender"]:checked');
+            try {
+                const response = await fetch('/api/profile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        full_name: document.getElementById('profileFullName').value.trim(),
+                        gender: genderInput ? genderInput.value : '',
+                        birth_date: document.getElementById('profileBirthDate').value,
+                        birth_time: document.getElementById('profileBirthTime').value,
+                        birth_city: document.getElementById('profileBirthCity').value.trim()
+                    })
+                });
+                const data = await response.json();
+                if (data.status !== 'success') {
+                    errorEl.textContent = data.message;
+                    errorEl.style.display = 'block';
+                    return;
+                }
+                document.getElementById('profileHeaderName').textContent =
+                    document.getElementById('profileFullName').value.trim() || window.currentUser.email;
+                successEl.textContent = 'Сохранено';
+                successEl.style.display = 'block';
+            } catch (err) {
+                errorEl.textContent = 'Не удалось связаться с сервером';
+                errorEl.style.display = 'block';
+            }
+        };
+
+        // Сжимаем фото на устройстве пользователя до разумного размера перед
+        // отправкой — иначе телефонные фото на 5-10МБ раздували бы базу данных
+        window.uploadProfileAvatar = function(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                const img = new Image();
+                img.onload = async () => {
+                    const maxSide = 320;
+                    const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.round(img.width * scale);
+                    canvas.height = Math.round(img.height * scale);
+                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                    try {
+                        const response = await fetch('/api/profile/avatar', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ avatar_data: dataUrl })
+                        });
+                        const data = await response.json();
+                        if (data.status === 'success') {
+                            applyAvatarToDom(data.avatar_data);
+                        }
+                    } catch (err) { /* тихо игнорируем — фото необязательно */ }
+                };
+                img.src = reader.result;
+            };
+            reader.readAsDataURL(file);
+            event.target.value = '';
+        };
+
+        window.deleteProfileAvatar = async function() {
+            try {
+                await fetch('/api/profile/avatar', { method: 'DELETE' });
+                applyAvatarToDom(null);
+            } catch (err) { /* тихо игнорируем */ }
+        };
+
+        window.saveProfilePassword = async function() {
+            const errorEl = document.getElementById('profileSecurityError');
+            const successEl = document.getElementById('profileSecuritySuccess');
+            errorEl.style.display = 'none';
+            successEl.style.display = 'none';
+            const current = document.getElementById('profileCurrentPassword').value;
+            const next = document.getElementById('profileNewPassword').value;
+            const repeat = document.getElementById('profileNewPasswordRepeat').value;
+            if (next !== repeat) {
+                errorEl.textContent = 'Новые пароли не совпадают';
+                errorEl.style.display = 'block';
+                return;
+            }
+            try {
+                const response = await fetch('/api/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ current_password: current, new_password: next })
+                });
+                const data = await response.json();
+                if (data.status !== 'success') {
+                    errorEl.textContent = data.message;
+                    errorEl.style.display = 'block';
+                    return;
+                }
+                document.getElementById('profileCurrentPassword').value = '';
+                document.getElementById('profileNewPassword').value = '';
+                document.getElementById('profileNewPasswordRepeat').value = '';
+                successEl.textContent = 'Пароль изменён';
+                successEl.style.display = 'block';
+            } catch (err) {
+                errorEl.textContent = 'Не удалось связаться с сервером';
+                errorEl.style.display = 'block';
+            }
         };
 
         // Дата/время в бейдже отличаются от тех, с которыми карта была
@@ -1856,6 +2185,7 @@ const AUTH_PLANET_PHOTOS = {
 
         window.showChartView = function() {
             document.getElementById('chartsHomeView').style.display = 'none';
+            document.getElementById('profileView').style.display = 'none';
             document.getElementById('chartViewContainer').style.display = 'block';
         };
 

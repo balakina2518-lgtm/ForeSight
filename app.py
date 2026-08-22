@@ -268,6 +268,138 @@ def me():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+MAX_AVATAR_DATA_URL_LENGTH = 700_000  # ~500КБ файла после base64 (запас на инфраструктуру)
+
+@app.route('/api/profile', methods=['GET'])
+def get_profile():
+    try:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                user_id = session.get('user_id')
+                if not user_id:
+                    return jsonify({"status": "error", "message": "Войдите в аккаунт"}), 401
+                cur.execute(
+                    "SELECT email, plan, full_name, gender, birth_date, birth_time, birth_city, "
+                    "language, avatar_data FROM users WHERE id=%s",
+                    (user_id,)
+                )
+                user = cur.fetchone()
+        finally:
+            conn.close()
+        if not user:
+            return jsonify({"status": "error", "message": "Войдите в аккаунт"}), 401
+        return jsonify({"status": "success", "profile": {
+            "email": user['email'],
+            "plan": user['plan'],
+            "full_name": user['full_name'] or '',
+            "gender": user['gender'] or '',
+            "birth_date": user['birth_date'].isoformat() if user['birth_date'] else '',
+            "birth_time": str(user['birth_time'])[:5] if user['birth_time'] else '',
+            "birth_city": user['birth_city'] or '',
+            "language": user['language'] or 'ru',
+            "avatar_data": user['avatar_data'] or ''
+        }})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/profile', methods=['POST'])
+def update_profile():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"status": "error", "message": "Войдите в аккаунт"}), 401
+    data = request.json or {}
+    full_name = (data.get('full_name') or '').strip()[:255]
+    gender = (data.get('gender') or '').strip()[:20]
+    birth_date = (data.get('birth_date') or '').strip() or None
+    birth_time = (data.get('birth_time') or '').strip() or None
+    birth_city = (data.get('birth_city') or '').strip()[:255]
+    language = (data.get('language') or 'ru').strip()[:10]
+    try:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE users SET full_name=%s, gender=%s, birth_date=%s, birth_time=%s, "
+                    "birth_city=%s, language=%s WHERE id=%s",
+                    (full_name, gender, birth_date, birth_time, birth_city, language, user_id)
+                )
+            conn.commit()
+        finally:
+            conn.close()
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/profile/avatar', methods=['POST'])
+def upload_avatar():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"status": "error", "message": "Войдите в аккаунт"}), 401
+    data = request.json or {}
+    avatar_data = data.get('avatar_data') or ''
+    if not avatar_data.startswith('data:image/'):
+        return jsonify({"status": "error", "message": "Некорректный формат изображения"}), 400
+    if len(avatar_data) > MAX_AVATAR_DATA_URL_LENGTH:
+        return jsonify({"status": "error", "message": "Фото слишком большое, выберите файл поменьше"}), 400
+    try:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE users SET avatar_data=%s WHERE id=%s", (avatar_data, user_id))
+            conn.commit()
+        finally:
+            conn.close()
+        return jsonify({"status": "success", "avatar_data": avatar_data})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/profile/avatar', methods=['DELETE'])
+def delete_avatar():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"status": "error", "message": "Войдите в аккаунт"}), 401
+    try:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE users SET avatar_data=NULL WHERE id=%s", (user_id,))
+            conn.commit()
+        finally:
+            conn.close()
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/change-password', methods=['POST'])
+def change_password():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"status": "error", "message": "Войдите в аккаунт"}), 401
+    data = request.json or {}
+    current_password = data.get('current_password') or ''
+    new_password = data.get('new_password') or ''
+    if len(new_password) < 6:
+        return jsonify({"status": "error", "message": "Новый пароль должен быть не короче 6 символов"}), 400
+    try:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT password_hash FROM users WHERE id=%s", (user_id,))
+                user = cur.fetchone()
+                if not user or not check_password_hash(user['password_hash'], current_password):
+                    return jsonify({"status": "error", "message": "Текущий пароль указан неверно"}), 400
+                cur.execute(
+                    "UPDATE users SET password_hash=%s WHERE id=%s",
+                    (generate_password_hash(new_password), user_id)
+                )
+            conn.commit()
+        finally:
+            conn.close()
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/api/timezone', methods=['GET'])
 def get_timezone():
     """Возвращает исторически верное смещение UTC для координат+даты — используется
