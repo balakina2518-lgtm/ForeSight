@@ -37,7 +37,7 @@ try:
     from config import SMTP_EMAIL, SMTP_PASSWORD
 except ImportError:
     SMTP_EMAIL = SMTP_PASSWORD = None
-SMTP_HOST = 'smtp.mail.ru'
+SMTP_HOST = 'smtp.beget.com'
 SMTP_PORT = 465
 
 app.secret_key = SECRET_KEY or 'dev-only-insecure-key-set-SECRET_KEY-in-config.py'
@@ -207,10 +207,6 @@ def forgot_password():
             conn.close()
     except Exception as e:
         print(f"Ошибка при восстановлении пароля: {e}")
-        # ВРЕМЕННАЯ отладка: показать настоящую ошибку, только если пришёл
-        # секретный ключ отладки. Убрать после диагностики проблемы с SMTP.
-        if data.get('_debug_key') == 'forsight-debug-2026':
-            return jsonify({"status": "error", "message": f"DEBUG: {e}"})
     return jsonify({"status": "success", "message": GENERIC_FORGOT_MESSAGE})
 
 @app.route('/api/reset-password', methods=['POST'])
