@@ -39,7 +39,10 @@
             display: flex; align-items: center; gap: 8px; text-decoration: none;
             color: var(--text-main); font-weight: 700; font-size: 0.98rem; flex-shrink: 0;
         }
-        .site-nav-menu { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; overflow-x: auto; }
+        .site-nav-menu {
+            display: flex; align-items: center; gap: 22px; flex-wrap: nowrap; flex-shrink: 1; min-width: 0;
+            overflow-x: auto; -webkit-overflow-scrolling: touch;
+        }
         .site-nav-item {
             font-size: 0.85rem; color: var(--text-main); text-decoration: none; cursor: pointer;
             white-space: nowrap; background: none; border: none; padding: 0; font-family: inherit;
@@ -625,12 +628,12 @@
                     <ellipse cx="48" cy="48" rx="32" ry="9" fill="none" stroke="var(--accent)" stroke-width="2.6" transform="rotate(-14 48 48)"/>
                     <circle cx="76" cy="40" r="3.4" fill="var(--accent)"/>
                 </svg>
-                <span>Астропроцессор - Форсайт</span>
+                <span>Школа практической астрологии - Форсайт</span>
             </a>
             <nav class="site-nav-menu">
                 <span class="site-nav-item disabled" title="Планеты, Знаки, Дома — скоро">Астробаза</span>
                 <span class="site-nav-item disabled" title="Видеокурсы — скоро">Прикладная астрология</span>
-                <a href="#" class="site-nav-item" onclick="window.goToForsight(event)">Форсайт</a>
+                <a href="#" class="site-nav-item" onclick="window.goToForsight(event)">Астропроцессор - Форсайт</a>
                 <span class="site-nav-item disabled" title="Скоро">Выбор услуг</span>
                 <span class="site-nav-item disabled" title="Скоро">Навигатор по натальной карте</span>
                 <a href="#" class="site-nav-item" onclick="window.goToPersonalArea(event)">Личный кабинет</a>
