@@ -207,6 +207,10 @@ def forgot_password():
             conn.close()
     except Exception as e:
         print(f"Ошибка при восстановлении пароля: {e}")
+        # ВРЕМЕННАЯ отладка: показать настоящую ошибку, только если пришёл
+        # секретный ключ отладки. Убрать после диагностики проблемы с SMTP.
+        if data.get('_debug_key') == 'forsight-debug-2026':
+            return jsonify({"status": "error", "message": f"DEBUG: {e}"})
     return jsonify({"status": "success", "message": GENERIC_FORGOT_MESSAGE})
 
 @app.route('/api/reset-password', methods=['POST'])
