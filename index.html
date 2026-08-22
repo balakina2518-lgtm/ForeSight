@@ -342,6 +342,13 @@
             font-size: 0.9rem; font-weight: 600; cursor: pointer; width: 100%; max-width: 380px;
         }
         .btn-anon-chart:hover { background: var(--accent); color: #fff; }
+        .auth-legal-footer {
+            width: 100%; max-width: 380px; margin-top: 8px; text-align: center;
+            font-size: 0.74rem; color: var(--text-muted); line-height: 1.9;
+        }
+        .auth-legal-footer a { color: var(--text-muted); text-decoration: underline; }
+        .auth-legal-footer a:hover { color: var(--accent); }
+        .auth-legal-footer span { margin: 0 4px; opacity: 0.5; }
         .anon-badge { display: none; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-muted); margin-left: auto; }
         .anon-badge .anon-login-btn { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 0.8rem; text-decoration: underline; padding: 0; }
         .folder-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; }
@@ -621,6 +628,19 @@
 
                 <div class="auth-view-divider" id="authDivider">или</div>
                 <button type="button" class="btn-anon-chart" id="authAnonBtn" onclick="window.startAnonChart()">Построить временную карту дня</button>
+                <div class="auth-legal-footer">
+                    <a href="mailto:support@astro-forsight.ru">Поддержка</a>
+                    <span>&middot;</span>
+                    <a href="/oferta" target="_blank" rel="noopener">Оферта</a>
+                    <span>&middot;</span>
+                    <a href="/mailing-consent" target="_blank" rel="noopener">Согласие на рассылку</a>
+                    <span>&middot;</span>
+                    <a href="/documents" target="_blank" rel="noopener">Реквизиты</a>
+                    <span>&middot;</span>
+                    <a href="/consent" target="_blank" rel="noopener">Согласие на обработку персональных данных</a>
+                    <span>&middot;</span>
+                    <a href="/policy" target="_blank" rel="noopener">Политика в отношении обработки персональных данных</a>
+                </div>
             </div>
         </div>
         <div id="chartsHomeView" class="charts-home" style="display:none;">

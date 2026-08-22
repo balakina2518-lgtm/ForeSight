@@ -179,24 +179,6 @@ def login():
 
 GENERIC_FORGOT_MESSAGE = "Если такой email зарегистрирован, мы отправили на него письмо со ссылкой для восстановления пароля"
 
-# ВРЕМЕННЫЙ отладочный маршрут — пробует разные варианты логина SMTP напрямую,
-# чтобы не гонять полный деплой на каждую попытку. Убрать после диагностики.
-@app.route('/api/_debug_smtp', methods=['POST'])
-def debug_smtp():
-    data = request.json or {}
-    if data.get('_debug_key') != 'forsight-debug-2026':
-        return "", 404
-    username = data.get('username') or SMTP_EMAIL
-    password = data.get('password') or SMTP_PASSWORD
-    host = data.get('host') or SMTP_HOST
-    port = int(data.get('port') or SMTP_PORT)
-    try:
-        with smtplib.SMTP_SSL(host, port, timeout=10) as server:
-            server.login(username, password)
-        return jsonify({"status": "success", "message": f"LOGIN OK как {username} на {host}:{port}"})
-    except Exception as e:
-        return jsonify({"status": "error", "message": f"{type(e).__name__}: {e}"})
-
 @app.route('/api/forgot-password', methods=['POST'])
 def forgot_password():
     data = request.json or {}
@@ -225,8 +207,6 @@ def forgot_password():
             conn.close()
     except Exception as e:
         print(f"Ошибка при восстановлении пароля: {e}")
-        if data.get('_debug_key') == 'forsight-debug-2026':
-            return jsonify({"status": "error", "message": f"DEBUG: {e}"})
     return jsonify({"status": "success", "message": GENERIC_FORGOT_MESSAGE})
 
 @app.route('/api/reset-password', methods=['POST'])
@@ -749,6 +729,36 @@ def index():
 def policy():
     try:
         return send_file('policy.html')
+    except Exception as e:
+        return f"Ошибка сервера: {e}", 500
+
+# Юридические документы (оферта, согласия, реквизиты) — лежат отдельно от
+# policy.html в папке yurdoki/, не смешаны со старым документом
+@app.route('/oferta', methods=['GET'])
+def oferta():
+    try:
+        return send_file('yurdoki/oferta.html')
+    except Exception as e:
+        return f"Ошибка сервера: {e}", 500
+
+@app.route('/consent', methods=['GET'])
+def consent():
+    try:
+        return send_file('yurdoki/consent.html')
+    except Exception as e:
+        return f"Ошибка сервера: {e}", 500
+
+@app.route('/mailing-consent', methods=['GET'])
+def mailing_consent():
+    try:
+        return send_file('yurdoki/mailing-consent.html')
+    except Exception as e:
+        return f"Ошибка сервера: {e}", 500
+
+@app.route('/documents', methods=['GET'])
+def documents():
+    try:
+        return send_file('yurdoki/documents.html')
     except Exception as e:
         return f"Ошибка сервера: {e}", 500
 
