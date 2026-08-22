@@ -564,7 +564,7 @@
                 </div>
             </div>
             <div class="auth-panel">
-                <p class="auth-panel-top-switch" id="authTopSwitch">
+                <p class="auth-panel-top-switch" id="authTopSwitch" style="display:none;">
                     <span id="authSwitchText">Нет аккаунта?</span>
                     <button type="button" class="auth-switch-btn" onclick="window.toggleAuthMode()" id="authSwitchBtn">Зарегистрироваться</button>
                 </p>
@@ -1576,6 +1576,11 @@ const AUTH_PLANET_PHOTOS = {
             // Согласие на обработку персональных данных — обязательно только
             // при регистрации, при входе такого поля нет вообще
             const isRegister = authMode === 'register';
+            // Ссылка "Нет аккаунта? Зарегистрироваться" в углу — теперь
+            // дублирует отдельную кнопку "Зарегистрироваться" в списке
+            // действий, поэтому в режиме входа скрыта; в режиме регистрации
+            // остаётся единственным способом вернуться ко входу
+            document.getElementById('authTopSwitch').style.display = isRegister ? 'flex' : 'none';
             document.getElementById('authConsentLabel').style.display = isRegister ? 'flex' : 'none';
             document.getElementById('authConsent').required = isRegister;
             // "Забыли пароль?" имеет смысл только при входе — при регистрации
@@ -1603,7 +1608,7 @@ const AUTH_PLANET_PHOTOS = {
         window.hideForgotPassword = function() {
             document.getElementById('forgotForm').style.display = 'none';
             document.getElementById('authForm').style.display = 'flex';
-            document.getElementById('authTopSwitch').style.display = 'flex';
+            document.getElementById('authTopSwitch').style.display = authMode === 'register' ? 'flex' : 'none';
             document.getElementById('authRegisterBtn').style.display = 'block';
             document.getElementById('authDivider').style.display = 'flex';
             document.getElementById('authAnonBtn').style.display = 'block';
@@ -1690,7 +1695,7 @@ const AUTH_PLANET_PHOTOS = {
                 resetPasswordToken = null;
                 document.getElementById('resetForm').style.display = 'none';
                 document.getElementById('authForm').style.display = 'flex';
-                document.getElementById('authTopSwitch').style.display = 'flex';
+                document.getElementById('authTopSwitch').style.display = authMode === 'register' ? 'flex' : 'none';
                 document.getElementById('authRegisterBtn').style.display = 'block';
                 document.getElementById('authDivider').style.display = 'flex';
                 document.getElementById('authAnonBtn').style.display = 'block';
