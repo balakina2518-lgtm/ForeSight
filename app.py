@@ -400,6 +400,63 @@ def change_password():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/api/change-email', methods=['POST'])
+def change_email():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"status": "error", "message": "Войдите в аккаунт"}), 401
+    data = request.json or {}
+    new_email = (data.get('new_email') or '').strip().lower()
+    password = data.get('password') or ''
+    if not EMAIL_RE.match(new_email):
+        return jsonify({"status": "error", "message": "Некорректный email"}), 400
+    try:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT password_hash FROM users WHERE id=%s", (user_id,))
+                user = cur.fetchone()
+                if not user or not check_password_hash(user['password_hash'], password):
+                    return jsonify({"status": "error", "message": "Пароль указан неверно"}), 400
+                cur.execute("SELECT id FROM users WHERE email=%s AND id!=%s", (new_email, user_id))
+                if cur.fetchone():
+                    return jsonify({"status": "error", "message": "Этот email уже используется другим аккаунтом"}), 400
+                cur.execute("UPDATE users SET email=%s WHERE id=%s", (new_email, user_id))
+            conn.commit()
+        finally:
+            conn.close()
+        return jsonify({"status": "success", "email": new_email})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/account', methods=['DELETE'])
+def delete_account():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"status": "error", "message": "Войдите в аккаунт"}), 401
+    data = request.json or {}
+    password = data.get('password') or ''
+    try:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT password_hash FROM users WHERE id=%s", (user_id,))
+                user = cur.fetchone()
+                if not user or not check_password_hash(user['password_hash'], password):
+                    return jsonify({"status": "error", "message": "Пароль указан неверно"}), 400
+                # Удаляем вручную, а не полагаемся на ON DELETE CASCADE —
+                # таблицы создавались руками через mysql, наличие каскада не гарантировано
+                cur.execute("DELETE FROM charts WHERE user_id=%s", (user_id,))
+                cur.execute("DELETE FROM folders WHERE user_id=%s", (user_id,))
+                cur.execute("DELETE FROM users WHERE id=%s", (user_id,))
+            conn.commit()
+        finally:
+            conn.close()
+        session.pop('user_id', None)
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/api/timezone', methods=['GET'])
 def get_timezone():
     """Возвращает исторически верное смещение UTC для координат+даты — используется

@@ -579,6 +579,18 @@
         }
         .profile-plan-label { font-size: 1.05rem; font-weight: 700; color: var(--accent); }
         .profile-plan-desc { font-size: 0.82rem; color: var(--text-muted); }
+        .profile-security-row { border-top: 1px solid var(--border-color); padding: 14px 0; }
+        .profile-security-row:first-of-type { border-top: none; padding-top: 0; }
+        .profile-security-row .form-section-body { padding-top: 2px; }
+        .profile-security-row-disabled { color: var(--text-muted); opacity: 0.65; }
+        .profile-security-row-disabled > span:first-child { font-size: 0.95rem; font-weight: 600; }
+        .profile-danger-zone { border-top: 1px solid #e0776b; }
+        .profile-danger-title { font-size: 0.95rem; font-weight: 600; color: #c0392b; }
+        .btn-profile-danger {
+            background: none; border: 1px solid #e0776b; color: #c0392b; padding: 9px 16px; border-radius: 6px;
+            font-size: 0.88rem; cursor: pointer;
+        }
+        .btn-profile-danger:hover { background: #c0392b; color: #fff; }
 
         @media (max-width: 768px) {
             .sidebar { flex-direction: column; }
@@ -834,20 +846,63 @@
                     </div>
 
                     <div class="profile-panel" id="profilePanel-security" style="display:none;">
-                        <h2>Безопасность</h2>
-                        <p class="profile-panel-hint">Смена пароля от аккаунта.</p>
-                        <label class="profile-field">Текущий пароль
-                            <input type="password" id="profileCurrentPassword" autocomplete="current-password">
-                        </label>
-                        <label class="profile-field">Новый пароль
-                            <input type="password" id="profileNewPassword" minlength="6" autocomplete="new-password">
-                        </label>
-                        <label class="profile-field">Повторите новый пароль
-                            <input type="password" id="profileNewPasswordRepeat" minlength="6" autocomplete="new-password">
-                        </label>
-                        <div class="auth-error" id="profileSecurityError" style="display:none;"></div>
-                        <div class="auth-success" id="profileSecuritySuccess" style="display:none;"></div>
-                        <button type="button" class="btn-add-chart" onclick="window.saveProfilePassword()">Сменить пароль</button>
+                        <h2>Безопасность и вход</h2>
+                        <p class="profile-panel-hint">Здесь можно обновить почту, пароль и другие способы входа в аккаунт.</p>
+
+                        <div class="profile-security-row">
+                            <button type="button" class="form-section-header collapsed" onclick="window.toggleFormSection(this)">
+                                <span>Почта</span><span class="form-section-chevron">⌄</span>
+                            </button>
+                            <div class="form-section-body" style="display:none;">
+                                <p class="profile-panel-hint" style="margin:0 0 8px;">Сейчас для входа используется <b id="profileCurrentEmail"></b> — можно заменить в любой момент.</p>
+                                <label class="profile-field">Новая почта
+                                    <input type="email" id="profileNewEmail" autocomplete="off">
+                                </label>
+                                <label class="profile-field">Пароль (подтверждение)
+                                    <input type="password" id="profileEmailPassword" autocomplete="current-password">
+                                </label>
+                                <div class="auth-error" id="profileEmailError" style="display:none;"></div>
+                                <div class="auth-success" id="profileEmailSuccess" style="display:none;"></div>
+                                <button type="button" class="btn-add-chart profile-btn-sm" onclick="window.saveProfileEmail()">Сохранить почту</button>
+                            </div>
+                        </div>
+
+                        <div class="profile-security-row profile-security-row-disabled" title="Скоро">
+                            <span>Телефон</span><span class="nav-badge">+</span>
+                            <p class="profile-panel-hint" style="margin:4px 0 0;">Привяжите номер телефона как дополнительный способ входа — скоро.</p>
+                        </div>
+
+                        <div class="profile-security-row">
+                            <button type="button" class="form-section-header collapsed" onclick="window.toggleFormSection(this)">
+                                <span>Пароль</span><span class="form-section-chevron">⌄</span>
+                            </button>
+                            <div class="form-section-body" style="display:none;">
+                                <label class="profile-field">Текущий пароль
+                                    <input type="password" id="profileCurrentPassword" autocomplete="current-password">
+                                </label>
+                                <label class="profile-field">Новый пароль
+                                    <input type="password" id="profileNewPassword" minlength="6" autocomplete="new-password">
+                                </label>
+                                <label class="profile-field">Повторите новый пароль
+                                    <input type="password" id="profileNewPasswordRepeat" minlength="6" autocomplete="new-password">
+                                </label>
+                                <div class="auth-error" id="profileSecurityError" style="display:none;"></div>
+                                <div class="auth-success" id="profileSecuritySuccess" style="display:none;"></div>
+                                <button type="button" class="btn-add-chart profile-btn-sm" onclick="window.saveProfilePassword()">Сменить пароль</button>
+                            </div>
+                        </div>
+
+                        <div class="profile-security-row profile-security-row-disabled" title="Скоро">
+                            <span>Активные сессии</span><span class="nav-badge">+</span>
+                            <p class="profile-panel-hint" style="margin:4px 0 0;">Список входов в аккаунт с разных устройств — скоро.</p>
+                        </div>
+
+                        <div class="profile-security-row profile-danger-zone">
+                            <span class="profile-danger-title">Удалить аккаунт</span>
+                            <p class="profile-panel-hint" style="margin:4px 0 12px;">Полное удаление аккаунта. Все ваши карты и личные данные будут удалены безвозвратно.</p>
+                            <div class="auth-error" id="profileDeleteError" style="display:none;"></div>
+                            <button type="button" class="btn-profile-danger" onclick="window.confirmDeleteAccount()">Удалить безвозвратно</button>
+                        </div>
                     </div>
 
                     <div class="profile-panel" id="profilePanel-billing" style="display:none;">
@@ -2000,6 +2055,7 @@ const AUTH_PLANET_PHOTOS = {
                 if (data.status !== 'success') return;
                 const p = data.profile;
                 document.getElementById('profileHeaderName').textContent = p.full_name || p.email;
+                document.getElementById('profileCurrentEmail').textContent = p.email;
                 document.getElementById('profileFullName').value = p.full_name;
                 document.getElementById('profileBirthDate').value = p.birth_date;
                 document.getElementById('profileBirthTime').value = p.birth_time;
@@ -2119,6 +2175,72 @@ const AUTH_PLANET_PHOTOS = {
                 document.getElementById('profileNewPasswordRepeat').value = '';
                 successEl.textContent = 'Пароль изменён';
                 successEl.style.display = 'block';
+            } catch (err) {
+                errorEl.textContent = 'Не удалось связаться с сервером';
+                errorEl.style.display = 'block';
+            }
+        };
+
+        window.saveProfileEmail = async function() {
+            const errorEl = document.getElementById('profileEmailError');
+            const successEl = document.getElementById('profileEmailSuccess');
+            errorEl.style.display = 'none';
+            successEl.style.display = 'none';
+            try {
+                const response = await fetch('/api/change-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        new_email: document.getElementById('profileNewEmail').value.trim(),
+                        password: document.getElementById('profileEmailPassword').value
+                    })
+                });
+                const data = await response.json();
+                if (data.status !== 'success') {
+                    errorEl.textContent = data.message;
+                    errorEl.style.display = 'block';
+                    return;
+                }
+                window.currentUser.email = data.email;
+                document.getElementById('profileCurrentEmail').textContent = data.email;
+                document.getElementById('profileNewEmail').value = '';
+                document.getElementById('profileEmailPassword').value = '';
+                successEl.textContent = 'Почта обновлена';
+                successEl.style.display = 'block';
+            } catch (err) {
+                errorEl.textContent = 'Не удалось связаться с сервером';
+                errorEl.style.display = 'block';
+            }
+        };
+
+        // Удаление аккаунта необратимо — сначала обычный confirm() как первый
+        // барьер, пароль как второй (по прямому уточнению из инструкций: для
+        // необратимых действий лучше перебдеть, чем потом восстанавливать)
+        window.confirmDeleteAccount = function() {
+            const password = window.prompt('Это необратимо: удалятся аккаунт и все карты.\nВведите пароль, чтобы подтвердить удаление:');
+            if (password === null) return;
+            window.deleteAccount(password);
+        };
+
+        window.deleteAccount = async function(password) {
+            const errorEl = document.getElementById('profileDeleteError');
+            errorEl.style.display = 'none';
+            try {
+                const response = await fetch('/api/account', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                const data = await response.json();
+                if (data.status !== 'success') {
+                    errorEl.textContent = data.message;
+                    errorEl.style.display = 'block';
+                    return;
+                }
+                window.currentUser = null;
+                window.lastChartData = null;
+                document.getElementById('profileView').style.display = 'none';
+                await window.checkAuth();
             } catch (err) {
                 errorEl.textContent = 'Не удалось связаться с сервером';
                 errorEl.style.display = 'block';
