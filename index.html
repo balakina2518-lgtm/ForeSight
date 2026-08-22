@@ -678,7 +678,7 @@
                         <ellipse cx="48" cy="48" rx="32" ry="9" fill="none" stroke="var(--accent)" stroke-width="2.6" transform="rotate(-14 48 48)"/>
                         <circle cx="76" cy="40" r="3.4" fill="var(--accent)"/>
                     </svg>
-                    <h1 class="auth-panel-brand-title">Астропроцессор Форсайт</h1>
+                    <h1 class="auth-panel-brand-title">Школа практической астрологии Форсайт</h1>
                 </div>
                 <form class="auth-form" id="authForm" onsubmit="window.submitAuthForm(event)">
                     <h2 id="authFormTitle">Вход</h2>
@@ -855,8 +855,8 @@
                             </button>
                             <div class="form-section-body" style="display:none;">
                                 <p class="profile-panel-hint" style="margin:0 0 8px;">Сейчас для входа используется <b id="profileCurrentEmail"></b> — можно заменить в любой момент.</p>
-                                <label class="profile-field">Новая почта
-                                    <input type="email" id="profileNewEmail" name="profile_email_new" autocomplete="off">
+                                <label class="profile-field">Новый email
+                                    <input type="email" id="profileNewEmail" name="profile_email_new" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
                                 </label>
                                 <div class="auth-error" id="profileEmailError" style="display:none;"></div>
                                 <div class="auth-success" id="profileEmailSuccess" style="display:none;"></div>
