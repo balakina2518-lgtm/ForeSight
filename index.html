@@ -36,12 +36,12 @@
             display: flex; align-items: center; justify-content: space-between; gap: 48px;
         }
         .site-nav-brand {
-            display: flex; align-items: center; gap: 8px; text-decoration: none;
+            display: flex; align-items: center; gap: 8px; text-decoration: none; order: 2;
             color: var(--text-main); font-weight: 700; font-size: 0.98rem; flex-shrink: 0;
         }
         .site-nav-menu {
             display: flex; align-items: center; gap: 22px; flex-wrap: nowrap; flex-shrink: 1; min-width: 0;
-            overflow-x: auto; -webkit-overflow-scrolling: touch;
+            overflow-x: auto; -webkit-overflow-scrolling: touch; order: 1;
         }
         .site-nav-item {
             font-size: 0.85rem; color: var(--text-main); text-decoration: none; cursor: pointer;
@@ -1018,7 +1018,7 @@
 
                             <button type="button" class="pricing-compare-link" onclick="window.showPricingDetails()">Сравнить тарифы →</button>
 
-                            <h2 style="margin-top:28px;">Автопродукты</h2>
+                            <h2 style="margin-top:28px;">Астрологические авторасчёты</h2>
                             <p class="profile-panel-hint">Отдельные ИИ-разборы поверх карты — в разработке, скоро появятся в тарифах.</p>
                             <div class="pricing-autoproducts-cards">
                                 <div class="pricing-autoproduct-card">
