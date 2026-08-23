@@ -595,6 +595,52 @@
         }
         .btn-profile-danger:hover { background: #c0392b; color: #fff; }
 
+        .pricing-toggle {
+            display: inline-flex; border: 1px solid var(--border-color); border-radius: 999px;
+            padding: 3px; margin: 4px 0 24px; background: var(--bg-app);
+        }
+        .pricing-toggle-btn {
+            border: none; background: none; padding: 8px 18px; border-radius: 999px; font-size: 0.85rem;
+            font-weight: 600; color: var(--text-muted); cursor: pointer; font-family: inherit;
+        }
+        .pricing-toggle-btn.active { background: var(--accent); color: #fff; }
+        .pricing-cards { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 32px; }
+        .pricing-card {
+            flex: 1 1 240px; min-width: 220px; max-width: 320px; border: 1px solid var(--border-color);
+            border-radius: 12px; padding: 22px 20px; box-sizing: border-box; background: var(--bg-app);
+            display: flex; flex-direction: column;
+        }
+        .pricing-card-featured { border-color: var(--accent); border-width: 2px; position: relative; }
+        .pricing-card-featured-tag {
+            position: absolute; top: -12px; left: 20px; background: var(--accent); color: #fff;
+            font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; letter-spacing: 0.3px;
+        }
+        .pricing-card-name { font-size: 1.05rem; font-weight: 700; color: var(--text-main); margin: 4px 0 10px; }
+        .pricing-price { font-size: 1.7rem; font-weight: 700; color: var(--accent); line-height: 1.1; }
+        .pricing-price-period { font-size: 0.8rem; font-weight: 400; color: var(--text-muted); }
+        .pricing-savings {
+            display: none; font-size: 0.76rem; color: #4a7c4e; background: #e9f3ea; border-radius: 6px;
+            padding: 3px 8px; margin: 6px 0 0; width: fit-content;
+        }
+        #pricingCardsWrap.year-active .pricing-price-month { display: none; }
+        #pricingCardsWrap:not(.year-active) .pricing-price-year { display: none; }
+        #pricingCardsWrap.year-active .pricing-savings { display: block; }
+        .pricing-card-for { font-size: 0.82rem; color: var(--text-muted); margin: 12px 0 14px; line-height: 1.45; }
+        .pricing-card-section-title { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; margin: 10px 0 6px; }
+        .pricing-card-list { list-style: none; margin: 0 0 6px; padding: 0; font-size: 0.85rem; color: var(--text-main); }
+        .pricing-card-list li { padding: 3px 0; }
+        .pricing-card .btn-add-chart { margin-top: auto; padding-top: 12px; width: 100%; box-sizing: border-box; text-align: center; text-decoration: none; display: block; }
+        .pricing-compare { overflow-x: auto; margin-bottom: 24px; }
+        .pricing-compare table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 0.85rem; }
+        .pricing-compare th, .pricing-compare td { padding: 9px 10px; text-align: center; border-bottom: 1px solid var(--border-color); }
+        .pricing-compare th:first-child, .pricing-compare td:first-child { text-align: left; }
+        .pricing-compare thead th { color: var(--text-muted); font-weight: 600; font-size: 0.78rem; }
+        .pricing-compare tr.pricing-compare-group td { text-align: left; font-weight: 700; color: var(--accent); background: var(--bg-app); padding-top: 14px; }
+        .pricing-compare-yes { color: var(--accent); font-weight: 700; }
+        .pricing-compare-no { color: var(--border-color); }
+        .pricing-contact { border-top: 1px solid var(--border-color); padding-top: 18px; text-align: center; }
+        .pricing-contact p { color: var(--text-muted); font-size: 0.85rem; margin: 0 0 12px; }
+
         @media (max-width: 768px) {
             .sidebar { flex-direction: column; }
             .nav-strip { width: 100%; border-right: none; border-bottom: 1px solid var(--border-color); }
@@ -912,7 +958,112 @@
                             <span class="profile-plan-label" id="profilePlanLabel">Бесплатный</span>
                             <span class="profile-plan-desc" id="profilePlanDesc"></span>
                         </div>
-                        <p class="profile-panel-hint">Автоматическая оплата онлайн пока не подключена — чтобы перейти на другой тариф или изменить подписку, напишите на <a href="mailto:support@astro-forsight.ru">support@astro-forsight.ru</a>.</p>
+                        <p class="profile-panel-hint">Автоматическая оплата онлайн пока не подключена — чтобы перейти на другой тариф, напишите нам (кнопки ниже сразу открывают письмо с нужным тарифом).</p>
+
+                        <h2 style="margin-top:28px;">Доступные тарифы</h2>
+                        <div class="pricing-toggle" role="group">
+                            <button type="button" class="pricing-toggle-btn active" id="pricingToggleMonth" onclick="window.setPricingPeriod('month')">Оплата за месяц</button>
+                            <button type="button" class="pricing-toggle-btn" id="pricingToggleYear" onclick="window.setPricingPeriod('year')">Оплата за год</button>
+                        </div>
+
+                        <div class="pricing-cards" id="pricingCardsWrap">
+                            <div class="pricing-card">
+                                <div class="pricing-card-name">Базис</div>
+                                <div class="pricing-price">
+                                    <span class="pricing-price-month">500 ₽ <span class="pricing-price-period">/ мес</span></span>
+                                    <span class="pricing-price-year">5 000 ₽ <span class="pricing-price-period">/ год</span></span>
+                                </div>
+                                <div class="pricing-savings">Экономия 1 000 ₽ в год</div>
+                                <p class="pricing-card-for">Идеальный старт для тех, кто хочет понять основы астрологии и применять их для себя, без сложной терминологии.</p>
+                                <div class="pricing-card-section-title">Инструменты</div>
+                                <ul class="pricing-card-list">
+                                    <li>Натальная карта</li>
+                                    <li>Обучающий раздел «Азбука астролога» и шпаргалки</li>
+                                </ul>
+                                <div class="pricing-card-section-title">Лимиты в месяц</div>
+                                <ul class="pricing-card-list">
+                                    <li>10 построений натальных карт</li>
+                                    <li>10 обращений к ИИ-ассистенту «Карманный астролог»</li>
+                                </ul>
+                                <a class="btn-add-chart" href="mailto:support@astro-forsight.ru?subject=Тариф%20«Базис»">Оформить</a>
+                            </div>
+
+                            <div class="pricing-card pricing-card-featured">
+                                <span class="pricing-card-featured-tag">Популярный</span>
+                                <div class="pricing-card-name">Практик</div>
+                                <div class="pricing-price">
+                                    <span class="pricing-price-month">1 500 ₽ <span class="pricing-price-period">/ мес</span></span>
+                                    <span class="pricing-price-year">15 000 ₽ <span class="pricing-price-period">/ год</span></span>
+                                </div>
+                                <div class="pricing-savings">Экономия 3 000 ₽ в год</div>
+                                <p class="pricing-card-for">Полноценная рабочая среда для начинающих и практикующих специалистов. Всё из «Базиса» плюс расширенный аналитический функционал.</p>
+                                <div class="pricing-card-section-title">Инструменты</div>
+                                <ul class="pricing-card-list">
+                                    <li>Всё из тарифа «Базис»</li>
+                                    <li>Точная алгоритмическая ректификация</li>
+                                    <li>Модули прогностики</li>
+                                    <li>Хорарная астрология</li>
+                                </ul>
+                                <div class="pricing-card-section-title">Лимиты в месяц</div>
+                                <ul class="pricing-card-list">
+                                    <li>20 построений карт</li>
+                                    <li>20 глубоких разборов с ИИ-ассистентом</li>
+                                </ul>
+                                <a class="btn-add-chart" href="mailto:support@astro-forsight.ru?subject=Тариф%20«Практик»">Оформить</a>
+                            </div>
+
+                            <div class="pricing-card">
+                                <div class="pricing-card-name">Стратег</div>
+                                <div class="pricing-price">
+                                    <span class="pricing-price-month">5 000 ₽ <span class="pricing-price-period">/ мес</span></span>
+                                    <span class="pricing-price-year">50 000 ₽ <span class="pricing-price-period">/ год</span></span>
+                                </div>
+                                <div class="pricing-savings">Экономия 10 000 ₽ в год</div>
+                                <p class="pricing-card-for">Максимальный функционал для масштабной практики, интенсивного консультирования и выстраивания сложных комплексных стратегий.</p>
+                                <div class="pricing-card-section-title">Инструменты</div>
+                                <ul class="pricing-card-list">
+                                    <li>Всё из тарифа «Практик»</li>
+                                    <li>Синастрия</li>
+                                    <li>Формула души</li>
+                                </ul>
+                                <div class="pricing-card-section-title">Лимиты в месяц</div>
+                                <ul class="pricing-card-list">
+                                    <li>Безлимитное создание любых карт</li>
+                                    <li>Неограниченное взаимодействие с ИИ-ассистентом</li>
+                                </ul>
+                                <a class="btn-add-chart" href="mailto:support@astro-forsight.ru?subject=Тариф%20«Стратег»">Оформить</a>
+                            </div>
+                        </div>
+
+                        <div class="pricing-compare">
+                            <table>
+                                <thead>
+                                    <tr><th>Возможность</th><th>Базис</th><th>Практик</th><th>Стратег</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="pricing-compare-group"><td colspan="4">Карты</td></tr>
+                                    <tr><td>Натальная карта</td><td class="pricing-compare-yes">✓</td><td class="pricing-compare-yes">✓</td><td class="pricing-compare-yes">✓</td></tr>
+                                    <tr><td>Хорар</td><td class="pricing-compare-no">—</td><td class="pricing-compare-yes">✓</td><td class="pricing-compare-yes">✓</td></tr>
+                                    <tr><td>Прогностика</td><td class="pricing-compare-no">—</td><td class="pricing-compare-yes">✓</td><td class="pricing-compare-yes">✓</td></tr>
+                                    <tr><td>Синастрия</td><td class="pricing-compare-no">—</td><td class="pricing-compare-no">—</td><td class="pricing-compare-yes">✓</td></tr>
+                                    <tr><td>Формула души</td><td class="pricing-compare-no">—</td><td class="pricing-compare-no">—</td><td class="pricing-compare-yes">✓</td></tr>
+
+                                    <tr class="pricing-compare-group"><td colspan="4">Обучение и ИИ</td></tr>
+                                    <tr><td>«Азбука астролога» и шпаргалки</td><td class="pricing-compare-yes">✓</td><td class="pricing-compare-yes">✓</td><td class="pricing-compare-yes">✓</td></tr>
+                                    <tr><td>ИИ-ассистент «Карманный астролог»</td><td class="pricing-compare-yes">✓</td><td class="pricing-compare-yes">✓</td><td class="pricing-compare-yes">✓</td></tr>
+                                    <tr><td>Алгоритмическая ректификация</td><td class="pricing-compare-no">—</td><td class="pricing-compare-yes">✓</td><td class="pricing-compare-yes">✓</td></tr>
+
+                                    <tr class="pricing-compare-group"><td colspan="4">Лимиты в месяц</td></tr>
+                                    <tr><td>Построения карт</td><td>10</td><td>20</td><td>Безлимитно</td></tr>
+                                    <tr><td>Обращения к ИИ-ассистенту</td><td>10</td><td>20</td><td>Безлимитно</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="pricing-contact">
+                            <p>Появились вопросы по тарифам?</p>
+                            <a class="btn-add-chart profile-btn-sm" href="mailto:support@astro-forsight.ru?subject=Вопрос%20по%20тарифам" style="text-decoration:none; display:inline-block;">Написать в поддержку</a>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2068,6 +2219,12 @@ const AUTH_PLANET_PHOTOS = {
                     ? '1 карта без сохранения в библиотеке'
                     : 'Неограниченное число карт с сохранением';
             } catch (err) { /* профиль не критичен для остального интерфейса */ }
+        };
+
+        window.setPricingPeriod = function(period) {
+            document.getElementById('pricingCardsWrap').classList.toggle('year-active', period === 'year');
+            document.getElementById('pricingToggleMonth').classList.toggle('active', period === 'month');
+            document.getElementById('pricingToggleYear').classList.toggle('active', period === 'year');
         };
 
         window.saveProfilePersonal = async function() {
