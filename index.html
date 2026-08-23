@@ -595,6 +595,32 @@
         }
         .btn-profile-danger:hover { background: #c0392b; color: #fff; }
 
+        .pricing-status-card {
+            display: flex; align-items: center; gap: 14px; padding: 18px 20px; border-radius: 10px;
+            background: var(--bg-app); border: 1px solid var(--border-color); margin: 12px 0 16px;
+        }
+        .pricing-status-card .profile-plan-label { display: block; }
+        .pricing-status-card .profile-plan-desc { display: block; }
+        .pricing-status-icon {
+            width: 34px; height: 34px; flex-shrink: 0; border-radius: 50%; background: #e9f3ea; color: #4a7c4e;
+            display: flex; align-items: center; justify-content: center; font-weight: 700;
+        }
+        .pricing-mini-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-bottom: 18px; }
+        .pricing-mini-card {
+            border: 1px solid var(--border-color); border-radius: 12px; padding: 18px 20px; box-sizing: border-box;
+            background: var(--bg-app); display: flex; flex-direction: column; gap: 10px;
+        }
+        .pricing-mini-card-featured { border-color: var(--accent); border-width: 2px; }
+        .pricing-mini-name { font-size: 0.95rem; font-weight: 700; color: var(--text-main); }
+        .pricing-mini-price { font-size: 1.3rem; font-weight: 700; color: var(--accent); }
+        .pricing-mini-card .btn-add-chart { background: none; border: 1px solid var(--accent); color: var(--accent); }
+        .pricing-mini-card .btn-add-chart:hover { background: var(--accent); color: #fff; opacity: 1; }
+        .pricing-compare-link, .pricing-back-link {
+            border: none; background: none; color: var(--accent); font-size: 0.88rem; font-weight: 600;
+            cursor: pointer; padding: 0; font-family: inherit;
+        }
+        .pricing-compare-link:hover, .pricing-back-link:hover { text-decoration: underline; }
+
         .pricing-toggle {
             display: inline-flex; border: 1px solid var(--border-color); border-radius: 999px;
             padding: 3px; margin: 4px 0 24px; background: var(--bg-app);
@@ -663,6 +689,7 @@
             .profile-content { padding: 20px; width: 100%; }
             .profile-field-row { flex-direction: column; gap: 0; }
             .pricing-cards { grid-template-columns: 1fr; }
+            .pricing-mini-cards { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -953,15 +980,41 @@
                     </div>
 
                     <div class="profile-panel" id="profilePanel-billing" style="display:none;">
-                        <h2>Подписки и оплата</h2>
-                        <p class="profile-panel-hint">Текущий тариф аккаунта.</p>
-                        <div class="profile-plan-card">
-                            <span class="profile-plan-label" id="profilePlanLabel">Бесплатный</span>
-                            <span class="profile-plan-desc" id="profilePlanDesc"></span>
-                        </div>
-                        <p class="profile-panel-hint">Автоматическая оплата онлайн пока не подключена — чтобы перейти на другой тариф, напишите нам (кнопки ниже сразу открывают письмо с нужным тарифом).</p>
+                        <div id="billingOverview">
+                            <h2>Тарифы и оплата</h2>
+                            <div class="pricing-status-card">
+                                <span class="pricing-status-icon">✓</span>
+                                <div>
+                                    <span class="profile-plan-label" id="profilePlanLabel">Бесплатный</span>
+                                    <span class="profile-plan-desc" id="profilePlanDesc"></span>
+                                </div>
+                            </div>
+                            <p class="profile-panel-hint">Автоматическая оплата онлайн пока не подключена — чтобы перейти на другой тариф, напишите нам в поддержку.</p>
 
-                        <h2 style="margin-top:28px;">Доступные тарифы</h2>
+                            <div class="pricing-mini-cards">
+                                <div class="pricing-mini-card">
+                                    <span class="pricing-mini-name">Базис</span>
+                                    <span class="pricing-mini-price">500 ₽ <span class="pricing-price-period">в месяц</span></span>
+                                    <button type="button" class="btn-add-chart profile-btn-sm" onclick="window.showPricingDetails()">Узнать больше</button>
+                                </div>
+                                <div class="pricing-mini-card pricing-mini-card-featured">
+                                    <span class="pricing-mini-name">Практик</span>
+                                    <span class="pricing-mini-price">1 500 ₽ <span class="pricing-price-period">в месяц</span></span>
+                                    <button type="button" class="btn-add-chart profile-btn-sm" onclick="window.showPricingDetails()">Узнать больше</button>
+                                </div>
+                                <div class="pricing-mini-card">
+                                    <span class="pricing-mini-name">Стратег</span>
+                                    <span class="pricing-mini-price">5 000 ₽ <span class="pricing-price-period">в месяц</span></span>
+                                    <button type="button" class="btn-add-chart profile-btn-sm" onclick="window.showPricingDetails()">Узнать больше</button>
+                                </div>
+                            </div>
+
+                            <button type="button" class="pricing-compare-link" onclick="window.showPricingDetails()">Сравнить тарифы →</button>
+                        </div>
+
+                        <div id="billingDetails" style="display:none;">
+                        <button type="button" class="pricing-back-link" onclick="window.hidePricingDetails()">← Назад к тарифам</button>
+                        <h2 style="margin-top:16px;">Подробнее о тарифах</h2>
                         <div class="pricing-toggle" role="group">
                             <button type="button" class="pricing-toggle-btn active" id="pricingToggleMonth" onclick="window.setPricingPeriod('month')">Оплата за месяц</button>
                             <button type="button" class="pricing-toggle-btn" id="pricingToggleYear" onclick="window.setPricingPeriod('year')">Оплата за год</button>
@@ -1064,6 +1117,7 @@
                         <div class="pricing-contact">
                             <p>Появились вопросы по тарифам?</p>
                             <a class="btn-add-chart profile-btn-sm" href="mailto:support@astro-forsight.ru?subject=Вопрос%20по%20тарифам" style="text-decoration:none; display:inline-block;">Написать в поддержку</a>
+                        </div>
                         </div>
                     </div>
                 </div>
@@ -2220,6 +2274,15 @@ const AUTH_PLANET_PHOTOS = {
                     ? '1 карта без сохранения в библиотеке'
                     : 'Неограниченное число карт с сохранением';
             } catch (err) { /* профиль не критичен для остального интерфейса */ }
+        };
+
+        window.showPricingDetails = function() {
+            document.getElementById('billingOverview').style.display = 'none';
+            document.getElementById('billingDetails').style.display = 'block';
+        };
+        window.hidePricingDetails = function() {
+            document.getElementById('billingDetails').style.display = 'none';
+            document.getElementById('billingOverview').style.display = 'block';
         };
 
         window.setPricingPeriod = function(period) {
