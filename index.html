@@ -615,6 +615,12 @@
         .pricing-mini-price { font-size: 1.3rem; font-weight: 700; color: var(--accent); }
         .pricing-mini-card .btn-add-chart { background: none; border: 1px solid var(--accent); color: var(--accent); }
         .pricing-mini-card .btn-add-chart:hover { background: var(--accent); color: #fff; opacity: 1; }
+        .pricing-autoproducts-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-bottom: 8px; }
+        .pricing-autoproduct-card {
+            border: 1px solid var(--border-color); border-radius: 12px; padding: 16px 18px; box-sizing: border-box;
+            background: var(--bg-app); color: var(--text-muted); opacity: 0.65;
+        }
+        .pricing-autoproduct-card > span:first-child { font-size: 0.95rem; font-weight: 600; color: var(--text-main); }
         .pricing-compare-link, .pricing-back-link {
             border: none; background: none; color: var(--accent); font-size: 0.88rem; font-weight: 600;
             cursor: pointer; padding: 0; font-family: inherit;
@@ -690,6 +696,7 @@
             .profile-field-row { flex-direction: column; gap: 0; }
             .pricing-cards { grid-template-columns: 1fr; }
             .pricing-mini-cards { grid-template-columns: 1fr; }
+            .pricing-autoproducts-cards { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -1010,6 +1017,35 @@
                             </div>
 
                             <button type="button" class="pricing-compare-link" onclick="window.showPricingDetails()">Сравнить тарифы →</button>
+
+                            <h2 style="margin-top:28px;">Автопродукты</h2>
+                            <p class="profile-panel-hint">Отдельные ИИ-разборы поверх карты — в разработке, скоро появятся в тарифах.</p>
+                            <div class="pricing-autoproducts-cards">
+                                <div class="pricing-autoproduct-card">
+                                    <span>Ректификация</span><span class="nav-badge">+</span>
+                                    <p class="profile-panel-hint" style="margin:4px 0 0;">Уточнение времени рождения по событиям жизни — скоро.</p>
+                                </div>
+                                <div class="pricing-autoproduct-card">
+                                    <span>План развития</span><span class="nav-badge">+</span>
+                                    <p class="profile-panel-hint" style="margin:4px 0 0;">Персональный ИИ-план на основе карты — скоро.</p>
+                                </div>
+                                <div class="pricing-autoproduct-card">
+                                    <span>Автопрогноз</span><span class="nav-badge">+</span>
+                                    <p class="profile-panel-hint" style="margin:4px 0 0;">Автоматический разбор прогноза на период — скоро.</p>
+                                </div>
+                            </div>
+
+                            <h2 style="margin-top:28px;">История списаний</h2>
+                            <div class="pricing-compare">
+                                <table>
+                                    <thead>
+                                        <tr><th>Дата</th><th>Покупка</th><th style="text-align:right;">Сумма</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr><td colspan="3" style="text-align:center; color:var(--text-muted);">Покупок пока не было</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
 
                         <div id="billingDetails" style="display:none;">
