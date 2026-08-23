@@ -33,7 +33,7 @@
         }
         .site-nav-inner {
             height: 100%; max-width: 1400px; margin: 0 auto; padding: 0 20px; box-sizing: border-box;
-            display: flex; align-items: center; justify-content: center; gap: 48px;
+            display: flex; align-items: center; justify-content: space-between; gap: 48px;
         }
         .site-nav-brand {
             display: flex; align-items: center; gap: 8px; text-decoration: none;
@@ -684,7 +684,7 @@
                     <h1 class="auth-panel-brand-title">Школа практической астрологии Форсайт</h1>
                 </div>
                 <form class="auth-form" id="authForm" onsubmit="window.submitAuthForm(event)">
-                    <h2 id="authFormTitle">Вход</h2>
+                    <h2 id="authFormTitle">Вход в личный кабинет</h2>
                     <label>Email<input type="email" id="authEmail" required autocomplete="email"></label>
                     <label>Пароль
                         <div class="auth-password-wrap">
@@ -1802,7 +1802,7 @@ const AUTH_PLANET_PHOTOS = {
 
         window.toggleAuthMode = function() {
             authMode = authMode === 'login' ? 'register' : 'login';
-            document.getElementById('authFormTitle').textContent = authMode === 'login' ? 'Вход' : 'Регистрация';
+            document.getElementById('authFormTitle').textContent = authMode === 'login' ? 'Вход в личный кабинет' : 'Регистрация';
             document.getElementById('authSubmitBtn').textContent = authMode === 'login' ? 'Войти' : 'Зарегистрироваться';
             document.getElementById('authError').style.display = 'none';
             // Согласие на обработку персональных данных — обязательно только
