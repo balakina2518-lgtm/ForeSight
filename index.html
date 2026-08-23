@@ -32,13 +32,17 @@
             border-bottom: 1px solid var(--border-color);
         }
         .site-nav-inner {
-            height: 100%; max-width: 1800px; margin: 0 auto; padding: 0 20px 0 480px; box-sizing: border-box;
+            height: 100%; max-width: 1800px; margin: 0 auto; padding: 0 20px 0 180px; box-sizing: border-box;
             display: flex; align-items: center; justify-content: center; gap: 48px; position: relative;
         }
+        .site-nav-account-link {
+            position: absolute; top: 50%; left: 20px; transform: translateY(-50%);
+            font-size: 0.85rem; font-weight: 600; color: var(--text-main); text-decoration: none; white-space: nowrap;
+        }
+        .site-nav-account-link:hover { color: var(--accent); }
         .site-nav-brand {
             display: flex; align-items: center; gap: 8px; text-decoration: none;
             color: var(--text-main); font-weight: 700; font-size: 0.98rem; flex-shrink: 0;
-            position: absolute; top: 50%; left: 20px; transform: translateY(-50%);
         }
         .site-nav-menu {
             display: flex; align-items: center; gap: 22px; flex-wrap: nowrap; flex-shrink: 1; min-width: 0;
@@ -674,11 +678,6 @@
         .pricing-contact { border-top: 1px solid var(--border-color); padding-top: 18px; text-align: center; }
         .pricing-contact p { color: var(--text-muted); font-size: 0.85rem; margin: 0 0 12px; }
 
-        @media (max-width: 1700px) {
-            .site-nav-inner { padding-left: 70px; }
-            .site-nav-brand span { display: none; }
-        }
-
         @media (max-width: 768px) {
             .sidebar { flex-direction: column; }
             .nav-strip { width: 100%; border-right: none; border-bottom: 1px solid var(--border-color); }
@@ -692,8 +691,8 @@
             .auth-visual-desc-cols { display: none; }
             .auth-visual-stats { gap: 16px; }
             .auth-panel { flex: 1; padding: 28px 22px; }
-            .site-nav-inner { gap: 14px; padding: 0 12px 0 50px; }
-            .site-nav-brand { left: 12px; }
+            .site-nav-inner { gap: 14px; padding: 0 12px 0 145px; }
+            .site-nav-account-link { left: 12px; font-size: 0.78rem; }
             .site-nav-brand span { display: none; }
             .site-nav-menu { gap: 14px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
             .profile-layout { flex-direction: column; }
@@ -710,16 +709,16 @@
 <body class="notranslate">
     <header class="site-nav" id="siteNav">
         <div class="site-nav-inner">
-            <a href="#" class="site-nav-brand" onclick="window.goToForsight(event)">
-                <svg width="30" height="38" viewBox="0 0 100 100" class="brand-emblem">
-                    <path d="M50,15 C46,32 46,42 46,50 C46,58 46,68 50,85 C54,68 54,58 54,50 C54,42 54,32 50,15 Z" fill="var(--accent)"/>
-                    <ellipse cx="48" cy="48" rx="32" ry="9" fill="none" stroke="var(--accent)" stroke-width="2.6" transform="rotate(-14 48 48)"/>
-                    <circle cx="76" cy="40" r="3.4" fill="var(--accent)"/>
-                </svg>
-                <span>Школа практической астрологии - Форсайт</span>
-            </a>
+            <a href="#" class="site-nav-account-link" onclick="window.goToPersonalArea(event)">Личный кабинет</a>
             <nav class="site-nav-menu">
-                <a href="#" class="site-nav-item" onclick="window.goToPersonalArea(event)">Личный кабинет</a>
+                <a href="#" class="site-nav-brand" onclick="window.goToForsight(event)">
+                    <svg width="30" height="38" viewBox="0 0 100 100" class="brand-emblem">
+                        <path d="M50,15 C46,32 46,42 46,50 C46,58 46,68 50,85 C54,68 54,58 54,50 C54,42 54,32 50,15 Z" fill="var(--accent)"/>
+                        <ellipse cx="48" cy="48" rx="32" ry="9" fill="none" stroke="var(--accent)" stroke-width="2.6" transform="rotate(-14 48 48)"/>
+                        <circle cx="76" cy="40" r="3.4" fill="var(--accent)"/>
+                    </svg>
+                    <span>Школа практической астрологии - Форсайт</span>
+                </a>
                 <span class="site-nav-item disabled" title="Планеты, Знаки, Дома — скоро">Введение в астрологию: Теория</span>
                 <span class="site-nav-item disabled" title="Скоро">Навигатор по натальной карте</span>
                 <span class="site-nav-item disabled" title="Видеокурсы — скоро">Практика Астроразборы</span>
