@@ -32,16 +32,17 @@
             border-bottom: 1px solid var(--border-color);
         }
         .site-nav-inner {
-            height: 100%; max-width: 1400px; margin: 0 auto; padding: 0 20px; box-sizing: border-box;
-            display: flex; align-items: center; justify-content: space-between; gap: 48px;
+            height: 100%; max-width: 1800px; margin: 0 auto; padding: 0 480px 0 20px; box-sizing: border-box;
+            display: flex; align-items: center; justify-content: center; gap: 48px; position: relative;
         }
         .site-nav-brand {
-            display: flex; align-items: center; gap: 8px; text-decoration: none; order: 1;
+            display: flex; align-items: center; gap: 8px; text-decoration: none;
             color: var(--text-main); font-weight: 700; font-size: 0.98rem; flex-shrink: 0;
+            position: absolute; top: 50%; right: 20px; transform: translateY(-50%);
         }
         .site-nav-menu {
             display: flex; align-items: center; gap: 22px; flex-wrap: nowrap; flex-shrink: 1; min-width: 0;
-            overflow-x: auto; -webkit-overflow-scrolling: touch; order: 2;
+            overflow-x: auto; -webkit-overflow-scrolling: touch;
         }
         .site-nav-item {
             font-size: 0.85rem; color: var(--text-main); text-decoration: none; cursor: pointer;
@@ -673,6 +674,11 @@
         .pricing-contact { border-top: 1px solid var(--border-color); padding-top: 18px; text-align: center; }
         .pricing-contact p { color: var(--text-muted); font-size: 0.85rem; margin: 0 0 12px; }
 
+        @media (max-width: 1700px) {
+            .site-nav-inner { padding-right: 70px; }
+            .site-nav-brand span { display: none; }
+        }
+
         @media (max-width: 768px) {
             .sidebar { flex-direction: column; }
             .nav-strip { width: 100%; border-right: none; border-bottom: 1px solid var(--border-color); }
@@ -686,7 +692,8 @@
             .auth-visual-desc-cols { display: none; }
             .auth-visual-stats { gap: 16px; }
             .auth-panel { flex: 1; padding: 28px 22px; }
-            .site-nav-inner { gap: 14px; padding: 0 12px; }
+            .site-nav-inner { gap: 14px; padding: 0 50px 0 12px; }
+            .site-nav-brand { right: 12px; }
             .site-nav-brand span { display: none; }
             .site-nav-menu { gap: 14px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
             .profile-layout { flex-direction: column; }
