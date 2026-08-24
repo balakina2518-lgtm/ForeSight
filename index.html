@@ -2218,7 +2218,7 @@
                                 <div class="form-toggle-row">
                                     <span class="toggle-label">Режим космограммы</span>
                                     <label class="switch">
-                                        <input type="checkbox" id="cosmogramMode" disabled title="Скоро">
+                                        <input type="checkbox" id="cosmogramMode">
                                         <span class="slider"></span>
                                     </label>
                                 </div>
@@ -5568,6 +5568,12 @@ const AUTH_PLANET_PHOTOS = {
             if (higherToggle && !higherToggle.checked) {
                 data = { ...data, planets: (data.planets || []).filter(p => !HIGHER_PLANETS.includes(p.id)) };
             }
+            // Режим космограммы: время рождения неточное/неизвестно, поэтому
+            // дома считать нельзя — рисуем колесо без сетки домов (куспиды,
+            // подписи ASC/MC/DSC/IC), но данные data.houses всё равно нужны
+            // для ориентации колеса по Асценденту (см. getScreenAngle ниже)
+            const cosmogramToggle = document.getElementById('cosmogramMode');
+            const isCosmogram = !!(cosmogramToggle && cosmogramToggle.checked);
             // Хорар — отдельный вид колеса (по референсу Елены): планеты вынесены
             // ЗА кольцо знаков, а не внутрь как в натале, плюс номера домов внутри
             // и звёздочки-риски у куспидов. Больше svg-полотно (size/center),
@@ -5776,8 +5782,8 @@ const AUTH_PLANET_PHOTOS = {
                 });
             }
 
-            // 3. ДОМА
-            if (data.houses) {
+            // 3. ДОМА (не рисуем в режиме космограммы — см. isCosmogram выше)
+            if (data.houses && !isCosmogram) {
                 data.houses.forEach(house => {
                     const angle = getScreenAngle(house.longitude);
                     const isMainAxis = (house.num === 1 || house.num === 10 || house.num === 4 || house.num === 7);
